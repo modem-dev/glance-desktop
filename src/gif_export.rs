@@ -290,3 +290,6 @@ mod visual_qa {
         );
     }
 }
+
+#[cfg(test)]
+mod readme;

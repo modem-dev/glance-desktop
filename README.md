@@ -4,9 +4,10 @@ Glance is a native screenshot editor for macOS, with experimental support for Om
 Capture a screenshot, add arrows and labels, then copy, save, or share it.
 Frame images with backdrops and export animations as GIF or MP4.
 
-![A Glance export with a spotlight, magnifier, and Lava backdrop](docs/assets/glance-example.png)
+![Light and dark album galleries with rounded padding and an animated violet Lava backdrop](docs/assets/glance-albums.gif)
 
-*Made in Glance using the built-in practice canvas.*
+*Six-second loop made with Glance’s padding and animated Lava backdrop.
+[See a still annotation example](docs/assets/glance-example.png).*
 
 ## Install
 

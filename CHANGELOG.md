@@ -8,6 +8,8 @@ Notable user-visible changes are recorded here.
 
 - Reorganized documentation around release installation and first use, added a
   macOS opening/capture FAQ, and consolidated source-build instructions in BUILD.md.
+- README includes a short album-gallery GIF showing rounded padding and an
+  animated Lava backdrop.
 
 ## [0.3.0] - 2026-10-04
 
