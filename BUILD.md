@@ -58,7 +58,7 @@ Switching signing identities may require this again.
 
 ### Build modes and signing
 
-Use `./scripts/bundle.sh debug` for a faster bundle. `cargo run --locked` is useful
+Use `./scripts/bundle.sh debug` for a faster bundle. `cargo run --locked -- desktop` is useful
 for UI iteration; run the bundle build once to compile the native video helpers.
 The packaged app gives capture permissions a consistent identity.
 
@@ -101,7 +101,7 @@ SHA-256 and installs both video helpers beside the executable. Local packaging
 uses the host architecture; published packages target x86_64.
 A working Vulkan GPU driver is required.
 
-For UI iteration, run `cargo run --locked`. Copy `native/linux/glance-video-*`
+For UI iteration, run `cargo run --locked -- desktop`. Copy `native/linux/glance-video-*`
 to `target/` once to enable video helpers in Cargo builds.
 See the [Omarchy guide](docs/linux.md) for capture bindings and runtime troubleshooting.
 

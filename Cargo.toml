@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2024"
 description = "A native screenshot editor for annotation, animated backdrops, and sharing visual context with coding agents."
 license = "MIT"
-repository = "https://github.com/modem-dev/glance-desktop"
+repository = "https://github.com/douglance/glance-desktop"
 homepage = "https://glance.sh"
 readme = "README.md"
 keywords = ["screenshot", "annotation", "macos", "gpui", "mcp"]
@@ -13,6 +13,15 @@ categories = ["multimedia::images", "gui"]
 publish = false
 
 [dependencies]
+incurs = "=0.10.3"
+incurs-codemode = "=0.8.0"
+incurs-codemode-local = "=0.8.0"
+incurs-codemode-mcp = "=0.8.0"
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "time", "macros"] }
+rmcp = { version = "=3.0.0-beta.5", features = ["server", "transport-io"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+fs2 = "0.4"
 gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
 image = "0.25"
 imageproc = "0.25"

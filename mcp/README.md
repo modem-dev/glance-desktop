@@ -239,3 +239,11 @@ can access the bridge. Enable it for trusted clients; see [SECURITY.md](../SECUR
 undo, stale revisions/IDs, and output-file protection on GPUI's virtual platform.
 See [QA.md](../QA.md) for native media and desktop checks, and
 [architecture](../docs/architecture.md) for dispatcher and schema conventions.
+
+## Incurs and Code Mode
+
+The shell command provides `glance --mcp` for the complete Incurs editor
+interface and `Glance --codemode-mcp` for the five Code Mode lifecycle tools.
+Start `glance code serve` for shared execution state. The app bundle's original
+`Glance --mcp` remains supported; `Glance --cli --mcp` selects Incurs explicitly. See
+[CLI, MCP, and Code Mode](../docs/interfaces.md) for setup and command mappings.

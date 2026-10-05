@@ -1603,6 +1603,61 @@ fn tool_picker_custom_colors_preserve_opacity_and_source_sampling_keeps_selectio
     .unwrap();
 }
 
+#[gpui::test]
+fn incurs_catalog_uses_native_dispatch_state_undo_and_revision_guards(cx: &mut TestAppContext) {
+    use incurs::tool::{ToolCallOptions, ToolCallOutcome};
+    use serde_json::{Value, json};
+    let view = editor(cx);
+    let (sender, receiver) = async_channel::unbounded();
+    let worker = std::thread::spawn(move || {
+        let dispatch = Arc::new(move |name: &str, args: Value| {
+            crate::automation::dispatch(&sender, name, args)
+        });
+        let catalog = crate::cli::editor_cli_with(dispatch).tool_catalog();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            async fn call(catalog: &incurs::tool::ToolCatalog, name: &str, args: Value) -> Value {
+                let args = args.as_object().unwrap().iter().map(|(k,v)| (k.clone(),v.clone())).collect();
+                match catalog.call(name, args, ToolCallOptions::isolated()).await {
+                    ToolCallOutcome::Ok { data, .. } => data,
+                    other => panic!("{name}: {other:?}"),
+                }
+            }
+            let initial = call(&catalog, "get_document", json!({})).await;
+            let revision = initial["revision"].as_u64().unwrap();
+            assert_eq!((initial["width"].as_u64(), initial["height"].as_u64()), (Some(100), Some(100)));
+            let added = call(&catalog, "add_annotation", json!({"mark":{
+                "tool":"rectangle","points":[[10,10],[60,40]],"color":[255,0,0,255],"width":3,"text":""
+            },"expected_revision":revision})).await;
+            assert_eq!(added["objects"].as_array().unwrap().len(), 1);
+            let args = json!({"action":{"type":"rotate"},"expected_revision":revision})
+                .as_object().unwrap().iter().map(|(k,v)|(k.clone(),v.clone())).collect();
+            assert!(matches!(catalog.call("dispatch_action", args, ToolCallOptions::isolated()).await,
+                ToolCallOutcome::Error { message, .. } if message.contains("Stale")));
+            let state = call(&catalog, "get_document", json!({})).await;
+            assert_eq!(state["objects"].as_array().unwrap().len(), 1);
+            call(&catalog, "undo", json!({})).await;
+            let undone = call(&catalog, "get_document", json!({})).await;
+            assert!(undone["objects"].as_array().unwrap().is_empty());
+            call(&catalog, "redo", json!({})).await;
+            let redone = call(&catalog, "get_document", json!({})).await;
+            assert_eq!(redone["objects"].as_array().unwrap().len(), 1);
+            call(&catalog, "dispatch_action", json!({"action":{"type":"set_color","color":[17,34,51,128]}})).await;
+            let state = call(&catalog, "get_editor_state", json!({})).await;
+            assert_eq!(state["tool_options"]["color"], json!([17,34,51,128]));
+            call(&catalog, "resize_image", json!({"scale":0.5,"smart":false})).await;
+            let resized = call(&catalog, "get_document", json!({})).await;
+            assert_eq!(resized["width"], 50);
+            assert_eq!(resized["height"], 50);
+        });
+    });
+    while let Ok(Message::Automation(request)) = receiver.recv_blocking() {
+        view.update(cx, |e, _, cx| e.automation(request, cx))
+            .unwrap();
+    }
+    worker.join().unwrap();
+}
+
 fn selection_marks(e: &mut Editor) {
     for x in [10., 40., 75.] {
         e.document.commit(crate::document::Mark {

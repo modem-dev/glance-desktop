@@ -4,8 +4,17 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- Incurs CLI and MCP access to the complete editor API, plus a private shared
+  Code Mode service with async JavaScript, lifecycle controls, and persistent
+  execution history and large results.
+
 ### Changed
 
+- The `glance` shell command now runs the CLI directly, without `--cli`.
+  Use `glance desktop` to open the editor; desktop app launches and legacy flags
+  remain supported.
 - Reorganized documentation around release installation and first use, added a
   macOS opening/capture FAQ, and consolidated source-build instructions in BUILD.md.
 - README includes a short album-gallery GIF showing rounded padding and an

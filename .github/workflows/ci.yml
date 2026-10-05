@@ -39,6 +39,10 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run tests
         run: cargo test --locked
+      - name: Check built CLI and MCP transports
+        run: |
+          cargo build --locked
+          python3 scripts/check-interface.py target/debug/glance
       - name: Build video helpers and test encode/decode
         run: |
           /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/video_encoder.swift -o target/glance-video-encoder
@@ -57,7 +61,7 @@ jobs:
     steps:
       - name: Install build and runtime dependencies
         run: |
-          pacman -Syu --needed --noconfirm git rust clang cmake \
+          pacman -Syu --needed --noconfirm git rust clang cmake python \
             fontconfig freetype2 libx11 libxcb libxkbcommon libxkbcommon-x11 \
             wayland vulkan-icd-loader desktop-file-utils xdg-utils ttf-dejavu grim slurp wl-clipboard zenity ffmpeg
       - name: Check out source
@@ -74,6 +78,10 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run tests
         run: cargo test --locked
+      - name: Check built CLI and MCP transports
+        run: |
+          cargo build --locked
+          python3 scripts/check-interface.py target/debug/glance
       - name: Test FFmpeg encode and frame decode
         run: |
           cp native/linux/glance-video-* target/

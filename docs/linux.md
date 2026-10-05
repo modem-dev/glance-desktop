@@ -12,7 +12,7 @@ into the same directory, then verify and install:
 ```sh
 sha256sum -c arch-package.sha256
 sudo pacman -U ./glance-desktop-*.pkg.tar.zst
-glance
+glance desktop
 ```
 
 Pacman installs the capture, clipboard, dialog, font, and FFmpeg dependencies.

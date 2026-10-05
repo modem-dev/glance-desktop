@@ -2,7 +2,7 @@
 Type=Application
 Name=Glance
 Comment=Capture, annotate, and share screenshots
-Exec=glance
+Exec=glance desktop
 Icon=glance
 Terminal=false
 Categories=Graphics;Utility;
@@ -11,8 +11,8 @@ Actions=CaptureArea;CaptureScreen;
 
 [Desktop Action CaptureArea]
 Name=Capture Area
-Exec=glance --capture-area
+Exec=glance desktop --capture-area
 
 [Desktop Action CaptureScreen]
 Name=Capture Screen
-Exec=glance --capture-screen
+Exec=glance desktop --capture-screen

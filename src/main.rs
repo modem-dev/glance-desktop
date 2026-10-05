@@ -3,6 +3,8 @@ mod animation;
 mod arrow;
 mod automation;
 mod backdrop;
+mod cli;
+mod code_mode;
 mod color_picker;
 mod document;
 mod drawing;
@@ -20,6 +22,7 @@ mod navigation;
 mod performance;
 mod platform;
 mod selection;
+mod startup;
 #[cfg(test)]
 mod stress_tests;
 mod style;
@@ -31,14 +34,35 @@ use editor::Editor;
 pub(crate) use editor::{Layout, Message};
 use gpui::*;
 fn main() {
-    if std::env::args().any(|arg| arg == "--mcp") {
-        if let Err(error) = mcp::run() {
-            eprintln!("Glance MCP: {error}");
-            std::process::exit(1);
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    let bundled = std::env::current_exe()
+        .ok()
+        .is_some_and(|executable| startup::desktop_bundle(&executable));
+    let argv = match startup::mode(argv, bundled) {
+        startup::Mode::Desktop(argv) => argv,
+        startup::Mode::Cli(argv) => {
+            if let Err(error) = cli::run(argv) {
+                eprintln!("Glance CLI: {error}");
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
-    }
-    let initial = match platform::startup_image(std::env::args().skip(1)) {
+        startup::Mode::CodeMcp => {
+            if let Err(error) = cli::run_code_mcp() {
+                eprintln!("Glance Code Mode: {error}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        startup::Mode::NativeMcp => {
+            if let Err(error) = mcp::run() {
+                eprintln!("Glance MCP: {error}");
+                std::process::exit(1);
+            }
+            return;
+        }
+    };
+    let initial = match platform::startup_image(argv.into_iter()) {
         Ok(platform::Startup::Image(image)) => Some(image),
         Ok(platform::Startup::Demo) => None,
         Ok(platform::Startup::Exit) => return,

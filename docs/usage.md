@@ -157,3 +157,8 @@ Toolbar and inspector controls, numeric values, color hex fields, sliders, and
 Format/Export menus are exposed to accessibility. Exact-value edits use the same
 validation and undo behavior as mouse input. The canvas reports source dimensions
 and annotation count; drawing and on-canvas text use ordinary input.
+
+## Terminal and agent interfaces
+
+See [CLI, MCP, and Code Mode](interfaces.md) for the Incurs command catalog,
+complete editor-tool mapping, and shared local Code Mode service.

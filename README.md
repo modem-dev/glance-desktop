@@ -25,7 +25,7 @@ Download the release's `.pkg.tar.zst` package, then install and launch it:
 
 ```sh
 sudo pacman -U ./glance-desktop-*.pkg.tar.zst
-glance
+glance desktop
 ```
 
 See the [Omarchy guide](docs/linux.md) for checksum verification and global capture bindings.
@@ -47,6 +47,14 @@ Open **Backdrop** to add framing or motion, and **Export** to save a GIF or MP4.
 Editing, copying, and file exports work locally. Sharing a link uploads an encrypted
 PNG to [glance.sh](https://glance.sh). Anyone with the link can retrieve it until
 it expires, usually after about 30 minutes.
+
+## Terminal and agent interfaces
+
+The `glance` shell command is the CLI: run `glance --help`, `glance get-document`,
+`glance code search --query annotation`, or `glance --mcp` directly.
+`glance desktop --automation` opens the native editor with local automation enabled.
+Launching the macOS app still opens its editor window.
+See [CLI, MCP, and Code Mode](docs/interfaces.md) for the complete interface.
 
 ## macOS FAQ
 
