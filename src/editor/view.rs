@@ -562,12 +562,27 @@ impl Render for Editor {
                                 Action::CopyRemote,
                             )),
                     )
-                    .child(self.button(
-                        "ChatGPT",
-                        self.chatgpt.menu,
-                        cx,
-                        Action::ToggleChatgptAccountMenu,
-                    ))
+                    .child(
+                        div()
+                            .relative()
+                            .child(self.button(
+                                "ChatGPT",
+                                self.chatgpt.menu,
+                                cx,
+                                Action::ToggleChatgptAccountMenu,
+                            ))
+                            .child(
+                                canvas(
+                                    {
+                                        let bounds = self.chatgpt.trigger_bounds.clone();
+                                        move |rect, _, _| bounds.set(rect)
+                                    },
+                                    |_, _, _, _| {},
+                                )
+                                .absolute()
+                                .size_full(),
+                            ),
+                    )
                     .child(self.export_menu(cx))
                     .child(
                         div()

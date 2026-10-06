@@ -39,6 +39,9 @@ pub(crate) enum Action {
         engine: Option<crate::chatgpt::OcrEngine>,
     },
     ToggleChatgptAccountMenu,
+    ToggleChatgptPicker {
+        picker: super::chatgpt::Picker,
+    },
     ChatgptSignIn {
         #[serde(default)]
         account_id: Option<String>,

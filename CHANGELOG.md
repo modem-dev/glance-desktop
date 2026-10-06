@@ -8,7 +8,8 @@ Notable user-visible changes are recorded here.
 
 - Optional **Continue with ChatGPT** sign-in, saved account/model selection, and
   subscription-powered OCR through the existing Copy as OCR button, with usage
-  controls, private credential storage, and matching MCP actions.
+  controls, private credential storage, and matching MCP actions. The compact
+  account panel uses dropdowns, labeled icon actions, and a contrasting OCR switch.
 - **Copy as OCR** in the top toolbar recognizes screenshot text offline and copies
   it directly to the clipboard: Apple Vision on macOS, optional Tesseract on
   Omarchy, and a matching MCP action with source-region selection and read-back.

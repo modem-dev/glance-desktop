@@ -115,6 +115,16 @@ impl Editor {
                     );
                 }
             }
+            Action::ToggleChatgptPicker { .. } if self.chatgpt.busy => {
+                return Err("Wait for the current ChatGPT account operation".into());
+            }
+            Action::ToggleChatgptPicker {
+                picker: super::chatgpt::Picker::Model,
+            } if self.chatgpt.snapshot.ocr_engine != crate::chatgpt::OcrEngine::Chatgpt
+                || !self.chatgpt.snapshot.can_infer() =>
+            {
+                return Err("Choose ChatGPT OCR before opening its model picker".into());
+            }
             Action::ChatgptSignIn { .. }
             | Action::SelectChatgptAccount { .. }
             | Action::SetChatgptModel { .. }
@@ -422,7 +432,11 @@ impl Editor {
                     }
                 });
             }
-            Action::ToggleChatgptAccountMenu => self.chatgpt.menu = !self.chatgpt.menu,
+            Action::ToggleChatgptAccountMenu => {
+                self.chatgpt.menu = !self.chatgpt.menu;
+                self.chatgpt.picker = None;
+            }
+            Action::ToggleChatgptPicker { picker } => self.toggle_chatgpt_picker(picker, cx),
             Action::ChatgptSignIn { account_id } => {
                 self.chatgpt_job(super::chatgpt::Job::SignIn(account_id), cx)?
             }

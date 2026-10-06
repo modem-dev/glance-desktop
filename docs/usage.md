@@ -105,18 +105,19 @@ Open **ChatGPT** in the top toolbar (or **Glance → ChatGPT account…**) and c
 system browser. Eligible ChatGPT accounts can use their plan for OCR without an
 API key. A first-use message explains plan usage; choose **Got it** to continue.
 
-In the account menu, choose a model from your account’s available models and
-select **ChatGPT · Using ChatGPT plan** under **Copy as OCR uses**. The same OCR
+In the account menu, select **ChatGPT** under **OCR source**, then choose an
+available model from the **Model** dropdown. The same OCR
 button now sends the source screenshot to OpenAI and copies the completed result
 to the clipboard. Signing in alone does not upload images or select ChatGPT OCR.
-Choose **This device · Offline** to use local recognition again. ChatGPT can help
+Choose **On device** to use local recognition again. ChatGPT can help
 preserve text layout and code indentation; review the pasted result for errors.
 
 The menu shows saved accounts separately, including accounts with the same email.
-Select an account to refresh its model catalog, **Reconnect selected account** to
-renew its sign-in, or **Continue with ChatGPT** to add another account/workspace.
-**Cancel sign-in** stops a pending browser callback. **Sign out of selected account**
-clears that account’s local credentials and attempts remote session revocation,
+Use the account dropdown to switch accounts or **Continue with ChatGPT** to add
+another account/workspace. The circular-arrow icon reconnects the selected account;
+the exit icon signs it out. Both have labels and hover hints. **Cancel sign-in**
+stops a pending browser callback. Signing out clears the selected account’s local
+credentials and attempts remote session revocation,
 while preserving the account registration for later sign-in.
 
 **Manage usage** opens ChatGPT usage settings. Requests count toward your ChatGPT

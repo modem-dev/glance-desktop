@@ -3,6 +3,15 @@ use gpui::{AssetSource, Result, SharedString};
 use std::borrow::Cow;
 pub struct Icons;
 const ASSETS: &[(&str, &[u8])] = &[
+    ("icons/x.svg", include_bytes!("../assets/lucide/x.svg")),
+    (
+        "icons/chevron-down.svg",
+        include_bytes!("../assets/lucide/chevron-down.svg"),
+    ),
+    (
+        "icons/log-out.svg",
+        include_bytes!("../assets/lucide/log-out.svg"),
+    ),
     (
         "icons/pipette.svg",
         include_bytes!("../assets/lucide/pipette.svg"),

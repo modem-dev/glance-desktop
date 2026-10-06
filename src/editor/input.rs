@@ -514,7 +514,7 @@ impl Editor {
             return;
         }
         let key = e.keystroke.key.as_str();
-        if self.popup_key(key, cx) {
+        if self.chatgpt_key(key, cx) || self.popup_key(key, cx) {
             cx.stop_propagation();
             return;
         }

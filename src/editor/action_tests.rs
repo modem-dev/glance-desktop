@@ -1913,6 +1913,7 @@ fn canceled_and_stale_account_jobs_cannot_open_browser_or_replace_state(cx: &mut
                 outcome: Outcome {
                     snapshot: None,
                     status: "Stale".into(),
+                    error: false,
                 },
             },
             cx,
@@ -1925,6 +1926,7 @@ fn canceled_and_stale_account_jobs_cannot_open_browser_or_replace_state(cx: &mut
                 outcome: Outcome {
                     snapshot: None,
                     status: "Canceled".into(),
+                    error: false,
                 },
             },
             cx,
@@ -1949,11 +1951,7 @@ fn account_menu_is_accessible_and_fits_small_windows(cx: &mut TestAppContext) {
     let bounds = visual.debug_bounds("chatgpt-menu").unwrap();
     assert!(bounds.top() >= px(0.) && bounds.bottom() <= px(500.));
     entity.read_with(&visual, |e, _| {
-        for label in [
-            "Continue with ChatGPT",
-            "Manage usage",
-            "This device · Offline",
-        ] {
+        for label in ["Continue with ChatGPT", "On device"] {
             assert!(
                 e.accessibility
                     .nodes()
@@ -1996,5 +1994,110 @@ fn sign_out_cancellation_rejects_queued_success_before_clipboard_write(cx: &mut 
         );
         assert!(e.extraction.is_none());
         assert_eq!(e.feedback.status, "ChatGPT OCR canceled");
+    });
+}
+
+#[gpui::test]
+fn compact_account_pickers_use_shared_actions_and_keyboard_dismissal(cx: &mut TestAppContext) {
+    use super::chatgpt::Picker;
+    use crate::automation::Request;
+    use crate::chatgpt::{AccountInfo, Model, OcrEngine};
+    use gpui::{px, size};
+    let window = cx.add_window(|window, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.focus.focus(window);
+        e.chatgpt.menu = true;
+        e.chatgpt.snapshot.accounts = vec![AccountInfo {
+            id: "synthetic-account".into(),
+            label: "demo@example.invalid · synthetic".into(),
+            signed_in: true,
+            plan_enabled: true,
+        }];
+        e.chatgpt.snapshot.active_account = Some("synthetic-account".into());
+        e.chatgpt.snapshot.models = vec![
+            Model {
+                slug: "synthetic-a".into(),
+                display_name: "Synthetic A".into(),
+            },
+            Model {
+                slug: "synthetic-b".into(),
+                display_name: "Synthetic B".into(),
+            },
+        ];
+        e.chatgpt.snapshot.model = Some("synthetic-a".into());
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1050.), px(500.)));
+    visual.run_until_parked();
+    assert!(
+        visual.debug_bounds("chatgpt-model").is_none(),
+        "offline OCR hides model choices"
+    );
+    assert!(visual.debug_bounds("chatgpt-picker").is_none());
+    entity.update(&mut visual, |e, cx| {
+        assert!(
+            e.dispatch(
+                Action::ToggleChatgptPicker {
+                    picker: Picker::Model
+                },
+                cx
+            )
+            .is_err()
+        );
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Account,
+                },
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert_eq!(e.chatgpt.picker, Some(Picker::Account));
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        assert_eq!(
+            response.recv().unwrap().unwrap()["chatgpt"]["picker"],
+            "account"
+        );
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("chatgpt-picker").is_some());
+    visual.simulate_keystrokes("escape");
+    visual.run_until_parked();
+    entity.update(&mut visual, |e, cx| {
+        assert!(e.chatgpt.menu);
+        assert!(e.chatgpt.picker.is_none());
+        e.chatgpt.snapshot.ocr_engine = OcrEngine::Chatgpt;
+        e.dispatch(
+            Action::ToggleChatgptPicker {
+                picker: Picker::Model,
+            },
+            cx,
+        )
+        .unwrap();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("chatgpt-model").is_some());
+    assert!(visual.debug_bounds("chatgpt-option-1").is_some());
+    let menu = visual.debug_bounds("chatgpt-menu").unwrap();
+    assert!(
+        menu.size.height <= px(350.),
+        "connected OCR panel stays compact"
+    );
+    visual.simulate_keystrokes("down");
+    entity.read_with(&visual, |e, _| assert_eq!(e.chatgpt.picker_index, 1));
+    visual.simulate_keystrokes("escape escape");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(!e.chatgpt.menu);
+        assert!(e.chatgpt.picker.is_none());
+        assert_eq!(e.preview.revision, 0);
+        assert!(e.document.marks.is_empty());
     });
 }

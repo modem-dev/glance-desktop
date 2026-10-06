@@ -164,6 +164,7 @@ impl Editor {
                         self.chatgpt.snapshot = snapshot;
                     }
                     self.chatgpt.status = outcome.status;
+                    self.chatgpt.error = outcome.error;
                     cx.notify();
                 }
             }

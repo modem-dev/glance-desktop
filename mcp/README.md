@@ -142,6 +142,8 @@ Use `dispatch_action` for the same account controls as the native ChatGPT menu:
 
 ```json
 {"action":{"type":"toggle_chatgpt_account_menu"}}
+{"action":{"type":"toggle_chatgpt_picker","picker":"account"}}
+{"action":{"type":"toggle_chatgpt_picker","picker":"model"}}
 {"action":{"type":"chatgpt_sign_in"}}
 {"action":{"type":"chatgpt_sign_in","account_id":"<saved account ID>"}}
 {"action":{"type":"cancel_chatgpt_sign_in"}}
@@ -159,11 +161,15 @@ Use `dispatch_action` for the same account controls as the native ChatGPT menu:
 or null `account_id` adds a registration, while a saved ID reconnects it. Account
 jobs run independently of document workers: poll `get_editor_state.chatgpt.busy`
 (the dispatch receipt’s document `operation_id` can be null). The state includes
-`generation`, `signing_in`, `menu_open`, `status`, and `account` with saved account
+`generation`, `signing_in`, `menu_open`, `picker` (`account`, `model`, or null), `status`, and `account` with saved account
 IDs/labels, sign-in and plan-permission flags, active account ID, available model
 slugs/display names, selected model/engine and first-use welcome state. It contains
 no access, refresh or ID tokens. Models come from the selected account’s catalog;
 choose an image-capable model. Selecting an account refreshes its catalog.
+
+`toggle_chatgpt_picker` opens/closes the matching dropdown; the model picker
+requires ChatGPT OCR and an eligible account. Choosing an entry uses the existing
+`select_chatgpt_account` or `set_chatgpt_model` action.
 
 Signing in does not change the OCR engine or upload a screenshot. Explicitly
 selecting `chatgpt` enables subscription OCR; `copy_ocr` with an explicit engine

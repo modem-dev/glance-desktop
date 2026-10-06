@@ -56,7 +56,9 @@ with explicit authorization for that verification.
 ## ChatGPT account controls
 
 - Open ChatGPT from the toolbar; check account controls remain accessible and fit
-  a small window. Confirm local OCR still works without an account or network.
+  a small window. Check contrast, account/model dropdowns, arrow/Enter/Escape
+  navigation, outside-click dismissal and icon hover/accessibility labels. Models
+  appear only for ChatGPT OCR. Confirm local OCR works without an account or network.
 - With explicit authorization for the test account, use Continue with ChatGPT in
   the system browser. Check the first-use modal, account/model display, restart
   persistence, reconnect, account/workspace switching, cancellation and sign-out.
