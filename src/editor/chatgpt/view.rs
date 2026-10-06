@@ -426,21 +426,14 @@ impl Editor {
                 );
             }
         } else {
-            panel = panel
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(0x515d70))
-                        .child("Use your ChatGPT plan for image editing and OCR."),
-                )
-                .child(self.account_button(
-                    "Continue with ChatGPT",
-                    false,
-                    true,
-                    enabled,
-                    Action::ChatgptSignIn { account_id: None },
-                    cx,
-                ));
+            panel = panel.child(self.account_button(
+                "Continue with ChatGPT",
+                false,
+                true,
+                enabled,
+                Action::ChatgptSignIn { account_id: None },
+                cx,
+            ));
         }
         if self.chatgpt.signing_in {
             panel = panel
@@ -512,21 +505,14 @@ impl Editor {
                 .find(|m| Some(&m.slug) == snapshot.model.as_ref())
                 .map(|m| m.display_name.clone())
                 .unwrap_or_else(|| "Choose model".into());
-            panel = panel
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_3()
-                        .child(div().text_xs().text_color(rgb(0x515d70)).child("Model"))
-                        .child(self.account_dropdown(Picker::Model, model, enabled, cx)),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(0x515d70))
-                        .child("Sends the source image to OpenAI."),
-                );
+            panel = panel.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .child(div().text_xs().text_color(rgb(0x515d70)).child("Model"))
+                    .child(self.account_dropdown(Picker::Model, model, enabled, cx)),
+            );
         } else if account.is_some_and(|a| a.signed_in && !a.plan_enabled) {
             panel = panel.child(
                 div()
@@ -536,43 +522,66 @@ impl Editor {
             );
         }
         if account.is_some() {
-            panel = panel.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_xs()
-                            .text_color(rgb(0x515d70))
-                            .child(if cloud {
-                                "Using ChatGPT plan"
-                            } else {
-                                "Runs offline"
-                            }),
-                    )
-                    .child(div().w(px(128.)).child(self.account_button(
-                        "Manage usage",
-                        false,
-                        false,
-                        true,
-                        Action::ManageChatgptUsage,
-                        cx,
-                    ))),
-            );
+            panel = panel.child(div().flex().items_center().gap_3().justify_end().child(
+                div().w(px(128.)).child(self.account_button(
+                    "Manage usage",
+                    false,
+                    false,
+                    true,
+                    Action::ManageChatgptUsage,
+                    cx,
+                )),
+            ));
         }
         panel
     }
     pub(in crate::editor) fn chatgpt_welcome(&self, cx: &Context<Self>) -> impl IntoElement {
-        div().id("chatgpt-welcome").absolute().inset_0().occlude().bg(rgba(0x00000066))
-            .flex().items_center().justify_center()
+        div()
+            .id("chatgpt-welcome")
+            .absolute()
+            .inset_0()
+            .occlude()
+            .bg(rgba(0x00000066))
+            .flex()
+            .items_center()
+            .justify_center()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(div().w(px(390.)).p_5().rounded_lg().bg(rgb(0xfcfcfd)).flex().flex_col().gap_3()
-                .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("You’re using your ChatGPT plan"))
-                .child("ChatGPT OCR sends images to OpenAI and uses your plan or credits. Manage usage in ChatGPT settings.")
-                .child(div().flex().gap_2()
-                    .child(div().flex_1().child(self.account_button("Manage usage", false, false, true, Action::ManageChatgptUsage, cx)))
-                    .child(div().flex_1().child(self.account_button("Got it", false, true, true, Action::DismissChatgptWelcome, cx)))))
+            .child(
+                div()
+                    .w(px(390.))
+                    .p_5()
+                    .rounded_lg()
+                    .bg(rgb(0xfcfcfd))
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("ChatGPT connected"),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(div().flex_1().child(self.account_button(
+                                "Manage usage",
+                                false,
+                                false,
+                                true,
+                                Action::ManageChatgptUsage,
+                                cx,
+                            )))
+                            .child(div().flex_1().child(self.account_button(
+                                "Got it",
+                                false,
+                                true,
+                                true,
+                                Action::DismissChatgptWelcome,
+                                cx,
+                            ))),
+                    ),
+            )
     }
 }

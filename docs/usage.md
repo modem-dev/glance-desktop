@@ -123,7 +123,9 @@ pixelated regions before sharing. **Stop** or **Esc** cancels a running request;
 closing the bar also cancels it. Failure, interruption, cancellation, and
 revision/account conflicts discard the draft and preserve your document.
 
-The final reply appears below the prompt; **Copy answer** copies it. Ask Glance
+Ask Glance stays in a compact row with the prompt, model, Run/Stop, and close
+controls. Only the latest reply appears below it; the copy icon copies the reply.
+There is no conversation history or extra completion banner. Ask Glance
 can answer questions without changing the image. It does not export/upload
 images, control other apps, or modify Glance's source code. Use the normal export
 and copy controls after reviewing the result. Requests are bounded to eight
@@ -135,7 +137,7 @@ contexts or framed previews may require a smaller crop or simpler request.
 Open the **ChatGPT account** icon in the top toolbar (or
 **Glance → ChatGPT account…**) and choose **Continue with ChatGPT**. Finish signing in and granting permission in your
 system browser. Eligible ChatGPT accounts can use their plan for image editing
-and OCR without an API key. A first-use message explains plan usage; choose
+and OCR without an API key. A first-use connection confirmation offers usage settings; choose
 **Got it** to continue.
 
 In the account menu, select **ChatGPT** under **OCR source**, then choose an

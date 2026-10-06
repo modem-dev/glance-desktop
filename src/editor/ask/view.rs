@@ -53,10 +53,15 @@ impl Editor {
             .when(label == "Ask Glance", |el| {
                 el.child(icon("sparkles", if primary { 0xffffff } else { 0x293142 }))
             })
-            .child(if label == "Ask Glance" {
-                "Ask".to_owned()
-            } else {
-                label.to_owned()
+            .when(label == "Copy answer", |el| {
+                el.child(icon("copy", 0x293142))
+            })
+            .when(label != "Copy answer", |el| {
+                el.child(if label == "Ask Glance" {
+                    "Ask".to_owned()
+                } else {
+                    label.to_owned()
+                })
             })
             .tooltip({
                 let label = label.to_owned();
@@ -129,13 +134,15 @@ impl Editor {
                 .items_center()
                 .gap_1()
                 .px_2()
-                .h(px(26.))
+                .h(px(36.))
+                .max_w(px(220.))
+                .flex_shrink_0()
                 .rounded_md()
                 .border_1()
                 .border_color(rgb(0xbcc5d3))
                 .bg(rgb(0xeef1f6))
                 .text_color(rgb(0x293142))
-                .child(model.to_owned())
+                .child(div().min_w_0().truncate().child(model.to_owned()))
                 .child(icon("chevron-down", 0x293142))
                 .cursor_pointer()
                 .hover(|s| s.bg(rgb(0xe0e6ef)))
@@ -153,7 +160,8 @@ impl Editor {
             div()
                 .id("ask-close")
                 .debug_selector(|| "ask-close".into())
-                .size(px(28.))
+                .size(px(36.))
+                .flex_shrink_0()
                 .flex()
                 .items_center()
                 .justify_center()
@@ -161,27 +169,92 @@ impl Editor {
                 .cursor_pointer()
                 .hover(|s| s.bg(rgb(0xe0e6ef)))
                 .child(icon("x", 0x293142))
-                .tooltip(|_, cx| {
-                    cx.new(|_| HoverLabel("Close · Esc cancels a running request".into()))
-                        .into()
-                })
+                .tooltip(|_, cx| cx.new(|_| HoverLabel("Close".into())).into())
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.dispatch_ui(Action::ToggleAskGlance, cx);
                     this.focus.focus(window);
                 })),
         );
-        div().id("ask-bar").debug_selector(||"ask-bar".into()).flex_shrink_0().w_full().px_4().py_3().flex().flex_col().gap_2().bg(rgb(0xf5f7fa)).border_t_1().border_color(rgb(0xbcc5d3))
-            .child(div().flex().items_center().gap_2().child(div().font_weight(FontWeight::SEMIBOLD).text_sm().child("Ask Glance")).child(div().flex_1()).when(connected,|el|el.child(model_button)).child(close))
-            .child(div().flex().items_center().gap_2().child(div().flex_1().min_w(px(0.)).child(input)).child(if running {
-                self.ask_button("Stop",false,true,Action::CancelAskGlance,cx)
-            } else if connected {
-                self.ask_button("Run",true,!self.ask.prompt.trim().is_empty()&&!self.is_busy()&&!self.chatgpt.busy,Action::AskGlance{prompt:self.ask.prompt.clone()},cx)
-            } else {
-                self.ask_button("Sign in",true,!self.chatgpt.busy,Action::ToggleChatgptAccountMenu,cx)
-            }))
-            .when(!self.ask.status.is_empty(),|el|el.child(div().id("ask-status").debug_selector(||"ask-status".into()).text_xs().text_color(rgb(if self.ask.error {0xb63025} else {0x536078})).child(self.ask.status.clone())))
-            .when(!self.ask.answer.is_empty(),|el|el.child(div().flex().gap_2().items_start().child(div().id("ask-answer").debug_selector(||"ask-answer".into()).flex_1().max_h(px(100.)).overflow_y_scroll().text_sm().child(self.ask.answer.clone())).child(self.ask_button("Copy answer",false,true,Action::CopyAskGlanceAnswer,cx))))
-            .child(div().text_xs().text_color(rgb(0x536078)).child(if connected {"Uses your ChatGPT plan · Sends this image and prompt to OpenAI"} else {"Try “pixelate the emails and highlight the error” · Requires ChatGPT sign-in"}))
+        div()
+            .id("ask-bar")
+            .debug_selector(|| "ask-bar".into())
+            .flex_shrink_0()
+            .w_full()
+            .px_4()
+            .py_2()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .bg(rgb(0xf5f7fa))
+            .border_t_1()
+            .border_color(rgb(0xbcc5d3))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(div().flex_1().min_w(px(0.)).child(input))
+                    .when(connected, |el| el.child(model_button))
+                    .child(if running {
+                        self.ask_button("Stop", false, true, Action::CancelAskGlance, cx)
+                    } else if connected {
+                        self.ask_button(
+                            "Run",
+                            true,
+                            !self.ask.prompt.trim().is_empty()
+                                && !self.is_busy()
+                                && !self.chatgpt.busy,
+                            Action::AskGlance {
+                                prompt: self.ask.prompt.clone(),
+                            },
+                            cx,
+                        )
+                    } else {
+                        self.ask_button(
+                            "Sign in",
+                            true,
+                            !self.chatgpt.busy,
+                            Action::ToggleChatgptAccountMenu,
+                            cx,
+                        )
+                    })
+                    .child(close),
+            )
+            .when(!self.ask.status.is_empty(), |el| {
+                el.child(
+                    div()
+                        .id("ask-status")
+                        .debug_selector(|| "ask-status".into())
+                        .text_xs()
+                        .text_color(rgb(if self.ask.error { 0xb63025 } else { 0x536078 }))
+                        .child(self.ask.status.clone()),
+                )
+            })
+            .when(!self.ask.answer.is_empty(), |el| {
+                el.child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .items_start()
+                        .child(
+                            div()
+                                .id("ask-answer")
+                                .debug_selector(|| "ask-answer".into())
+                                .flex_1()
+                                .max_h(px(100.))
+                                .overflow_y_scroll()
+                                .text_sm()
+                                .child(self.ask.answer.clone()),
+                        )
+                        .child(self.ask_button(
+                            "Copy answer",
+                            false,
+                            true,
+                            Action::CopyAskGlanceAnswer,
+                            cx,
+                        )),
+                )
+            })
             .into_any_element()
     }
 }

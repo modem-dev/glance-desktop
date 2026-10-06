@@ -181,12 +181,7 @@ impl Editor {
                     Ok(()) => {
                         self.ask.steps = result.steps;
                         self.ask.answer = result.answer;
-                        self.ask.status = if result.changed {
-                            "Done · Undo restores the previous image"
-                        } else {
-                            "Done"
-                        }
-                        .into();
+                        self.ask.status.clear();
                         self.ask.error = false;
                     }
                     Err(error) => {

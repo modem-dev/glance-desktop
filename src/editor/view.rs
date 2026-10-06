@@ -537,7 +537,7 @@ impl Render for Editor {
                                 if self.chatgpt.snapshot.ocr_engine
                                     == crate::chatgpt::OcrEngine::Chatgpt
                                 {
-                                    "Copy as OCR · Using ChatGPT plan · Sends image to OpenAI"
+                                    "Copy as OCR · ChatGPT"
                                 } else {
                                     "Copy as OCR · Recognize text offline"
                                 },

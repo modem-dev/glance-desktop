@@ -21,6 +21,9 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- Ask Glance uses a single compact control row, a copy icon for the latest reply,
+  and no repeated plan/upload disclosures or Done/Undo banners. Account controls
+  omit redundant explanatory text; image sharing behavior is documented in usage.
 - Reorganized documentation around release installation and first use, added a
   macOS opening/capture FAQ, and consolidated source-build instructions in BUILD.md.
 - README includes a short album-gallery GIF showing rounded padding and an

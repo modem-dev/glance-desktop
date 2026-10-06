@@ -108,9 +108,7 @@ impl State {
                     Job::Engine(engine) => service.set_engine(engine).map(|_| {
                         match engine {
                             OcrEngine::Local => "OCR uses this device",
-                            OcrEngine::Chatgpt => {
-                                "OCR uses your ChatGPT plan and sends the image to OpenAI"
-                            }
+                            OcrEngine::Chatgpt => "OCR uses ChatGPT",
                         }
                         .into()
                     }),
