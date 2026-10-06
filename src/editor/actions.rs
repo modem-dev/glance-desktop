@@ -38,6 +38,16 @@ pub(crate) enum Action {
         #[serde(default)]
         engine: Option<crate::chatgpt::OcrEngine>,
     },
+    ToggleAskGlance,
+    SetAskGlancePrompt {
+        prompt: String,
+    },
+    /// Explicitly sends the current annotated screenshot and request to OpenAI.
+    AskGlance {
+        prompt: String,
+    },
+    CancelAskGlance,
+    CopyAskGlanceAnswer,
     ToggleChatgptAccountMenu,
     ToggleChatgptPicker {
         picker: super::chatgpt::Picker,

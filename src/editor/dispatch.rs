@@ -60,6 +60,8 @@ impl Editor {
                     | Action::Quit
                     | Action::ClosePanel { .. }
                     | Action::Cancel
+                    | Action::ToggleAskGlance
+                    | Action::CancelAskGlance
                     | Action::ToggleChatgptAccountMenu
                     | Action::SignOutChatgpt
                     | Action::CancelChatgptSignIn
@@ -94,6 +96,24 @@ impl Editor {
         };
         // Validate before committing text or canceling a gesture.
         match &action {
+            Action::SetAskGlancePrompt { prompt }
+                if prompt.len() > crate::chatgpt::agent::MAX_PROMPT =>
+            {
+                return Err("Ask Glance prompts must be at most 8,000 bytes.".into());
+            }
+            Action::AskGlance { prompt } => {
+                crate::chatgpt::agent::validate_prompt(prompt)?;
+                if self.chatgpt.busy || !self.chatgpt.snapshot.can_infer() {
+                    return Err(
+                        "Continue with ChatGPT and choose a model to use Ask Glance.".into(),
+                    );
+                }
+                if self.interaction.text_edit.is_some() || self.interaction.gesture.is_active() {
+                    return Err(
+                        "Finish your annotation text or gesture before using Ask Glance.".into(),
+                    );
+                }
+            }
             Action::CopyOcr { rectangle, engine } => {
                 crate::ocr::validate_rectangle(self.document.base.dimensions(), *rectangle)?;
                 if engine.unwrap_or(self.chatgpt.snapshot.ocr_engine)
@@ -120,10 +140,13 @@ impl Editor {
             }
             Action::ToggleChatgptPicker {
                 picker: super::chatgpt::Picker::Model,
-            } if self.chatgpt.snapshot.ocr_engine != crate::chatgpt::OcrEngine::Chatgpt
+            } if (!self.ask.open
+                && self.chatgpt.snapshot.ocr_engine != crate::chatgpt::OcrEngine::Chatgpt)
                 || !self.chatgpt.snapshot.can_infer() =>
             {
-                return Err("Choose ChatGPT OCR before opening its model picker".into());
+                return Err(
+                    "Open Ask Glance or choose ChatGPT OCR before opening the model picker".into(),
+                );
             }
             Action::ChatgptSignIn { .. }
             | Action::SelectChatgptAccount { .. }
@@ -432,6 +455,28 @@ impl Editor {
                     }
                 });
             }
+            Action::ToggleAskGlance => {
+                if self.ask.open {
+                    self.cancel_ask(cx);
+                }
+                self.ask.open = !self.ask.open;
+                self.chatgpt.menu = false;
+                self.chatgpt.picker = None;
+            }
+            Action::SetAskGlancePrompt { prompt } => {
+                self.ask
+                    .input
+                    .update(cx, |input, cx| input.set_text(&prompt, cx));
+                self.ask.prompt = prompt;
+            }
+            Action::AskGlance { prompt } => self.start_ask(prompt, cx)?,
+            Action::CancelAskGlance => self.cancel_ask(cx),
+            Action::CopyAskGlanceAnswer => {
+                if self.ask.answer.is_empty() {
+                    return Err("Ask Glance has no answer to copy.".into());
+                }
+                cx.write_to_clipboard(ClipboardItem::new_string(self.ask.answer.clone()));
+            }
             Action::ToggleChatgptAccountMenu => {
                 self.chatgpt.menu = !self.chatgpt.menu;
                 self.chatgpt.picker = None;
@@ -452,6 +497,7 @@ impl Editor {
                 self.chatgpt_job(super::chatgpt::Job::Account(account_id), cx)?
             }
             Action::SignOutChatgpt => {
+                self.cancel_ask(cx);
                 self.chatgpt
                     .inference_cancel
                     .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -855,7 +901,11 @@ impl Editor {
             Action::Cancel => {
                 self.panels.sampling_color = None;
                 self.panels.sampling_tool_color = false;
-                if self.video_export.cancel.is_some() {
+                if self.ask.running.is_some() {
+                    self.cancel_ask(cx);
+                } else if self.ask.open {
+                    self.ask.open = false;
+                } else if self.video_export.cancel.is_some() {
                     self.cancel_video(cx);
                 } else if self.interaction.text_edit.take().is_some() {
                     self.feedback.status = "Text canceled".into();

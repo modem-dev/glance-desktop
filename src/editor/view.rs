@@ -241,7 +241,10 @@ impl Render for Editor {
         };
         let fit_zoom = ((f32::from(viewport.width) - 260. - 80.) / output_dimensions.0 as f32)
             .min(
-                (f32::from(viewport.height) - 48. - export_height - 70.)
+                (f32::from(viewport.height)
+                    - 48.
+                    - export_height
+                    - if self.ask.open { 190. } else { 70. })
                     / output_dimensions.1 as f32,
             )
             .clamp(0.01, 1.);
@@ -397,6 +400,12 @@ impl Render for Editor {
             }))
             .on_action(cx.listener(|this, _: &menus::ImageTools, _, cx| {
                 this.dispatch_ui(Action::ToggleEnhance, cx)
+            }))
+            .on_action(cx.listener(|this, _: &menus::AskGlance, window, cx| {
+                this.dispatch_ui(Action::ToggleAskGlance, cx);
+                if this.ask.open {
+                    this.ask.input.read(cx).focus(window);
+                }
             }))
             .on_action(cx.listener(|this, _: &menus::ChatgptAccount, _, cx| {
                 this.dispatch_ui(Action::ToggleChatgptAccountMenu, cx)
@@ -565,8 +574,9 @@ impl Render for Editor {
                     .child(
                         div()
                             .relative()
-                            .child(self.button(
-                                "ChatGPT",
+                            .child(self.compact_button(
+                                "ChatGPT account",
+                                "account",
                                 self.chatgpt.menu,
                                 cx,
                                 Action::ToggleChatgptAccountMenu,
@@ -583,6 +593,7 @@ impl Render for Editor {
                                 .size_full(),
                             ),
                     )
+                    .child(self.ask_button("Ask Glance", true, true, Action::ToggleAskGlance, cx))
                     .child(self.export_menu(cx))
                     .child(
                         div()
@@ -621,6 +632,7 @@ impl Render for Editor {
                     ),
             )
             .child(self.canvas(window, cx))
+            .when(self.ask.open, |el| el.child(self.ask_bar(cx)))
             .when_some(self.video_export.progress, |el, progress| {
                 el.child(self.export_progress(progress, cx))
             })

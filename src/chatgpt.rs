@@ -1,4 +1,5 @@
 //! Opt-in ChatGPT plan integration. Secrets stay in the worker-owned service.
+pub(crate) mod agent;
 mod inference;
 mod oauth;
 mod storage;
@@ -334,6 +335,52 @@ impl Service {
         let http = http_client()?;
         let token = self.access_token(index, &http)?;
         inference::recognize(&http, &token, model, image, rectangle, cancel)
+    }
+    pub fn ask(
+        &mut self,
+        document: crate::document::Document,
+        revision: u64,
+        prompt: &str,
+        selection: (&str, &str),
+        cancel: &AtomicBool,
+        progress: impl FnMut(usize, &str),
+    ) -> Result<agent::ResultDocument, String> {
+        let (account_id, model) = selection;
+        self.load()?;
+        let index = self.active_index()?;
+        let account = &self.store.as_ref().unwrap().accounts[index];
+        if account.id != account_id || account.model.as_deref() != Some(model) {
+            return Err("ChatGPT account or model changed. Ask Glance again.".into());
+        }
+        let http = http_client()?;
+        agent::run(
+            document,
+            revision,
+            model,
+            prompt,
+            cancel,
+            |body| {
+                if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err("Ask Glance canceled. No changes applied.".into());
+                }
+                let token = self.access_token(index, &http)?;
+                let response = http
+                    .post(format!("{RESOURCE}/responses"))
+                    .bearer_auth(token)
+                    .json(body)
+                    .send()
+                    .map_err(|_| "Ask Glance connection failed. No changes applied.")?;
+                if !response.status().is_success() {
+                    return Err(match response.status().as_u16() {
+                    401 => "ChatGPT sign-in expired. Reconnect your account.",
+                    403 | 429 => "ChatGPT plan usage is unavailable or at its limit. Open Manage usage.",
+                    _ => "Ask Glance failed. Try another image-capable model or retry. No changes applied."
+                }.into());
+                }
+                agent::consume_stream(std::io::BufReader::new(response), cancel)
+            },
+            progress,
+        )
     }
     pub fn sign_in(
         &mut self,

@@ -6,6 +6,11 @@ Notable user-visible changes are recorded here.
 
 ### Added
 
+- **Ask Glance** prompt bar (⌘K / Ctrl+K): use your ChatGPT plan to inspect,
+  crop, resize, annotate, redact with pixelation, and style a screenshot through
+  a native agent loop. Completed edits apply together with one undo; Stop, failed
+  requests, and stale results discard the draft. Includes model selection,
+  answer copying, and matching MCP actions/state.
 - Optional **Continue with ChatGPT** sign-in, saved account/model selection, and
   subscription-powered OCR through the existing Copy as OCR button, with usage
   controls, private credential storage, and matching MCP actions. The compact

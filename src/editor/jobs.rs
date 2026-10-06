@@ -24,6 +24,7 @@ pub(super) enum OperationKind {
     Crop,
     Transform,
     Ocr,
+    Ask,
     Video,
 }
 pub(super) struct ActiveOperation {
@@ -36,6 +37,15 @@ pub(super) struct OperationState {
     next_id: u64,
 }
 pub(crate) enum Message {
+    AskProgress {
+        id: OperationId,
+        steps: usize,
+        status: String,
+    },
+    AskFinished {
+        id: OperationId,
+        result: Result<crate::chatgpt::agent::ResultDocument, String>,
+    },
     ChatgptAuthorization {
         generation: u64,
         url: String,
@@ -142,6 +152,14 @@ impl Editor {
     }
     pub(super) fn receive(&mut self, message: Message, cx: &mut Context<Self>) {
         match message {
+            Message::AskProgress { id, steps, status } => {
+                if self.ask.running.as_ref().is_some_and(|run| run.id == id) {
+                    self.ask.steps = steps;
+                    self.ask.status = status;
+                    cx.notify();
+                }
+            }
+            Message::AskFinished { id, result } => self.finish_ask(id, result, cx),
             Message::ChatgptAuthorization { generation, url } => {
                 if generation == self.chatgpt.generation
                     && self.chatgpt.signing_in

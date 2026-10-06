@@ -3,6 +3,7 @@ mod accessibility;
 #[cfg(test)]
 mod action_tests;
 pub(crate) mod actions;
+mod ask;
 mod automation;
 mod canvas;
 mod chatgpt;
@@ -44,6 +45,7 @@ pub(crate) struct Editor {
     number_inputs: std::collections::BTreeMap<&'static str, Entity<panels::number::NumberInput>>,
     extraction: Option<Extraction>,
     chatgpt: chatgpt::State,
+    ask: ask::State,
     #[cfg(test)]
     recognize_text: crate::ocr::Recognizer,
     _color_subscriptions: Vec<Subscription>,
@@ -236,6 +238,22 @@ impl Editor {
         #[cfg(target_os = "macos")]
         let gestures =
             native.then(|| gestures::Monitor::new(sender.clone(), canvas_bounds.clone()));
+        let ask_input = cx.new(|cx| ask::input::PromptInput::new(focus.clone(), cx));
+        color_subscriptions.push(cx.subscribe(&ask_input, |this, _, event, cx| {
+            let action = match event {
+                ask::input::Event::Changed(prompt) => actions::Action::SetAskGlancePrompt {
+                    prompt: prompt.clone(),
+                },
+                ask::input::Event::Submit => actions::Action::AskGlance {
+                    prompt: this.ask.prompt.clone(),
+                },
+                ask::input::Event::Close if this.ask.running.is_some() => {
+                    actions::Action::CancelAskGlance
+                }
+                ask::input::Event::Close => actions::Action::ToggleAskGlance,
+            };
+            this.dispatch_ui(action, cx);
+        }));
         Self {
             accessibility: crate::accessibility::Tree::new(native),
             color_pickers,
@@ -244,6 +262,16 @@ impl Editor {
             number_inputs,
             extraction: None,
             chatgpt: chatgpt::State::new(native, sender.clone()),
+            ask: ask::State {
+                open: false,
+                input: ask_input,
+                prompt: String::new(),
+                answer: String::new(),
+                status: String::new(),
+                error: false,
+                running: None,
+                steps: 0,
+            },
             #[cfg(test)]
             recognize_text: crate::ocr::extract,
             _color_subscriptions: color_subscriptions,

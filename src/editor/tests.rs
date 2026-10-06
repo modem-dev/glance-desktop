@@ -246,7 +246,7 @@ fn remote_copy_toolbar_fits_at_minimum_window_width(cx: &mut TestAppContext) {
     let mut visual = gpui::VisualTestContext::from_window(*view, cx);
     visual.simulate_resize(size(px(1050.), px(600.)));
     visual.run_until_parked();
-    for selector in ["copy-remote", "header-zoom"] {
+    for selector in ["copy-remote", "header-zoom", "ask-Ask Glance"] {
         let bounds = visual.debug_bounds(selector).unwrap();
         assert!(bounds.size.width > px(0.));
         assert!(bounds.origin.x >= px(0.));

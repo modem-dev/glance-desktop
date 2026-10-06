@@ -136,6 +136,36 @@ Local OCR on macOS requires the bundled Vision helper; Linux requires optional
 Tesseract and English language data. Local recognition times out after 45 seconds, limits text to
 64 KiB UTF-8, and runs in a worker using private temporary files.
 
+### Ask Glance
+
+Use the native prompt bar and agent through the shared dispatcher:
+
+```json
+{"action":{"type":"toggle_ask_glance"}}
+{"action":{"type":"set_ask_glance_prompt","prompt":"Highlight the error"}}
+{"action":{"type":"ask_glance","prompt":"Pixelate emails and highlight the error"},"expected_revision":12}
+{"action":{"type":"cancel_ask_glance"}}
+{"action":{"type":"copy_ask_glance_answer"}}
+```
+
+`set_ask_glance_prompt` changes only the draft (empty is allowed).
+`ask_glance` requires a nonempty prompt of at most 8,000 UTF-8 bytes and an
+eligible signed-in account/model; it explicitly sends the annotated image,
+annotation metadata, and prompt to OpenAI using the selected ChatGPT plan.
+The OCR engine is independent. The returned `operation_id` accepts background
+work; poll `get_editor_state.ask_glance` (`open`, `running`, `prompt`, `answer`,
+`status`, `error`, `steps`, `operation_id`) until `running=false`.
+
+The bounded native loop uses a namespace of local editing tools whose schemas
+and execution are shared with MCP: document inspection, crop/resize, annotation
+add/update/move/delete, backdrop settings, and preview inspection. It operates
+on a private draft. Only successful completion applies the draft as one undoable
+edit; failure, cancellation, or a document/account/model conflict preserves the
+live document. After completion, use `get_document` for fresh object IDs. The
+agent cannot invoke export, upload, clipboard, file import, or shell tools.
+Copying the answer is a separate explicit action. Bounds: eight model rounds,
+32 tool calls, five minutes, 16 MP source, 32 MP framed preview, and 24 MiB history.
+
 ### ChatGPT sign-in and OCR settings
 
 Use `dispatch_action` for the same account controls as the native ChatGPT menu:
@@ -168,7 +198,7 @@ no access, refresh or ID tokens. Models come from the selected account’s catal
 choose an image-capable model. Selecting an account refreshes its catalog.
 
 `toggle_chatgpt_picker` opens/closes the matching dropdown; the model picker
-requires ChatGPT OCR and an eligible account. Choosing an entry uses the existing
+requires an eligible account and either the Ask Glance bar or ChatGPT OCR. Choosing an entry uses the existing
 `select_chatgpt_account` or `set_chatgpt_model` action.
 
 Signing in does not change the OCR engine or upload a screenshot. Explicitly

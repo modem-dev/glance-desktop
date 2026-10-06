@@ -2101,3 +2101,308 @@ fn compact_account_pickers_use_shared_actions_and_keyboard_dismissal(cx: &mut Te
         assert!(e.document.marks.is_empty());
     });
 }
+
+fn connected_ask(e: &mut Editor) {
+    e.chatgpt.snapshot.accounts = vec![crate::chatgpt::AccountInfo {
+        id: "synthetic-account".into(),
+        label: "demo@example.test · abc".into(),
+        signed_in: true,
+        plan_enabled: true,
+    }];
+    e.chatgpt.snapshot.active_account = Some("synthetic-account".into());
+    e.chatgpt.snapshot.models = vec![crate::chatgpt::Model {
+        slug: "synthetic-model".into(),
+        display_name: "Synthetic model".into(),
+    }];
+    e.chatgpt.snapshot.model = Some("synthetic-model".into());
+}
+fn begin_synthetic_ask(e: &mut Editor, cx: &mut gpui::Context<Editor>) -> super::jobs::OperationId {
+    connected_ask(e);
+    let id = e.start_operation(OperationKind::Ask).unwrap();
+    e.ask.running = Some(super::ask::Run {
+        id,
+        revision: e.preview.revision,
+        account: "synthetic-account".into(),
+        model: "synthetic-model".into(),
+        cancel: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    });
+    e.ask.open = true;
+    e.ask
+        .input
+        .update(cx, |input, cx| input.set_disabled(true, cx));
+    id
+}
+fn synthetic_ask_result(e: &Editor) -> crate::chatgpt::agent::ResultDocument {
+    let mut round = 0;
+    crate::chatgpt::agent::run(e.document.clone(),e.preview.revision,"synthetic-model","Add two boxes",&std::sync::atomic::AtomicBool::new(false),|_|{
+        round+=1;
+        Ok(if round==1 {
+            (0..2).map(|i|serde_json::json!({"type":"function_call","namespace":"glance","name":"add_annotation","call_id":format!("call_{i}"),"arguments":serde_json::json!({"mark":{"tool":"rectangle","points":[[10+i*40,20],[40+i*40,50]],"color":[255,0,0,255],"width":3,"text":""}}).to_string()})).collect()
+        } else {vec![serde_json::json!({"type":"message","content":[{"type":"output_text","text":"Added two editable boxes."}]})]})
+    },|_,_|{}).unwrap()
+}
+#[gpui::test]
+fn ask_glance_bridge_exposes_prompt_state_and_rejects_missing_signin(cx: &mut TestAppContext) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(
+            crate::automation::Request::Dispatch {
+                action: Action::ToggleAskGlance,
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        recv.recv().unwrap().unwrap();
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: "Highlight the error".into(),
+            },
+            cx,
+        )
+        .unwrap();
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        let state = recv.recv().unwrap().unwrap();
+        assert_eq!(state["ask_glance"]["open"], true);
+        assert_eq!(state["ask_glance"]["prompt"], "Highlight the error");
+        assert_eq!(state["ask_glance"]["running"], false);
+        assert!(
+            e.dispatch(
+                Action::AskGlance {
+                    prompt: "Highlight".into()
+                },
+                cx
+            )
+            .is_err()
+        );
+        assert!(e.operations.active.is_none());
+        assert!(
+            e.dispatch(
+                Action::SetAskGlancePrompt {
+                    prompt: "a".repeat(8001)
+                },
+                cx
+            )
+            .is_err()
+        );
+        assert_eq!(e.ask.prompt, "Highlight the error");
+        assert!(e.dispatch(Action::CopyAskGlanceAnswer, cx).is_err());
+        e.ask.answer = "A synthetic reply".into();
+        e.dispatch(Action::CopyAskGlanceAnswer, cx).unwrap();
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "A synthetic reply"
+        );
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: String::new(),
+            },
+            cx,
+        )
+        .unwrap();
+        assert_eq!(e.ask.prompt, "");
+    });
+}
+#[gpui::test]
+fn ask_glance_completed_draft_preserves_prior_history_as_one_undo(cx: &mut TestAppContext) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.document.commit(crate::document::Mark {
+            tool: Tool::Text,
+            points: vec![(10., 10.)],
+            curve: None,
+            color: [0, 0, 0, 255],
+            width: 3.,
+            text: "Keep me".into(),
+            style: Default::default(),
+        });
+        let original = e.document.marks.clone();
+        let revision = e.preview.revision;
+        let result = synthetic_ask_result(e);
+        let id = begin_synthetic_ask(e, cx);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 1,
+                status: "Adding an annotation…".into(),
+            },
+            cx,
+        );
+        assert_eq!(e.ask.steps, 1);
+        e.receive(
+            super::Message::AskFinished {
+                id,
+                result: Ok(result),
+            },
+            cx,
+        );
+        assert_eq!(e.preview.revision, revision + 1);
+        assert_eq!(e.document.marks.len(), original.len() + 2);
+        assert_eq!(e.ask.answer, "Added two editable boxes.");
+        assert!(!e.ask.error);
+        assert!(!e.is_busy());
+        e.document.undo();
+        assert_eq!(e.document.marks, original);
+        e.document.undo();
+        assert!(e.document.marks.is_empty());
+        e.document.redo();
+        assert_eq!(e.document.marks, original);
+        e.document.redo();
+        assert_eq!(e.document.marks.len(), original.len() + 2);
+    });
+}
+#[gpui::test]
+fn ask_glance_discards_canceled_stale_and_account_conflicting_results(cx: &mut TestAppContext) {
+    for scenario in 0..5 {
+        let entity = cx.new(|cx| Editor::with_native(cx, false));
+        entity.update(cx, |e, cx| {
+            let original = e.document.base.clone();
+            let result = synthetic_ask_result(e);
+            let id = begin_synthetic_ask(e, cx);
+            match scenario {
+                0 => {
+                    e.dispatch(Action::CancelAskGlance, cx).unwrap();
+                    assert!(!e.is_busy());
+                }
+                1 => e.preview.revision += 1,
+                2 => e.chatgpt.snapshot.model = Some("different-model".into()),
+                3 => e.chatgpt.snapshot.active_account = Some("different-account".into()),
+                _ => {
+                    e.dispatch(Action::ToggleAskGlance, cx).unwrap();
+                    assert!(!e.ask.open);
+                }
+            }
+            let revision = e.preview.revision;
+            e.receive(
+                super::Message::AskFinished {
+                    id,
+                    result: Ok(result),
+                },
+                cx,
+            );
+            e.receive(
+                super::Message::AskProgress {
+                    id,
+                    steps: 8,
+                    status: "Stale progress".into(),
+                },
+                cx,
+            );
+            assert_eq!(e.preview.revision, revision);
+            assert!(e.document.marks.is_empty());
+            assert!(std::sync::Arc::ptr_eq(&original, &e.document.base));
+            assert!(e.ask.answer.is_empty());
+            assert_ne!(e.ask.status, "Stale progress");
+        });
+    }
+}
+#[gpui::test]
+fn ask_glance_prompt_bar_keeps_native_text_and_model_controls_compact(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| Editor::with_native(cx, false));
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    visual.run_until_parked();
+    let trigger = visual.debug_bounds("ask-Ask Glance").unwrap();
+    visual.simulate_click(trigger.center(), Default::default());
+    visual.run_until_parked();
+    let bar = visual.debug_bounds("ask-bar").unwrap();
+    assert!(f32::from(bar.size.height) < 150.);
+    assert!(visual.debug_bounds("ask-Sign in").is_some());
+    entity.update(&mut visual, |e, cx| {
+        connected_ask(e);
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: "Highlight the error".into(),
+            },
+            cx,
+        )
+        .unwrap();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-Run").is_some());
+    assert!(visual.debug_bounds("ask-model").is_some());
+    let prompt = visual.debug_bounds("ask-prompt-input").unwrap();
+    visual.simulate_click(prompt.center(), Default::default());
+    visual.simulate_keystrokes("cmd-a");
+    visual.simulate_input("Blur emails 日本語");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert_eq!(e.ask.prompt, "Blur emails 日本語")
+    });
+    visual.simulate_keystrokes("cmd-z");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| assert!(e.document.marks.is_empty()));
+    let model = visual.debug_bounds("ask-model").unwrap();
+    visual.simulate_click(model.center(), Default::default());
+    visual.run_until_parked();
+    assert!(
+        visual.debug_bounds("chatgpt-model").is_some(),
+        "Model selection works while local OCR remains selected"
+    );
+    entity.update(&mut visual, |e, cx| {
+        e.chatgpt.menu = false;
+        e.dispatch(Action::ToggleAskGlance, cx).unwrap();
+    });
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| assert!(!e.ask.open));
+}
+
+#[gpui::test]
+fn ask_glance_dispatch_starts_worker_and_cancel_rejects_its_late_completion(
+    cx: &mut TestAppContext,
+) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    let (sender, receiver) = async_channel::unbounded();
+    entity.update(cx, |e, cx| {
+        e.sender = sender;
+        connected_ask(e);
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(
+            crate::automation::Request::Dispatch {
+                action: Action::AskGlance {
+                    prompt: "Highlight the error".into(),
+                },
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        let receipt = recv.recv().unwrap().unwrap();
+        assert!(receipt.operation_id.is_some());
+        assert!(e.is_busy());
+        assert!(e.ask.open);
+        assert_eq!(e.ask.prompt, "Highlight the error");
+        assert!(e.dispatch(Action::Rotate, cx).is_err());
+        e.dispatch(Action::CancelAskGlance, cx).unwrap();
+        assert!(!e.is_busy());
+    });
+    let first = receiver.recv_blocking().unwrap();
+    entity.update(cx, |e, cx| {
+        e.dispatch(
+            Action::AskGlance {
+                prompt: "Add a box".into(),
+            },
+            cx,
+        )
+        .unwrap();
+        let current = e.ask.running.as_ref().unwrap().id;
+        e.receive(first, cx);
+        assert_eq!(e.ask.running.as_ref().unwrap().id, current);
+        assert!(e.is_busy());
+        assert!(e.document.marks.is_empty());
+    });
+    let second = receiver.recv_blocking().unwrap();
+    entity.update(cx, |e, cx| {
+        // The virtual editor has no credentials: this worker fails before any network request.
+        e.receive(second, cx);
+        assert!(!e.is_busy());
+        assert!(e.ask.error);
+        assert!(e.ask.answer.is_empty());
+        assert!(e.document.marks.is_empty());
+        assert_eq!(e.preview.revision, 0);
+    });
+}

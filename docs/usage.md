@@ -98,12 +98,45 @@ with its English language data; see [Linux setup](linux.md#text-extraction).
 Local OCR needs no account, subscription, or upload. Work runs in the background,
 with a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit is reached.
 
+## Ask Glance
+
+Click **Ask** in the toolbar, choose **Edit → Ask Glance…**, or press
+**⌘K** (**Ctrl+K** on Linux). Type a request and press **Enter** or **Run**:
+
+- “Pixelate the email addresses and highlight the error.”
+- “Crop to the dialog and add numbered steps.”
+- “Make this screenshot presentable with a rounded ocean backdrop.”
+- “Explain this error and draft a bug report.”
+
+Connect a ChatGPT account first. Ask Glance uses the selected account/model
+independently of the **OCR source** setting; local OCR can remain selected.
+The model control opens the account menu, where **Model** is a dropdown.
+Running a request sends the current annotated image (as a downscaled preview),
+annotation metadata, and your prompt to OpenAI using your ChatGPT plan.
+Opening the prompt bar, typing, or signing in does not send the image.
+
+The agent uses the same validated crop, resize, annotation, and backdrop actions
+as the editor and MCP. It works on a private draft, inspects previews, and can
+make several edits before finishing. A completed draft appears on the canvas as
+**one undoable change**; annotations remain selectable and editable. Review
+pixelated regions before sharing. **Stop** or **Esc** cancels a running request;
+closing the bar also cancels it. Failure, interruption, cancellation, and
+revision/account conflicts discard the draft and preserve your document.
+
+The final reply appears below the prompt; **Copy answer** copies it. Ask Glance
+can answer questions without changing the image. It does not export/upload
+images, control other apps, or modify Glance's source code. Use the normal export
+and copy controls after reviewing the result. Requests are bounded to eight
+model rounds, 32 tool calls, five minutes, and 16 MP source images. Very large
+contexts or framed previews may require a smaller crop or simpler request.
+
 ## Use your ChatGPT plan
 
-Open **ChatGPT** in the top toolbar (or **Glance → ChatGPT account…**) and choose
-**Continue with ChatGPT**. Finish signing in and granting permission in your
-system browser. Eligible ChatGPT accounts can use their plan for OCR without an
-API key. A first-use message explains plan usage; choose **Got it** to continue.
+Open the **ChatGPT account** icon in the top toolbar (or
+**Glance → ChatGPT account…**) and choose **Continue with ChatGPT**. Finish signing in and granting permission in your
+system browser. Eligible ChatGPT accounts can use their plan for image editing
+and OCR without an API key. A first-use message explains plan usage; choose
+**Got it** to continue.
 
 In the account menu, select **ChatGPT** under **OCR source**, then choose an
 available model from the **Model** dropdown. The same OCR

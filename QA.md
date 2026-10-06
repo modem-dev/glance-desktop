@@ -53,6 +53,23 @@ with explicit authorization for that verification.
   stale results cannot overwrite it. Confirm recognition stays offline.
 - Check accessible toolbar/inspector/menu discovery, exact values, and VoiceOver navigation.
 
+## Ask Glance
+
+- Open Ask Glance using the toolbar, Edit menu, and ⌘K / Ctrl+K. Check its prompt
+  and Run/Stop controls fit at the minimum window size and have visible borders.
+- Verify Unicode/IME input, selection, paste, prompt undo, and Enter to submit.
+  Typing letter shortcuts must not change tools; prompt undo must not undo edits.
+- Model selection must remain available when OCR is set to On device.
+- With explicit authorization for inference on a test account, use only a
+  synthetic screenshot: ask for two annotations and a crop; check progress,
+  editable annotations, and one Undo restores the entire previous document.
+- Stop a run, close its bar, then start another. Late progress/results from the
+  canceled run must not affect the new run or image. Check failure and usage-limit
+  messages; clipboard/document must remain unchanged until successful completion.
+- Ask a question without edits, copy its reply, and confirm history is unchanged.
+- MCP: dispatch `ask_glance` with an expected revision, poll `ask_glance` state,
+  cancel it, and verify fresh IDs after completion. Never return bearer tokens.
+
 ## ChatGPT account controls
 
 - Open ChatGPT from the toolbar; check account controls remain accessible and fit

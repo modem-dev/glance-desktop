@@ -88,6 +88,8 @@ fn every_serializable_action_is_exposed_or_explicitly_excluded() {
 #[test]
 fn every_exposed_action_has_a_valid_round_trip_payload() {
     let fixtures = [
+        json!({"type":"set_ask_glance_prompt","prompt":""}),
+        json!({"type":"ask_glance","prompt":"Highlight the error"}),
         json!({"type":"capture","area":true}),
         json!({"type":"copy_ocr","rectangle":[10,20,30,40],"engine":"chatgpt"}),
         json!({"type":"chatgpt_sign_in","account_id":"synthetic-account"}),

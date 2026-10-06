@@ -338,6 +338,7 @@ impl Editor {
             .find(|a| Some(&a.id) == snapshot.active_account.as_ref());
         let enabled = !self.chatgpt.busy && !self.is_busy();
         let cloud = snapshot.ocr_engine == OcrEngine::Chatgpt;
+        let show_model = cloud || self.ask.open;
         let mut panel = div()
             .id("chatgpt-menu")
             .debug_selector(|| "chatgpt-menu".into())
@@ -430,7 +431,7 @@ impl Editor {
                     div()
                         .text_xs()
                         .text_color(rgb(0x515d70))
-                        .child("Use your ChatGPT plan for OCR."),
+                        .child("Use your ChatGPT plan for image editing and OCR."),
                 )
                 .child(self.account_button(
                     "Continue with ChatGPT",
@@ -504,7 +505,7 @@ impl Editor {
                         cx,
                     ))),
             );
-        if cloud && snapshot.can_infer() {
+        if show_model && snapshot.can_infer() {
             let model = snapshot
                 .models
                 .iter()
