@@ -9,10 +9,6 @@ Glance’s interface follows the system’s light or dark appearance and updates
 it changes while the app is running. Image content, annotation colors, backdrops,
 and exported media keep their colors.
 
-| Light appearance | Dark appearance |
-| --- | --- |
-| ![Glance in light appearance](assets/glance-appearance-light.png) | ![Glance in dark appearance](assets/glance-appearance-dark.png) |
-
 ## Capture or open an image
 
 - **⌘⌥2** captures an area; Escape cancels the selector.
