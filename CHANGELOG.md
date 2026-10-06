@@ -4,6 +4,11 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- The editor interface follows the system’s light or dark appearance, including
+  changes while Glance is running. Image content and exported media keep their colors.
+
 ## [0.4.0] - 2026-10-06
 
 ### Changed

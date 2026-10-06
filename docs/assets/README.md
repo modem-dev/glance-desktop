@@ -50,3 +50,11 @@ ffmpeg -hide_banner -loglevel warning -n -protocol_whitelist file \
   -loop 0 "$GLANCE_README_OUTPUT/albums-compact.gif"
 cp "$GLANCE_README_OUTPUT/albums-compact.gif" docs/assets/glance-albums.gif
 ```
+
+## System appearance
+
+`glance-appearance-light.png` and `glance-appearance-dark.png` show the native
+editor with its built-in practice canvas and Line / Arrow controls. Both images
+use identical document content. They were read back from GPUI’s rendered Metal
+texture in a temporary native QA build, with the window’s effective appearance
+switched between Aqua and Dark Aqua. No personal screen content is included.

@@ -26,6 +26,7 @@ mod selection;
 mod stress_tests;
 mod style;
 mod text;
+mod theme;
 mod video;
 actions!(glance, [Quit]);
 mod editor;
@@ -69,6 +70,7 @@ fn main() {
                 ..Default::default()
             },
             move |window, cx| {
+                theme::Theme::install(window, cx);
                 cx.new(|cx| {
                     window.on_window_should_close(cx, |_, cx| {
                         #[cfg(target_os = "macos")]

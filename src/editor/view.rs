@@ -5,13 +5,14 @@ use crate::{document::Tool, menus};
 use gpui::{prelude::*, *};
 pub(super) struct HoverLabel(pub(super) SharedString);
 impl Render for HoverLabel {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         div()
             .px_3()
             .py_2()
             .rounded_md()
-            .bg(rgb(0x282b34))
-            .text_color(rgb(0xffffff))
+            .bg(rgb(theme.tooltip))
+            .text_color(rgb(theme.tooltip_text))
             .text_xs()
             .shadow_md()
             .child(crate::platform::shortcut_label(&self.0))
@@ -26,6 +27,7 @@ pub(super) fn icon(name: &'static str, color: u32) -> impl IntoElement {
 }
 impl Editor {
     pub(super) fn tool_button(&self, tool: Tool, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let (name, key) = match tool {
             Tool::Select => ("mouse-pointer-2", "V"),
             Tool::Pen => ("pen-line", "P"),
@@ -56,10 +58,21 @@ impl Editor {
                 .justify_center()
                 .rounded_md()
                 .cursor_pointer()
-                .bg(rgb(if active { 0xffe9e4 } else { 0xfcfcfd }))
-                .hover(|s| s.bg(rgb(0xf0f1f5)))
-                .active(|s| s.bg(rgb(0xe5e7ed)))
-                .child(icon(name, if active { 0xd94d38 } else { 0x555966 }))
+                .bg(rgb(if active {
+                    theme.accent_background
+                } else {
+                    theme.chrome
+                }))
+                .hover(|s| s.bg(rgb(theme.hover)))
+                .active(|s| s.bg(rgb(theme.pressed)))
+                .child(icon(
+                    name,
+                    if active {
+                        theme.accent
+                    } else {
+                        theme.secondary
+                    },
+                ))
                 .tooltip(move |_, cx| cx.new(|_| HoverLabel(label.clone())).into())
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.dispatch_ui(Action::SelectTool { tool }, cx)
@@ -74,6 +87,7 @@ impl Editor {
         cx: &Context<Self>,
         action: Action,
     ) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let button = div()
             .id(label)
             .size(px(30.))
@@ -83,9 +97,20 @@ impl Editor {
             .justify_center()
             .rounded_md()
             .cursor_pointer()
-            .bg(rgb(if active { 0xffe9e4 } else { 0xfcfcfd }))
-            .hover(|s| s.bg(rgb(0xf0f1f5)))
-            .child(icon(name, if active { 0xd94d38 } else { 0x555966 }))
+            .bg(rgb(if active {
+                theme.accent_background
+            } else {
+                theme.chrome
+            }))
+            .hover(|s| s.bg(rgb(theme.hover)))
+            .child(icon(
+                name,
+                if active {
+                    theme.accent
+                } else {
+                    theme.secondary
+                },
+            ))
             .tooltip(move |_, cx| cx.new(|_| HoverLabel(label.into())).into())
             .on_click(cx.listener({
                 let action = action.clone();
@@ -100,6 +125,7 @@ impl Editor {
         cx: &Context<Self>,
         action: Action,
     ) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let icon_name = if label.starts_with("Area") {
             Some("scan")
         } else if label.starts_with("Screen") {
@@ -135,13 +161,28 @@ impl Editor {
             .rounded_md()
             .cursor_pointer()
             .text_sm()
-            .bg(rgb(if active { 0xffe9e4 } else { 0xffffff }))
-            .text_color(rgb(if active { 0xd94d38 } else { 0x44454f }))
-            .hover(|s| s.bg(rgb(0xf0f1f5)))
-            .active(|s| s.bg(rgb(0xe5e7ed)))
+            .bg(rgb(if active {
+                theme.accent_background
+            } else {
+                theme.surface
+            }))
+            .text_color(rgb(if active {
+                theme.accent
+            } else {
+                theme.secondary
+            }))
+            .hover(|s| s.bg(rgb(theme.hover)))
+            .active(|s| s.bg(rgb(theme.pressed)))
             .gap_2()
             .when_some(icon_name, |el, name| {
-                el.child(icon(name, if active { 0xd94d38 } else { 0x555966 }))
+                el.child(icon(
+                    name,
+                    if active {
+                        theme.accent
+                    } else {
+                        theme.secondary
+                    },
+                ))
             })
             .child(crate::platform::shortcut_label(label))
             .on_click(cx.listener({
@@ -151,6 +192,7 @@ impl Editor {
         self.accessible_button(crate::platform::shortcut_label(label), true, action, button)
     }
     fn export_progress(&self, progress: u32, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let progress = progress.min(100);
         let label = format!("Exporting animation… {progress}%");
         div()
@@ -163,8 +205,8 @@ impl Editor {
             .items_center()
             .gap_3()
             .border_t_1()
-            .border_color(rgb(0xdfe1e7))
-            .bg(rgb(0xffffff))
+            .border_color(rgb(theme.border))
+            .bg(rgb(theme.surface))
             .child(
                 div()
                     .flex_1()
@@ -180,14 +222,14 @@ impl Editor {
                             .h(px(6.))
                             .rounded_full()
                             .overflow_hidden()
-                            .bg(rgb(0xe5e7ed))
+                            .bg(rgb(theme.pressed))
                             .child(
                                 div()
                                     .id("export-progress-fill")
                                     .debug_selector(|| "export-progress-fill".into())
                                     .h_full()
                                     .w(relative(progress as f32 / 100.))
-                                    .bg(rgb(0x27856f)),
+                                    .bg(rgb(theme.positive_fill)),
                             ),
                     ),
             )
@@ -201,6 +243,7 @@ impl Editor {
 }
 impl Render for Editor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let tool_target = (
             self.options_tool(),
             self.interaction.selected,
@@ -264,8 +307,8 @@ impl Render for Editor {
             .relative()
             .flex()
             .flex_col()
-            .bg(rgb(0xfcfcfd))
-            .text_color(rgb(0x272831))
+            .bg(rgb(theme.chrome))
+            .text_color(rgb(theme.text))
             .font_family(crate::platform::UI_FONT)
             .track_focus(&self.focus)
             .key_context(if self.interaction.text_edit.is_some() {
@@ -441,12 +484,12 @@ impl Render for Editor {
                     .items_center()
                     .gap(px(2.))
                     .border_b_1()
-                    .border_color(rgb(0xe9e9ee))
+                    .border_color(rgb(theme.divider))
                     .child(
                         div()
                             .text_sm()
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgb(0xf35d45))
+                            .text_color(rgb(theme.accent_fill))
                             .mr_2()
                             .child("glance"),
                     )
@@ -471,9 +514,9 @@ impl Render for Editor {
                         cx,
                         Action::OpenImage,
                     ))
-                    .child(div().w(px(1.)).h(px(18.)).mx_1().bg(rgb(0xe5e5ec)))
+                    .child(div().w(px(1.)).h(px(18.)).mx_1().bg(rgb(theme.divider)))
                     .children(tools.into_iter().map(|tool| self.tool_button(tool, cx)))
-                    .child(div().w(px(1.)).h(px(18.)).mx_1().bg(rgb(0xe5e5ec)))
+                    .child(div().w(px(1.)).h(px(18.)).mx_1().bg(rgb(theme.divider)))
                     .child(self.compact_button(
                         "Backdrop",
                         "square",
@@ -531,7 +574,7 @@ impl Render for Editor {
                             .items_center()
                             .gap_3()
                             .text_xs()
-                            .text_color(rgb(0x555966))
+                            .text_color(rgb(theme.secondary))
                             .child(
                                 div()
                                     .id("image-size")
@@ -543,7 +586,7 @@ impl Render for Editor {
                                         cx.new(|_| HoverLabel("Image size in pixels".into())).into()
                                     }),
                             )
-                            .child(div().h(px(20.)).w(px(1.)).bg(rgb(0xe5e5ec)))
+                            .child(div().h(px(20.)).w(px(1.)).bg(rgb(theme.divider)))
                             .child(
                                 div()
                                     .id("header-zoom")
@@ -566,7 +609,7 @@ impl Render for Editor {
                 el.child(self.export_progress(progress, cx))
             })
             .when_some(self.feedback.copy, |el, feedback| {
-                el.child(self.copy_confirmation(feedback))
+                el.child(self.copy_confirmation(feedback, cx))
             });
         self.accessibility.root(contents)
     }

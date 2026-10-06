@@ -49,7 +49,8 @@ impl Editor {
         }
         cx.notify();
     }
-    pub(super) fn copy_confirmation(&self, feedback: CopyFeedback) -> impl IntoElement {
+    pub(super) fn copy_confirmation(&self, feedback: CopyFeedback, cx: &App) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let complete = feedback.complete();
         div()
             .id("copy-feedback")
@@ -62,8 +63,8 @@ impl Editor {
             .py_2()
             .rounded_lg()
             .shadow_md()
-            .bg(rgb(0x282b34))
-            .text_color(rgb(0xffffff))
+            .bg(rgb(theme.tooltip))
+            .text_color(rgb(theme.tooltip_text))
             .text_sm()
             .flex()
             .items_center()
@@ -74,7 +75,11 @@ impl Editor {
                     CopyFeedback::Uploading => "cloud-upload",
                     _ => "check",
                 },
-                if complete { 0x87e3b0 } else { 0xc6c9d3 },
+                if complete {
+                    0x87e3b0
+                } else {
+                    theme.tooltip_detail
+                },
             ))
             .child(div().child(feedback.label()).when_some(
                 match feedback {
@@ -83,7 +88,14 @@ impl Editor {
                     }
                     _ => None,
                 },
-                |el, detail| el.child(div().text_xs().text_color(rgb(0xc6c9d3)).child(detail)),
+                |el, detail| {
+                    el.child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(theme.tooltip_detail))
+                            .child(detail),
+                    )
+                },
             ))
     }
 }

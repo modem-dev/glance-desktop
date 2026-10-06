@@ -1780,3 +1780,46 @@ fn select_all_menu_and_shortcut_use_full_event_dispatch(cx: &mut TestAppContext)
         vec![0, 1, 2]
     );
 }
+
+#[gpui::test]
+fn appearance_switch_preserves_document_selection_revision_and_undo(cx: &mut TestAppContext) {
+    use crate::theme::Theme;
+    use gpui::WindowAppearance;
+
+    let view = editor(cx);
+    let (before, revision) = view
+        .update(cx, |e, w, cx| {
+            reset_layout(e);
+            e.set_tool(Tool::Arrow, cx);
+            e.begin(&down(10., 10.), w, cx);
+            e.finish(&up(70., 70.), cx);
+            e.interaction.selected = Some(0);
+            e.document.backdrop = Some(crate::backdrop::Backdrop::default());
+            (e.document.render(None), e.preview.revision)
+        })
+        .unwrap();
+    for appearance in [
+        WindowAppearance::Dark,
+        WindowAppearance::Light,
+        WindowAppearance::VibrantDark,
+    ] {
+        cx.update(|cx| Theme::apply(appearance, cx));
+        let mut visual = gpui::VisualTestContext::from_window(*view, cx);
+        visual.run_until_parked();
+        view.update(&mut visual, |e, _, cx| {
+            assert_eq!(Theme::get(cx), Theme::for_appearance(appearance));
+            assert_eq!(e.document.render(None), before);
+            assert_eq!(e.preview.revision, revision);
+            assert_eq!(e.interaction.selected, Some(0));
+            assert_eq!(e.interaction.tool, Tool::Arrow);
+        })
+        .unwrap();
+    }
+    view.update(cx, |e, _, _| {
+        e.document.undo();
+        assert!(e.document.marks.is_empty());
+        e.document.redo();
+        assert_eq!(e.document.render(None), before);
+    })
+    .unwrap();
+}
