@@ -1,6 +1,6 @@
 [package]
 name = "glance"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "A native screenshot editor for annotation, animated backdrops, and sharing visual context with coding agents."
 license = "MIT"
