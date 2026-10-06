@@ -53,6 +53,20 @@ with explicit authorization for that verification.
   stale results cannot overwrite it. Confirm recognition stays offline.
 - Check accessible toolbar/inspector/menu discovery, exact values, and VoiceOver navigation.
 
+## ChatGPT account controls
+
+- Open ChatGPT from the toolbar; check account controls remain accessible and fit
+  a small window. Confirm local OCR still works without an account or network.
+- With explicit authorization for the test account, use Continue with ChatGPT in
+  the system browser. Check the first-use modal, account/model display, restart
+  persistence, reconnect, account/workspace switching, cancellation and sign-out.
+- Select ChatGPT OCR and use only a synthetic image. Check the clipboard after
+  completed inference and compare offline recognition. Verify missing permission,
+  expired sign-in, model errors, usage limits, incomplete/interrupted streams and
+  sign-out leave existing clipboard text intact.
+- Confirm MCP account state never includes credentials, and screenshots/support
+  logs contain no tokens or authorization URLs.
+
 ## Animation and export
 
 - Preview all eight motions, Randomize, custom colors, and duration changes.

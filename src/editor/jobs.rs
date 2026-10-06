@@ -36,6 +36,14 @@ pub(super) struct OperationState {
     next_id: u64,
 }
 pub(crate) enum Message {
+    ChatgptAuthorization {
+        generation: u64,
+        url: String,
+    },
+    ChatgptFinished {
+        generation: u64,
+        outcome: super::chatgpt::Outcome,
+    },
     Accessibility(super::panels::number::Scope, Action),
     AccessibilityPopup(
         super::panels::number::Scope,
@@ -59,6 +67,7 @@ pub(crate) enum OperationResult {
         revision: u64,
         rectangle: [u32; 4],
         result: Result<String, String>,
+        engine: crate::chatgpt::OcrEngine,
     },
     ToolColorSample {
         tool: crate::document::Tool,
@@ -133,6 +142,32 @@ impl Editor {
     }
     pub(super) fn receive(&mut self, message: Message, cx: &mut Context<Self>) {
         match message {
+            Message::ChatgptAuthorization { generation, url } => {
+                if generation == self.chatgpt.generation
+                    && self.chatgpt.signing_in
+                    && !self
+                        .chatgpt
+                        .cancel
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    cx.open_url(&url);
+                }
+            }
+            Message::ChatgptFinished {
+                generation,
+                outcome,
+            } => {
+                if generation == self.chatgpt.generation {
+                    self.chatgpt.busy = false;
+                    self.chatgpt.signing_in = false;
+                    if let Some(snapshot) = outcome.snapshot {
+                        self.chatgpt.snapshot = snapshot;
+                    }
+                    self.chatgpt.status = outcome.status;
+                    cx.notify();
+                }
+            }
+
             Message::Accessibility(scope, action) => {
                 if scope == self.tool_scope() {
                     self.dispatch_ui(action, cx);
@@ -229,7 +264,17 @@ impl Editor {
                     return;
                 }
                 self.operations.active = None;
+                let chatgpt_ocr = matches!(
+                    &result,
+                    OperationResult::ExtractedText {
+                        engine: crate::chatgpt::OcrEngine::Chatgpt,
+                        ..
+                    }
+                );
                 self.receive_result(result, cx);
+                if chatgpt_ocr && !self.chatgpt.busy {
+                    let _ = self.chatgpt_job(super::chatgpt::Job::Load, cx);
+                }
             }
         }
     }
@@ -252,11 +297,20 @@ impl Editor {
                 revision,
                 rectangle,
                 result,
+                engine,
             } => {
                 if revision != self.preview.revision {
                     self.set_copy_feedback(None, cx);
                     self.feedback.status =
                         "Image changed during text extraction; extract again".into();
+                } else if engine == crate::chatgpt::OcrEngine::Chatgpt
+                    && self
+                        .chatgpt
+                        .inference_cancel
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    self.set_copy_feedback(None, cx);
+                    self.feedback.status = "ChatGPT OCR canceled".into();
                 } else {
                     match result {
                         Ok(text) => {
@@ -273,6 +327,7 @@ impl Editor {
                                 revision,
                                 rectangle,
                                 text,
+                                engine,
                             });
                         }
                         Err(error) => {
@@ -434,7 +489,10 @@ impl Editor {
             }
         }
         crate::platform::show_editor(cx);
-        if failed && let Some(window) = cx.windows().first().copied() {
+        if failed
+            && self.feedback.status != "ChatGPT OCR canceled"
+            && let Some(window) = cx.windows().first().copied()
+        {
             let detail = self.feedback.status.clone();
             if let Ok(answer) = window.update(cx, |_, window, cx| {
                 window.prompt(

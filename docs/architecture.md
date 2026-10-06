@@ -116,6 +116,15 @@ checks reject stale results before writing the clipboard; `CopyOcr` shares
 UI/MCP dispatch and state read-back. A nonempty result is copied directly without
 opening a panel or changing image annotations and undo.
 
+`chatgpt.rs` owns the opt-in ChatGPT subscription integration: private atomic
+credential storage and cross-process locks, loopback OAuth with PKCE/state/nonce,
+JWKS identity verification, refresh/revocation, account-specific model discovery,
+and bounded Responses SSE parsing. Editor account jobs run outside the UI thread
+and independently of document workers. Only public account snapshots enter UI or
+MCP state; authorization URLs remain internal and are never logged. `CopyOcr`
+selects local or ChatGPT recognition, and its operation/revision checks protect
+the clipboard. Signing in alone never sends a screenshot.
+
 `src/glance.rs` implements opt-in remote sharing. `src/mcp.rs` provides the stdio
 MCP server, while `src/automation.rs` bridges it to an editor launched with
 `--automation` over a local Unix socket.

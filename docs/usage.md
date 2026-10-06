@@ -95,8 +95,41 @@ code indentation. Review the pasted text for recognition errors.
 
 macOS uses the bundled Apple Vision helper. Omarchy uses optional `tesseract`
 with its English language data; see [Linux setup](linux.md#text-extraction).
-No account, subscription, or upload is needed. Work runs in the background, with
-a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit is reached.
+Local OCR needs no account, subscription, or upload. Work runs in the background,
+with a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit is reached.
+
+## Use your ChatGPT plan
+
+Open **ChatGPT** in the top toolbar (or **Glance → ChatGPT account…**) and choose
+**Continue with ChatGPT**. Finish signing in and granting permission in your
+system browser. Eligible ChatGPT accounts can use their plan for OCR without an
+API key. A first-use message explains plan usage; choose **Got it** to continue.
+
+In the account menu, choose a model from your account’s available models and
+select **ChatGPT · Using ChatGPT plan** under **Copy as OCR uses**. The same OCR
+button now sends the source screenshot to OpenAI and copies the completed result
+to the clipboard. Signing in alone does not upload images or select ChatGPT OCR.
+Choose **This device · Offline** to use local recognition again. ChatGPT can help
+preserve text layout and code indentation; review the pasted result for errors.
+
+The menu shows saved accounts separately, including accounts with the same email.
+Select an account to refresh its model catalog, **Reconnect selected account** to
+renew its sign-in, or **Continue with ChatGPT** to add another account/workspace.
+**Cancel sign-in** stops a pending browser callback. **Sign out of selected account**
+clears that account’s local credentials and attempts remote session revocation,
+while preserving the account registration for later sign-in.
+
+**Manage usage** opens ChatGPT usage settings. Requests count toward your ChatGPT
+plan or available credits and may reach account/app limits. If permission or usage
+is unavailable, Glance shows an error and preserves your clipboard. It does not
+silently switch OCR providers. The integration currently uses OpenAI’s preview
+subscription API; availability and models depend on the selected account.
+
+Credentials are kept outside the repository in private, owner-only local files,
+with atomic writes and serialized token refresh. MCP exposes account metadata,
+model choices and OCR settings, never tokens. ChatGPT OCR sends at most a 16 MP,
+20 MB source image, limits each network request to 90 seconds and returned text to 64 KiB,
+and waits for complete inference before copying. Cropping limits the image sent.
 
 ## Frame the image
 

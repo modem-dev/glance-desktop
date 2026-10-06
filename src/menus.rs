@@ -11,6 +11,7 @@ actions!(
         Copy,
         CopyRemote,
         CopyOcr,
+        ChatgptAccount,
         Paste,
         Undo,
         Redo,
@@ -130,7 +131,10 @@ pub fn install(cx: &mut App) {
     cx.set_menus(vec![
         Menu {
             name: "Glance".into(),
-            items: vec![MenuItem::action("Quit Glance", crate::Quit)],
+            items: vec![
+                MenuItem::action("ChatGPT account…", ChatgptAccount),
+                MenuItem::action("Quit Glance", crate::Quit),
+            ],
         },
         Menu {
             name: "File".into(),

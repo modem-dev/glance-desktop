@@ -3,6 +3,7 @@ mod animation;
 mod arrow;
 mod automation;
 mod backdrop;
+mod chatgpt;
 mod color_picker;
 mod document;
 mod drawing;

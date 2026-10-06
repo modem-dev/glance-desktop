@@ -398,8 +398,17 @@ impl Render for Editor {
             .on_action(cx.listener(|this, _: &menus::ImageTools, _, cx| {
                 this.dispatch_ui(Action::ToggleEnhance, cx)
             }))
+            .on_action(cx.listener(|this, _: &menus::ChatgptAccount, _, cx| {
+                this.dispatch_ui(Action::ToggleChatgptAccountMenu, cx)
+            }))
             .on_action(cx.listener(|this, _: &menus::CopyOcr, _, cx| {
-                this.dispatch_ui(Action::CopyOcr { rectangle: None }, cx)
+                this.dispatch_ui(
+                    Action::CopyOcr {
+                        rectangle: None,
+                        engine: None,
+                    },
+                    cx,
+                )
             }))
             .on_action(
                 cx.listener(|this, _: &menus::Help, _, cx| this.dispatch_ui(Action::Help, cx)),
@@ -516,7 +525,13 @@ impl Render for Editor {
                             .debug_selector(|| "copy-ocr".into())
                             .flex_shrink_0()
                             .child(self.compact_button(
-                                "Copy as OCR · Recognize text offline",
+                                if self.chatgpt.snapshot.ocr_engine
+                                    == crate::chatgpt::OcrEngine::Chatgpt
+                                {
+                                    "Copy as OCR · Using ChatGPT plan · Sends image to OpenAI"
+                                } else {
+                                    "Copy as OCR · Recognize text offline"
+                                },
                                 if self.feedback.copy == Some(CopyFeedback::TextCopied) {
                                     "check"
                                 } else {
@@ -524,7 +539,10 @@ impl Render for Editor {
                                 },
                                 false,
                                 cx,
-                                Action::CopyOcr { rectangle: None },
+                                Action::CopyOcr {
+                                    rectangle: None,
+                                    engine: None,
+                                },
                             )),
                     )
                     .child(
@@ -544,6 +562,12 @@ impl Render for Editor {
                                 Action::CopyRemote,
                             )),
                     )
+                    .child(self.button(
+                        "ChatGPT",
+                        self.chatgpt.menu,
+                        cx,
+                        Action::ToggleChatgptAccountMenu,
+                    ))
                     .child(self.export_menu(cx))
                     .child(
                         div()
@@ -587,6 +611,13 @@ impl Render for Editor {
             })
             .when_some(self.feedback.copy, |el, feedback| {
                 el.child(self.copy_confirmation(feedback))
+            });
+        let contents = contents
+            .when(self.chatgpt.menu, |el| {
+                el.child(self.chatgpt_menu(window, cx))
+            })
+            .when(self.chatgpt.snapshot.welcome_pending, |el| {
+                el.child(self.chatgpt_welcome(cx))
             });
         self.accessibility.root(contents)
     }

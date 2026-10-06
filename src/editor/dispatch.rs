@@ -60,6 +60,10 @@ impl Editor {
                     | Action::Quit
                     | Action::ClosePanel { .. }
                     | Action::Cancel
+                    | Action::ToggleChatgptAccountMenu
+                    | Action::SignOutChatgpt
+                    | Action::CancelChatgptSignIn
+                    | Action::ManageChatgptUsage
             )
         {
             return Err("Editor is busy. Wait for the current operation to finish.".into());
@@ -90,14 +94,66 @@ impl Editor {
         };
         // Validate before committing text or canceling a gesture.
         match &action {
-            Action::CopyOcr { rectangle } => {
+            Action::CopyOcr { rectangle, engine } => {
                 crate::ocr::validate_rectangle(self.document.base.dimensions(), *rectangle)?;
+                if engine.unwrap_or(self.chatgpt.snapshot.ocr_engine)
+                    == crate::chatgpt::OcrEngine::Chatgpt
+                {
+                    if self.chatgpt.busy {
+                        return Err("Wait for the current ChatGPT account operation".into());
+                    }
+                    if !self.chatgpt.snapshot.can_infer() {
+                        return Err(
+                            "Continue with ChatGPT and choose an available model first".into()
+                        );
+                    }
+                }
                 if self.interaction.text_edit.is_some() || self.interaction.gesture.is_active() {
                     return Err(
                         "Finish the current annotation text or gesture before extracting text"
                             .into(),
                     );
                 }
+            }
+            Action::ChatgptSignIn { .. }
+            | Action::SelectChatgptAccount { .. }
+            | Action::SetChatgptModel { .. }
+            | Action::SetOcrEngine { .. }
+            | Action::SignOutChatgpt
+            | Action::DismissChatgptWelcome
+                if self.chatgpt.busy =>
+            {
+                return Err(
+                    "Wait for the current ChatGPT account operation or cancel sign-in".into(),
+                );
+            }
+            Action::ChatgptSignIn {
+                account_id: Some(id),
+            }
+            | Action::SelectChatgptAccount { account_id: id }
+                if !self.chatgpt.snapshot.accounts.iter().any(|a| &a.id == id) =>
+            {
+                return Err("Unknown ChatGPT account".into());
+            }
+            Action::SetChatgptModel { model }
+                if !self
+                    .chatgpt
+                    .snapshot
+                    .models
+                    .iter()
+                    .any(|m| &m.slug == model) =>
+            {
+                return Err("Choose a model available to this ChatGPT account".into());
+            }
+            Action::SetOcrEngine {
+                engine: crate::chatgpt::OcrEngine::Chatgpt,
+            } if !self.chatgpt.snapshot.can_infer() => {
+                return Err("Continue with ChatGPT and choose an available model first".into());
+            }
+            Action::SignOutChatgpt | Action::DismissChatgptWelcome
+                if self.chatgpt.snapshot.active_account.is_none() =>
+            {
+                return Err("No ChatGPT account selected".into());
             }
             Action::RandomizeMotion { .. }
                 if self
@@ -305,28 +361,96 @@ impl Editor {
             Action::CopyImage => self.export(false, cx),
             Action::CopyRemote => self.copy_remote(cx),
             Action::PasteImage => self.paste_image(cx),
-            Action::CopyOcr { rectangle } => {
+            Action::CopyOcr { rectangle, engine } => {
                 self.cancel_gesture();
                 let rectangle =
                     crate::ocr::validate_rectangle(self.document.base.dimensions(), rectangle)?;
+                let engine = engine.unwrap_or(self.chatgpt.snapshot.ocr_engine);
                 let revision = self.preview.revision;
                 let image = self.document.base.clone();
                 let id = self
                     .start_operation(super::jobs::OperationKind::Ocr)
                     .ok_or("Editor is busy")?;
                 self.extraction = None;
-                self.feedback.status = "Reading text locally…".into();
+                self.feedback.status = if engine == crate::chatgpt::OcrEngine::Chatgpt {
+                    "Reading text with ChatGPT · Using ChatGPT plan…"
+                } else {
+                    "Reading text locally…"
+                }
+                .into();
                 self.set_copy_feedback(Some(super::feedback::CopyFeedback::ReadingText), cx);
+                let runtime = self.chatgpt.runtime.clone();
+                if engine == crate::chatgpt::OcrEngine::Chatgpt {
+                    self.chatgpt.inference_cancel =
+                        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                }
+                let cancel = self.chatgpt.inference_cancel.clone();
+                let account = self
+                    .chatgpt
+                    .snapshot
+                    .active_account
+                    .clone()
+                    .unwrap_or_default();
+                let model = self.chatgpt.snapshot.model.clone().unwrap_or_default();
                 #[cfg(not(test))]
                 let recognize = crate::ocr::extract;
                 #[cfg(test)]
                 let recognize = self.recognize_text;
-                self.spawn_operation(id, move || super::jobs::OperationResult::ExtractedText {
-                    revision,
-                    rectangle,
-                    result: recognize(&image, Some(rectangle)),
+                self.spawn_operation(id, move || {
+                    let result = if engine == crate::chatgpt::OcrEngine::Chatgpt {
+                        runtime
+                            .lock()
+                            .map_err(|_| "ChatGPT account service stopped".to_string())
+                            .and_then(|mut service| {
+                                service.recognize(&image, rectangle, &account, &model, &cancel)
+                            })
+                    } else {
+                        recognize(&image, Some(rectangle))
+                    };
+                    let result = if engine == crate::chatgpt::OcrEngine::Chatgpt
+                        && cancel.load(std::sync::atomic::Ordering::Relaxed)
+                    {
+                        Err("ChatGPT OCR canceled".into())
+                    } else {
+                        result
+                    };
+                    super::jobs::OperationResult::ExtractedText {
+                        revision,
+                        rectangle,
+                        result,
+                        engine,
+                    }
                 });
             }
+            Action::ToggleChatgptAccountMenu => self.chatgpt.menu = !self.chatgpt.menu,
+            Action::ChatgptSignIn { account_id } => {
+                self.chatgpt_job(super::chatgpt::Job::SignIn(account_id), cx)?
+            }
+            Action::CancelChatgptSignIn => {
+                if self.chatgpt.signing_in {
+                    self.chatgpt
+                        .cancel
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    self.chatgpt.status = "Canceling ChatGPT sign-in…".into();
+                }
+            }
+            Action::SelectChatgptAccount { account_id } => {
+                self.chatgpt_job(super::chatgpt::Job::Account(account_id), cx)?
+            }
+            Action::SignOutChatgpt => {
+                self.chatgpt
+                    .inference_cancel
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                self.chatgpt_job(super::chatgpt::Job::SignOut, cx)?;
+            }
+            Action::SetOcrEngine { engine } => {
+                self.chatgpt_job(super::chatgpt::Job::Engine(engine), cx)?
+            }
+            Action::SetChatgptModel { model } => {
+                self.chatgpt_job(super::chatgpt::Job::Model(model), cx)?
+            }
+            Action::ManageChatgptUsage => cx.open_url("https://chatgpt.com/settings/usage"),
+            Action::DismissChatgptWelcome => self.chatgpt_job(super::chatgpt::Job::Welcome, cx)?,
             Action::Copy
             | Action::Cut
             | Action::Paste

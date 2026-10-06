@@ -34,13 +34,25 @@ fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
             response.recv().unwrap()
         };
         cx.write_to_clipboard(gpui::ClipboardItem::new_string("Existing clipboard".into()));
-        assert!(bridge(e, cx, Action::CopyOcr { rectangle: None }, revision + 1).is_err());
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    rectangle: None,
+                    engine: None
+                },
+                revision + 1
+            )
+            .is_err()
+        );
         assert!(e.operations.active.is_none());
         assert!(
             bridge(
                 e,
                 cx,
                 Action::CopyOcr {
+                    engine: None,
                     rectangle: Some([0, 0, 0, 10])
                 },
                 revision
@@ -52,6 +64,7 @@ fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
             e,
             cx,
             Action::CopyOcr {
+                engine: None,
                 rectangle: Some([0, 0, 100, 80]),
             },
             revision,
@@ -69,11 +82,23 @@ fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
             e.feedback.copy,
             Some(super::feedback::CopyFeedback::ReadingText)
         );
-        assert!(bridge(e, cx, Action::CopyOcr { rectangle: None }, revision).is_err());
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    rectangle: None,
+                    engine: None
+                },
+                revision
+            )
+            .is_err()
+        );
         e.receive(
             Message::Operation(
                 id,
                 OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
                     revision,
                     rectangle: [0, 0, 100, 80],
                     result: Ok("First line\n第二行".into()),
@@ -125,6 +150,7 @@ fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext
             Message::Operation(
                 old,
                 OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
                     revision,
                     rectangle: [0, 0, 100, 100],
                     result: Ok("stale".into()),
@@ -142,6 +168,7 @@ fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext
             Message::Operation(
                 old,
                 OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
                     revision: e.preview.revision,
                     rectangle: [0, 0, 100, 100],
                     result: Ok("wrong operation".into()),
@@ -159,6 +186,7 @@ fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext
             Message::Operation(
                 current,
                 OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
                     revision: e.preview.revision,
                     rectangle: [0, 0, 100, 100],
                     result: Ok(String::new()),
@@ -174,13 +202,21 @@ fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext
             "Keep this"
         );
         e.recognize_text = |_, _| Err("OCR unavailable".into());
-        e.dispatch(Action::CopyOcr { rectangle: None }, cx).unwrap();
+        e.dispatch(
+            Action::CopyOcr {
+                rectangle: None,
+                engine: None,
+            },
+            cx,
+        )
+        .unwrap();
         assert!(e.extraction.is_none());
         let id = e.operations.active.as_ref().unwrap().id;
         e.receive(
             Message::Operation(
                 id,
                 OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
                     revision: e.preview.revision,
                     rectangle: [0, 0, 100, 100],
                     result: Err("OCR unavailable".into()),
@@ -1794,5 +1830,171 @@ fn multi_selection_bridge_checks_state_revisions_and_group_undo(cx: &mut TestApp
         assert!(e.document.marks.is_empty());
         e.document.undo();
         assert_eq!(e.document.marks, original);
+    });
+}
+
+#[gpui::test]
+fn chatgpt_bridge_requires_sign_in_for_remote_ocr_and_preserves_document(cx: &mut TestAppContext) {
+    use crate::{automation::Request, chatgpt::OcrEngine};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        let revision = e.preview.revision;
+        let base = e.document.base.clone();
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let dispatch = |e: &mut Editor, cx: &mut gpui::Context<Editor>, action| {
+            let (reply, response) = std::sync::mpsc::channel();
+            e.automation(
+                Request::Dispatch {
+                    action,
+                    expected_revision: Some(revision),
+                    reply,
+                },
+                cx,
+            );
+            response.recv().unwrap()
+        };
+        for action in [
+            Action::CopyOcr {
+                rectangle: None,
+                engine: Some(OcrEngine::Chatgpt),
+            },
+            Action::SetOcrEngine {
+                engine: OcrEngine::Chatgpt,
+            },
+            Action::ChatgptSignIn {
+                account_id: Some("unknown".into()),
+            },
+            Action::SelectChatgptAccount {
+                account_id: "unknown".into(),
+            },
+            Action::SetChatgptModel {
+                model: "unknown".into(),
+            },
+            Action::SignOutChatgpt,
+        ] {
+            assert!(dispatch(e, cx, action).is_err());
+        }
+        assert!(e.operations.active.is_none());
+        assert!(!e.chatgpt.busy);
+        dispatch(e, cx, Action::ToggleChatgptAccountMenu).unwrap();
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["chatgpt"]["menu_open"], true);
+        assert_eq!(state["chatgpt"]["account"]["ocr_engine"], "local");
+        assert_eq!(e.preview.revision, revision);
+        assert!(std::sync::Arc::ptr_eq(&base, &e.document.base));
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+    });
+}
+#[gpui::test]
+fn canceled_and_stale_account_jobs_cannot_open_browser_or_replace_state(cx: &mut TestAppContext) {
+    use super::{chatgpt::Outcome, jobs::Message};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.chatgpt.generation = 7;
+        e.chatgpt.busy = true;
+        e.chatgpt.signing_in = true;
+        e.dispatch(Action::CancelChatgptSignIn, cx).unwrap();
+        assert!(e.chatgpt.cancel.load(std::sync::atomic::Ordering::Relaxed));
+        e.receive(
+            Message::ChatgptAuthorization {
+                generation: 7,
+                url: "https://example.invalid/must-not-open".into(),
+            },
+            cx,
+        );
+        e.receive(
+            Message::ChatgptFinished {
+                generation: 6,
+                outcome: Outcome {
+                    snapshot: None,
+                    status: "Stale".into(),
+                },
+            },
+            cx,
+        );
+        assert!(e.chatgpt.busy);
+        assert_ne!(e.chatgpt.status, "Stale");
+        e.receive(
+            Message::ChatgptFinished {
+                generation: 7,
+                outcome: Outcome {
+                    snapshot: None,
+                    status: "Canceled".into(),
+                },
+            },
+            cx,
+        );
+        assert!(!e.chatgpt.busy && !e.chatgpt.signing_in);
+        assert_eq!(e.chatgpt.status, "Canceled");
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+#[gpui::test]
+fn account_menu_is_accessible_and_fits_small_windows(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.chatgpt.menu = true;
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1050.), px(500.)));
+    visual.run_until_parked();
+    let bounds = visual.debug_bounds("chatgpt-menu").unwrap();
+    assert!(bounds.top() >= px(0.) && bounds.bottom() <= px(500.));
+    entity.read_with(&visual, |e, _| {
+        for label in [
+            "Continue with ChatGPT",
+            "Manage usage",
+            "This device · Offline",
+        ] {
+            assert!(
+                e.accessibility
+                    .nodes()
+                    .iter()
+                    .any(|node| node.label == label),
+                "{label}"
+            );
+        }
+        assert!(e.document.marks.is_empty());
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+
+#[gpui::test]
+fn sign_out_cancellation_rejects_queued_success_before_clipboard_write(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    use crate::chatgpt::OcrEngine;
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let id = e.start_operation(OperationKind::Ocr).unwrap();
+        e.chatgpt
+            .inference_cancel
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    engine: OcrEngine::Chatgpt,
+                    result: Ok("Must not copy".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        assert!(e.extraction.is_none());
+        assert_eq!(e.feedback.status, "ChatGPT OCR canceled");
     });
 }

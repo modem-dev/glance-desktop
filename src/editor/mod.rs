@@ -5,6 +5,7 @@ mod action_tests;
 pub(crate) mod actions;
 mod automation;
 mod canvas;
+mod chatgpt;
 mod commands;
 mod dispatch;
 mod feedback;
@@ -42,6 +43,7 @@ pub(crate) struct Editor {
     tool_picker_target: Option<(Tool, Option<usize>, u64)>,
     number_inputs: std::collections::BTreeMap<&'static str, Entity<panels::number::NumberInput>>,
     extraction: Option<Extraction>,
+    chatgpt: chatgpt::State,
     #[cfg(test)]
     recognize_text: crate::ocr::Recognizer,
     _color_subscriptions: Vec<Subscription>,
@@ -66,6 +68,7 @@ struct Extraction {
     revision: u64,
     rectangle: [u32; 4],
     text: String,
+    engine: crate::chatgpt::OcrEngine,
 }
 pub(crate) fn render_image(mut image: image::RgbaImage) -> Arc<RenderImage> {
     for p in image.pixels_mut() {
@@ -240,6 +243,7 @@ impl Editor {
             tool_picker_target: None,
             number_inputs,
             extraction: None,
+            chatgpt: chatgpt::State::new(native, sender.clone()),
             #[cfg(test)]
             recognize_text: crate::ocr::extract,
             _color_subscriptions: color_subscriptions,

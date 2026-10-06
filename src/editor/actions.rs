@@ -35,7 +35,27 @@ pub(crate) enum Action {
     CopyOcr {
         #[serde(default)]
         rectangle: Option<[u32; 4]>,
+        #[serde(default)]
+        engine: Option<crate::chatgpt::OcrEngine>,
     },
+    ToggleChatgptAccountMenu,
+    ChatgptSignIn {
+        #[serde(default)]
+        account_id: Option<String>,
+    },
+    CancelChatgptSignIn,
+    SelectChatgptAccount {
+        account_id: String,
+    },
+    SignOutChatgpt,
+    SetOcrEngine {
+        engine: crate::chatgpt::OcrEngine,
+    },
+    SetChatgptModel {
+        model: String,
+    },
+    ManageChatgptUsage,
+    DismissChatgptWelcome,
     // Contextual editing commands operate on text while an inline edit is open.
     Copy,
     Cut,

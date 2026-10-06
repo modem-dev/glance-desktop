@@ -89,7 +89,11 @@ fn every_serializable_action_is_exposed_or_explicitly_excluded() {
 fn every_exposed_action_has_a_valid_round_trip_payload() {
     let fixtures = [
         json!({"type":"capture","area":true}),
-        json!({"type":"copy_ocr","rectangle":[10,20,30,40]}),
+        json!({"type":"copy_ocr","rectangle":[10,20,30,40],"engine":"chatgpt"}),
+        json!({"type":"chatgpt_sign_in","account_id":"synthetic-account"}),
+        json!({"type":"select_chatgpt_account","account_id":"synthetic-account"}),
+        json!({"type":"set_ocr_engine","engine":"local"}),
+        json!({"type":"set_chatgpt_model","model":"synthetic-model"}),
         json!({"type":"open_path","path":"/tmp/glance-synthetic.png"}),
         json!({"type":"select_tool","tool":"arrow"}),
         json!({"type":"select_region","rectangle":[10,20,30,40],"additive":true}),
@@ -142,6 +146,12 @@ fn every_exposed_action_has_a_valid_round_trip_payload() {
     }
     for payload in [
         json!({"type":"copy_ocr"}),
+        json!({"type":"copy_ocr","engine":null}),
+        json!({"type":"copy_ocr","engine":"local"}),
+        json!({"type":"copy_ocr","engine":"chatgpt"}),
+        json!({"type":"chatgpt_sign_in"}),
+        json!({"type":"chatgpt_sign_in","account_id":null}),
+        json!({"type":"set_ocr_engine","engine":"chatgpt"}),
         json!({"type":"copy_ocr","rectangle":null}),
         json!({"type":"copy_ocr","rectangle":[0,0,100,80]}),
         json!({"type":"select_annotations","ids":[]}),

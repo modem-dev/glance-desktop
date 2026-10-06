@@ -26,9 +26,11 @@ impl Editor {
                     "sampling_tool_color":self.panels.sampling_tool_color,
                     "playback":{"preparing":self.preview_preparing(),"paused":self.playback.paused,"time":self.clip_time(),"seconds":self.document.animation_seconds()},
                     "status":self.feedback.status,
+                    "chatgpt": {"account":self.chatgpt.snapshot, "busy":self.chatgpt.busy, "generation":self.chatgpt.generation,
+                        "signing_in":self.chatgpt.signing_in,"menu_open":self.chatgpt.menu,"status":self.chatgpt.status},
                     "extraction": self.extraction.as_ref().filter(|result| result.revision == self.preview.revision).map(|result| json!({
                         "revision":result.revision, "rectangle":result.rectangle,
-                        "text":result.text, "engine":"local",
+                        "text":result.text, "engine":result.engine,
                     })),
                 })));
             }
