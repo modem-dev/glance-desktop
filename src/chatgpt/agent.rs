@@ -4,7 +4,7 @@ use crate::{automation::Snapshot, document::Document};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     io::{BufRead, Cursor, Read},
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
@@ -308,6 +308,7 @@ pub(super) fn consume_stream(
     let started = Instant::now();
     let mut event = String::new();
     let mut total = 0usize;
+    let mut completed_items = BTreeMap::new();
     loop {
         check(cancel, started)?;
         let mut bytes = Vec::new();
@@ -339,11 +340,43 @@ pub(super) fn consume_stream(
                 serde_json::from_str(&event).map_err(|_| "Invalid Ask Glance stream event")?;
             event.clear();
             match value["type"].as_str() {
+                Some("response.output_item.done") => {
+                    let index = value["output_index"]
+                        .as_u64()
+                        .filter(|i| *i < 128)
+                        .ok_or("Invalid Ask Glance output index")?
+                        as usize;
+                    let item = value["item"].clone();
+                    if !item.is_object()
+                        || item["type"].as_str().is_none()
+                        || item["status"].as_str().is_some_and(|s| s != "completed")
+                        || completed_items.insert(index, item).is_some()
+                    {
+                        return Err("Invalid or duplicate Ask Glance completed item".into());
+                    }
+                }
                 Some("response.completed") if value["response"]["status"] == "completed" => {
-                    return value["response"]["output"]
-                        .as_array()
-                        .cloned()
-                        .ok_or("Missing Ask Glance response output".into());
+                    // ChatGPT plan streams can leave the terminal output array empty.
+                    // Keep finalized items (including encrypted reasoning) from item.done;
+                    // never execute anything until the entire response has completed.
+                    let output = match value["response"].get("output") {
+                        Some(Value::Array(output)) => output.clone(),
+                        None => Vec::new(),
+                        _ => return Err("Invalid Ask Glance response output".into()),
+                    };
+                    if !output.is_empty() {
+                        if completed_items
+                            .iter()
+                            .any(|(index, item)| output.get(*index) != Some(item))
+                        {
+                            return Err("Conflicting Ask Glance response output".into());
+                        }
+                        return Ok(output);
+                    }
+                    if completed_items.keys().copied().ne(0..completed_items.len()) {
+                        return Err("Missing Ask Glance completed item".into());
+                    }
+                    return Ok(completed_items.into_values().collect());
                 }
                 Some(
                     "response.completed" | "response.failed" | "response.incomplete" | "error",

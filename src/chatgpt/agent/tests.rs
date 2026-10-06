@@ -233,7 +233,7 @@ fn completed_stream_is_required_and_partial_tool_calls_are_discarded() {
     let output = vec![call("one", "get_document", json!({}))];
     let partial = format!(
         "data: {}\n\n",
-        json!({"type":"response.output_item.done","item":output[0]})
+        json!({"type":"response.output_item.done","output_index":0,"item":output[0]})
     );
     assert!(consume_stream(Cursor::new(partial.clone()), &AtomicBool::new(false)).is_err());
     let complete = format!(
@@ -279,4 +279,143 @@ fn tool_surface_matches_mcp_and_bounds_inputs() {
         phase: 0.5,
     };
     assert!(execute("read_image", &json!({"max_edge":u32::MAX}), &mut draft).is_err());
+}
+
+#[test]
+fn streamed_items_survive_empty_terminal_output_across_editing_rounds() {
+    let cancel = AtomicBool::new(false);
+    let reasoning = json!({"type":"reasoning","id":"rs_test","summary":[],"encrypted_content":"synthetic_encrypted_content"});
+    let mut round = 0;
+    let result = run(
+        doc(),
+        0,
+        "synthetic",
+        "Add a box",
+        &cancel,
+        |body| {
+            round += 1;
+            let output = if round == 1 {
+                vec![
+                    reasoning.clone(),
+                    call("one", "add_annotation", json!({"mark":mark()})),
+                ]
+            } else {
+                assert!(body["input"].as_array().unwrap().contains(&reasoning));
+                assert!(
+                    body["input"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|i| i["type"] == "function_call_output" && i["call_id"] == "one")
+                );
+                vec![message("Added the box.")]
+            };
+            let mut stream = String::new();
+            for (index, item) in output.into_iter().enumerate() {
+                stream.push_str(&format!(
+                    "data: {}\n\n",
+                    json!({"type":"response.output_item.done","output_index":index,"item":item})
+                ));
+            }
+            stream.push_str(&format!(
+                "data: {}\n\n",
+                json!({"type":"response.completed","response":{"status":"completed","output":[]}})
+            ));
+            consume_stream(Cursor::new(stream), &cancel)
+        },
+        |_, _| {},
+    )
+    .unwrap();
+    assert_eq!(round, 2);
+    assert_eq!(result.steps, 1);
+    assert_eq!(result.answer, "Added the box.");
+    assert_eq!(result.document.marks.len(), 1);
+    let mut d = result.document;
+    d.undo();
+    assert!(d.marks.is_empty());
+    d.redo();
+    assert_eq!(d.marks.len(), 1);
+}
+#[test]
+fn finalized_items_are_ordered_and_never_execute_after_failed_or_partial_streams() {
+    let first = call("one", "get_document", json!({}));
+    let last = message("Done.");
+    let event = |index: usize, item: &Value| {
+        format!(
+            "data: {}\n\n",
+            json!({"type":"response.output_item.done","output_index":index,"item":item})
+        )
+    };
+    let items = format!("{}{}", event(1, &last), event(0, &first));
+    let terminal = |response: Value| {
+        format!(
+            "data: {}\n\n",
+            json!({"type":"response.completed","response":response})
+        )
+    };
+    assert_eq!(
+        consume_stream(
+            Cursor::new(format!(
+                "{items}{}",
+                terminal(json!({"status":"completed"}))
+            )),
+            &AtomicBool::new(false)
+        )
+        .unwrap(),
+        vec![first.clone(), last.clone()]
+    );
+    for tail in [
+        "".into(),
+        "data: {\"type\":\"response.failed\"}\n\n".into(),
+        "data: {\"type\":\"response.incomplete\"}\n\n".into(),
+        terminal(json!({"status":"incomplete","output":[]})),
+    ] {
+        assert!(
+            consume_stream(
+                Cursor::new(format!("{items}{tail}")),
+                &AtomicBool::new(false)
+            )
+            .is_err()
+        );
+    }
+    for invalid in [
+        format!(
+            "{}{}",
+            event(1, &last),
+            terminal(json!({"status":"completed","output":[]}))
+        ),
+        format!(
+            "{}{}{}",
+            event(0, &first),
+            event(0, &first),
+            terminal(json!({"status":"completed","output":[]}))
+        ),
+        format!(
+            "{}{}",
+            event(0, &first),
+            terminal(json!({"status":"completed","output":[last]}))
+        ),
+        format!(
+            "{}{}",
+            event(128, &first),
+            terminal(json!({"status":"completed","output":[]}))
+        ),
+        format!(
+            "{}{}",
+            event(0, &json!({"type":"function_call","status":"in_progress"})),
+            terminal(json!({"status":"completed","output":[]}))
+        ),
+    ] {
+        assert!(consume_stream(Cursor::new(invalid), &AtomicBool::new(false)).is_err());
+    }
+    assert!(
+        consume_stream(
+            Cursor::new(format!(
+                "{items}{}",
+                terminal(json!({"status":"completed","output":[]}))
+            )),
+            &AtomicBool::new(true)
+        )
+        .is_err()
+    );
 }

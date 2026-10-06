@@ -26,6 +26,12 @@ Notable user-visible changes are recorded here.
 - README includes a short album-gallery GIF showing rounded padding and an
   animated Lava backdrop.
 
+### Fixed
+
+- Ask Glance retains completed streamed tool calls and answers when the ChatGPT
+  plan response finishes with an empty output array, avoiding false “no answer”
+  failures. Failed, interrupted, or canceled requests still discard edits.
+
 ## [0.3.0] - 2026-10-04
 
 ### Changed
