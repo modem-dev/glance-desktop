@@ -5,6 +5,10 @@
 Shortcuts below use macOS notation. On Omarchy, use **Ctrl** in place of **⌘**;
 [Hyprland bindings](linux.md#capture-from-hyprland) provide global capture.
 
+Glance’s interface follows the system’s light or dark appearance and updates when
+it changes while the app is running. Image content, annotation colors, backdrops,
+and exported media keep their colors.
+
 ## Capture or open an image
 
 - **⌘⌥2** captures an area; Escape cancels the selector.

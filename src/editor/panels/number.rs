@@ -184,6 +184,7 @@ fn parse(text: &str, (min, max, _): (f32, f32, f32)) -> Option<f32> {
 }
 impl Render for NumberInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         if self._blur.is_none() {
             self._blur = Some(cx.on_blur(&self.focus, window, |this, _, cx| {
                 if this.editing && !this.commit(cx) {
@@ -231,9 +232,9 @@ impl Render for NumberInput {
             .flex()
             .items_center()
             .rounded_md()
-            .bg(rgb(0xf0f1f5))
+            .bg(rgb(theme.input))
             .border_1()
-            .border_color(rgb(if self.error { 0xd33d3d } else { 0xf0f1f5 }))
+            .border_color(rgb(if self.error { theme.error } else { theme.input }))
             .child(
                 div()
                     .id(SharedString::from(format!("{id}-value")))
@@ -263,7 +264,12 @@ impl Render for NumberInput {
                         .size_full(),
                     ),
             )
-            .child(div().text_xs().text_color(rgb(0x646976)).child(self.unit))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(rgb(theme.muted))
+                    .child(self.unit),
+            )
             .child(
                 div()
                     .flex()
@@ -285,11 +291,15 @@ impl Render for NumberInput {
                             .items_center()
                             .justify_center()
                             .text_xs()
-                            .text_color(rgb(if enabled { 0x555966 } else { 0xa6a8b2 }))
+                            .text_color(rgb(if enabled {
+                                theme.secondary
+                            } else {
+                                theme.disabled
+                            }))
                             .child(if more { "▴" } else { "▾" })
                             .when(enabled, |el| {
                                 el.cursor_pointer()
-                                    .hover(|s| s.bg(rgb(0xe5e7ed)))
+                                    .hover(|s| s.bg(rgb(theme.pressed)))
                                     .on_mouse_down(MouseButton::Left, |_, _, cx| {
                                         cx.stop_propagation()
                                     })

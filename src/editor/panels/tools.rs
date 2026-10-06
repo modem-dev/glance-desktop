@@ -21,7 +21,8 @@ struct ToolHelp {
 }
 
 impl Render for ToolHelp {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         div()
             .id("tool-help-tooltip")
             .debug_selector(|| "tool-help-tooltip".into())
@@ -32,8 +33,8 @@ impl Render for ToolHelp {
             .flex_col()
             .gap_2()
             .rounded_md()
-            .bg(rgb(0x282b34))
-            .text_color(rgb(0xffffff))
+            .bg(rgb(theme.tooltip))
+            .text_color(rgb(theme.tooltip_text))
             .text_xs()
             .shadow_md()
             .child(
@@ -57,7 +58,7 @@ impl Render for ToolHelp {
             .when(self.selected, |el| {
                 el.child(
                     div()
-                        .text_color(rgb(0xc5c8d1))
+                        .text_color(rgb(theme.tooltip_detail))
                         .child("Arrow keys move · Shift moves 10 px"),
                 )
             })
@@ -131,13 +132,14 @@ impl Editor {
         action: Action,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let theme = crate::theme::Theme::get(cx);
         let (active, enabled) = state;
         let color = if !enabled {
-            0xa6a8b2
+            theme.disabled
         } else if active {
-            0xd94d38
+            theme.accent
         } else {
-            0x555966
+            theme.secondary
         };
         self.choice(
             id,
@@ -184,9 +186,11 @@ impl Editor {
                     callback,
                 ),
             ),
+            cx,
         )
     }
     pub(in crate::editor) fn tool_controls(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let tool = self.options_tool();
         let settings = self.tool_settings();
         let selected = self.interaction.selected.is_some();
@@ -230,9 +234,9 @@ impl Editor {
                                     .rounded_full()
                                     .border_2()
                                     .border_color(rgb(if settings.color[..3] == color[..3] {
-                                        0xf35d45
+                                        theme.accent_fill
                                     } else {
-                                        0xd7d7df
+                                        theme.border
                                     }))
                                     .bg(rgb(u32::from_be_bytes(color) >> 8))
                                     .cursor_pointer()
@@ -258,6 +262,7 @@ impl Editor {
                         },
                         self.tool_color_picker.clone(),
                     ))),
+                cx,
             ));
         }
         let mut primary: Vec<AnyElement> = vec![];
@@ -265,7 +270,7 @@ impl Editor {
             Tool::Select => sections.push(
                 div()
                     .text_xs()
-                    .text_color(rgb(0x646976))
+                    .text_color(rgb(theme.muted))
                     .child("Select an annotation to edit its properties.")
                     .into_any_element(),
             ),
@@ -339,6 +344,7 @@ impl Editor {
                             cx,
                         )
                     })),
+                    cx,
                 ));
             }
             Tool::Spotlight => primary.push(self.option_number(
@@ -402,6 +408,7 @@ impl Editor {
                         )
                     }),
                 ),
+                cx,
             )
         };
         if tool == Tool::Arrow {
@@ -426,6 +433,7 @@ impl Editor {
                         Action::StraightenLine,
                         cx,
                     )),
+                cx,
             );
             sections.push(controls::pair(stroke(), points));
             let ends = [true, false].map(|start| {
@@ -462,6 +470,7 @@ impl Editor {
                             )
                         }),
                     ),
+                    cx,
                 )
             });
             let [start, end] = ends;
@@ -487,6 +496,7 @@ impl Editor {
                         )
                     }),
                 ),
+                cx,
             );
             if settings.style.fill == Fill::Outline {
                 sections.push(controls::pair(stroke(), fill));
@@ -538,6 +548,7 @@ impl Editor {
                         )
                     }),
                 ),
+                cx,
             ));
         }
         if tool == Tool::Crop {
@@ -562,6 +573,7 @@ impl Editor {
                         )
                     }),
                 ),
+                cx,
             ));
         }
         let (shortcut, description) = match tool {
@@ -632,8 +644,10 @@ impl Editor {
                                     .justify_center()
                                     .rounded_md()
                                     .text_xs()
-                                    .text_color(rgb(0x646976))
-                                    .hover(|s| s.bg(rgb(0xf0f1f5)).text_color(rgb(0x44454f)))
+                                    .text_color(rgb(theme.muted))
+                                    .hover(|s| {
+                                        s.bg(rgb(theme.input)).text_color(rgb(theme.secondary))
+                                    })
                                     .child(
                                         div()
                                             .size(px(16.))
@@ -642,7 +656,7 @@ impl Editor {
                                             .justify_center()
                                             .rounded_full()
                                             .border_1()
-                                            .border_color(rgb(0xc5c8d1))
+                                            .border_color(rgb(theme.border))
                                             .child("?"),
                                     )
                                     .tooltip(move |_, cx| {
@@ -657,7 +671,12 @@ impl Editor {
                             ),
                     )
                     .when(selected, |el| {
-                        el.child(div().text_xs().text_color(rgb(0x646976)).child("Selected"))
+                        el.child(
+                            div()
+                                .text_xs()
+                                .text_color(rgb(theme.muted))
+                                .child("Selected"),
+                        )
                     }),
             )
             .children(
@@ -673,7 +692,7 @@ impl Editor {
                         .child(self.choice(
                             "object-duplicate".into(),
                             "Duplicate annotation · ⌘D".into(),
-                            icon("copy", 0x555966).into_any_element(),
+                            icon("copy", theme.secondary).into_any_element(),
                             (false, true),
                             Action::DuplicateSelection,
                             cx,
