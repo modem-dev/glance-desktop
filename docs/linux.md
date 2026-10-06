@@ -42,7 +42,14 @@ Ctrl+Alt+2/3 captures while the editor is focused.
 - **Glance appears in the capture:** use the startup capture commands above.
   Hyprland may ignore the editor's request to minimize before toolbar capture.
 - **Screen color picker fails:** install `hyprpicker` for **Pick from screen**.
-- **Slow animated preview/export:** Linux currently renders motion on the CPU.
+- **Slow animated preview/export:** procedural backdrops and image entrance effects
+  use hardware Vulkan compute, with CPU fallback if initialization or execution
+  fails. Launch from a terminal and look for `Glance animation GPU:` to confirm
+  the selected adapter, or a `using CPU fallback` warning. Software Vulkan
+  adapters (such as llvmpipe) are not used for compute. Use a release build
+  (`cargo run --release --locked`), especially when measuring fallback performance.
+  GPU frames still require readback and upload to GPUI; compositing/export encoding
+  are not fully GPU accelerated.
 - **Window fails to open:** check that your GPU has a working Vulkan driver.
 
 [Build from source](../BUILD.md#omarchy--arch-linux) ·

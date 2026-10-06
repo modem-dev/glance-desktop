@@ -37,6 +37,9 @@ aes-gcm = "0.10"
 # GPUI 0.2.2 pulls xattr 0.2.3, which still uses libc::ENOATTR on Linux.
 # Keep the last verified compatible libc until that upstream dependency changes.
 libc = "=0.2.186"
+wgpu = { version = "28", default-features = false, features = ["std", "vulkan", "glsl"] }
+pollster = "0.4"
+bytemuck = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 raw-window-handle = "0.6"

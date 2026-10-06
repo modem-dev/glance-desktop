@@ -6,6 +6,10 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- Linux animated backdrops and image entrance effects now use hardware Vulkan
+  compute instead of CPU-only rendering, with cached GPU resources, adapter
+  diagnostics, and CPU fallback when acceleration is unavailable.
+
 - Reorganized documentation around release installation and first use, added a
   macOS opening/capture FAQ, and consolidated source-build instructions in BUILD.md.
 - README includes a short album-gallery GIF showing rounded padding and an
