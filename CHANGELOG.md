@@ -4,6 +4,12 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- **Copy as OCR** in the top toolbar recognizes screenshot text offline and copies
+  it directly to the clipboard: Apple Vision on macOS, optional Tesseract on
+  Omarchy, and a matching MCP action with source-region selection and read-back.
+
 ### Changed
 
 - Reorganized documentation around release installation and first use, added a

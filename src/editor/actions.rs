@@ -31,6 +31,11 @@ pub(crate) enum Action {
     CopyImage,
     CopyRemote,
     PasteImage,
+    /// Offline OCR of the source screenshot; optional [x, y, width, height].
+    CopyOcr {
+        #[serde(default)]
+        rectangle: Option<[u32; 4]>,
+    },
     // Contextual editing commands operate on text while an inline edit is open.
     Copy,
     Cut,

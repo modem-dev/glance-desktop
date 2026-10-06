@@ -4,17 +4,26 @@ use gpui::{prelude::*, *};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum CopyFeedback {
     Copying,
+    ReadingText,
+    TextCopied,
+    NoText,
     Uploading,
     Copied,
     LinkCopied(u64),
 }
 impl CopyFeedback {
     fn complete(self) -> bool {
-        matches!(self, Self::Copied | Self::LinkCopied(_))
+        matches!(
+            self,
+            Self::Copied | Self::TextCopied | Self::NoText | Self::LinkCopied(_)
+        )
     }
     fn label(self) -> &'static str {
         match self {
             Self::Copying => "Copying…",
+            Self::ReadingText => "Reading text…",
+            Self::TextCopied => "Text copied!",
+            Self::NoText => "No text found",
             Self::Uploading => "Uploading…",
             Self::Copied => "Copied!",
             Self::LinkCopied(_) => "Link copied!",
@@ -32,7 +41,7 @@ impl Editor {
         self.feedback.timer = None;
         self.feedback.copy = feedback;
         if let Some(feedback) = feedback.filter(|feedback| feedback.complete()) {
-            let seconds = if matches!(feedback, CopyFeedback::Copied) {
+            let seconds = if !matches!(feedback, CopyFeedback::LinkCopied(_)) {
                 2
             } else {
                 3
@@ -71,6 +80,7 @@ impl Editor {
             .child(icon(
                 match feedback {
                     CopyFeedback::Copying => "copy",
+                    CopyFeedback::ReadingText | CopyFeedback::NoText => "scan-text",
                     CopyFeedback::Uploading => "cloud-upload",
                     _ => "check",
                 },

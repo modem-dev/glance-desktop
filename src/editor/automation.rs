@@ -26,6 +26,10 @@ impl Editor {
                     "sampling_tool_color":self.panels.sampling_tool_color,
                     "playback":{"preparing":self.preview_preparing(),"paused":self.playback.paused,"time":self.clip_time(),"seconds":self.document.animation_seconds()},
                     "status":self.feedback.status,
+                    "extraction": self.extraction.as_ref().filter(|result| result.revision == self.preview.revision).map(|result| json!({
+                        "revision":result.revision, "rectangle":result.rectangle,
+                        "text":result.text, "engine":"local",
+                    })),
                 })));
             }
             Request::Dispatch {

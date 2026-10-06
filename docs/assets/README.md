@@ -50,3 +50,6 @@ ffmpeg -hide_banner -loglevel warning -n -protocol_whitelist file \
   -loop 0 "$GLANCE_README_OUTPUT/albums-compact.gif"
 cp "$GLANCE_README_OUTPUT/albums-compact.gif" docs/assets/glance-albums.gif
 ```
+
+`glance-ocr.png` shows the Copy as OCR toolbar button in an isolated macOS debug
+build using Glance's built-in synthetic practice image. It contains no user capture.

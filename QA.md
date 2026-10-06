@@ -19,6 +19,7 @@ under `target/`. Run only the checks relevant to the change:
 | Check | Command |
 | --- | --- |
 | Native MP4 encode/frame decode | `cargo test --locked native_mcp_video_roundtrip -- --ignored --nocapture` |
+| Local OCR on synthetic text, source crop and blank image | `cargo test --locked native_ocr_recognizes_synthetic_text_and_regions -- --ignored --nocapture` |
 | Image entrance export samples | `cargo test --release --locked image_entrance_export_qa -- --ignored --nocapture` |
 | Focus effects and loop samples | `cargo test --release --locked focus_and_loop_demo_qa -- --ignored --nocapture` |
 | Native motion export samples | `cargo test --release --locked native_motion_export_qa -- --ignored --nocapture` |
@@ -46,6 +47,10 @@ with explicit authorization for that verification.
   scrolling, tool help, and exact-value edits. Check backdrop and annotation color
   pickers, screen sampling/cancellation, opacity, and undo.
 - Test framing, crop, resize, and rotation; inspect PNG/clipboard output at full resolution.
+- Click **Copy as OCR** on synthetic multiline text and paste into a text editor.
+  Confirm the toolbar shows reading/copied feedback, no result panel opens, and
+  image history is untouched. Empty images and failures preserve the clipboard;
+  stale results cannot overwrite it. Confirm recognition stays offline.
 - Check accessible toolbar/inspector/menu discovery, exact values, and VoiceOver navigation.
 
 ## Animation and export

@@ -398,6 +398,9 @@ impl Render for Editor {
             .on_action(cx.listener(|this, _: &menus::ImageTools, _, cx| {
                 this.dispatch_ui(Action::ToggleEnhance, cx)
             }))
+            .on_action(cx.listener(|this, _: &menus::CopyOcr, _, cx| {
+                this.dispatch_ui(Action::CopyOcr { rectangle: None }, cx)
+            }))
             .on_action(
                 cx.listener(|this, _: &menus::Help, _, cx| this.dispatch_ui(Action::Help, cx)),
             )
@@ -507,6 +510,23 @@ impl Render for Editor {
                         cx,
                         Action::CopyImage,
                     ))
+                    .child(
+                        div()
+                            .id("copy-ocr")
+                            .debug_selector(|| "copy-ocr".into())
+                            .flex_shrink_0()
+                            .child(self.compact_button(
+                                "Copy as OCR · Recognize text offline",
+                                if self.feedback.copy == Some(CopyFeedback::TextCopied) {
+                                    "check"
+                                } else {
+                                    "scan-text"
+                                },
+                                false,
+                                cx,
+                                Action::CopyOcr { rectangle: None },
+                            )),
+                    )
                     .child(
                         div()
                             .id("copy-remote")

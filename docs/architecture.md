@@ -108,6 +108,14 @@ Normal editing uses the settled image pose, preserving annotation hit testing.
 `native/video_encoder.swift` and `native/video_frame.swift` are small AVFoundation
 helpers for encoding MP4 and reading video frames. They do not own the UI.
 
+`ocr.rs` runs source-image text recognition on an editor worker, staging a PNG
+in a private randomized temporary directory and bounding helper output and runtime.
+macOS bundles `native/ocr.swift` (Apple Vision); Linux uses optional Tesseract.
+The result belongs to editor state rather than the document. Operation and revision
+checks reject stale results before writing the clipboard; `CopyOcr` shares
+UI/MCP dispatch and state read-back. A nonempty result is copied directly without
+opening a panel or changing image annotations and undo.
+
 `src/glance.rs` implements opt-in remote sharing. `src/mcp.rs` provides the stdio
 MCP server, while `src/automation.rs` bridges it to an editor launched with
 `--automation` over a local Unix socket.

@@ -41,6 +41,9 @@ pub(crate) struct Editor {
     tool_color_picker: Entity<crate::color_picker::ColorPicker>,
     tool_picker_target: Option<(Tool, Option<usize>, u64)>,
     number_inputs: std::collections::BTreeMap<&'static str, Entity<panels::number::NumberInput>>,
+    extraction: Option<Extraction>,
+    #[cfg(test)]
+    recognize_text: crate::ocr::Recognizer,
     _color_subscriptions: Vec<Subscription>,
     document: Document,
     interaction: InteractionState,
@@ -57,6 +60,12 @@ pub(crate) struct Editor {
     sender: async_channel::Sender<Message>,
     #[cfg(target_os = "macos")]
     _hotkeys: Option<GlobalHotKeyManager>,
+}
+#[derive(serde::Serialize)]
+struct Extraction {
+    revision: u64,
+    rectangle: [u32; 4],
+    text: String,
 }
 pub(crate) fn render_image(mut image: image::RgbaImage) -> Arc<RenderImage> {
     for p in image.pixels_mut() {
@@ -230,6 +239,9 @@ impl Editor {
             tool_color_picker,
             tool_picker_target: None,
             number_inputs,
+            extraction: None,
+            #[cfg(test)]
+            recognize_text: crate::ocr::extract,
             _color_subscriptions: color_subscriptions,
             document,
             interaction: InteractionState {

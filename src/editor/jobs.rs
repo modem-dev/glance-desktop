@@ -23,6 +23,7 @@ pub(super) enum OperationKind {
     Upload,
     Crop,
     Transform,
+    Ocr,
     Video,
 }
 pub(super) struct ActiveOperation {
@@ -54,6 +55,11 @@ pub(crate) enum Message {
     VideoProgress(OperationId, u32),
 }
 pub(crate) enum OperationResult {
+    ExtractedText {
+        revision: u64,
+        rectangle: [u32; 4],
+        result: Result<String, String>,
+    },
     ToolColorSample {
         tool: crate::document::Tool,
         selected: Option<usize>,
@@ -95,6 +101,7 @@ impl Editor {
     }
     pub(super) fn changed(&mut self) {
         self.preview.revision += 1;
+        self.extraction = None;
         self.schedule_preview();
     }
     pub(super) fn is_busy(&self) -> bool {
@@ -238,8 +245,43 @@ impl Editor {
                 | OperationResult::Copied(Err(_))
                 | OperationResult::RemoteCopied(Err(_))
                 | OperationResult::Transformed(Err(_))
+                | OperationResult::ExtractedText { result: Err(_), .. }
         );
         match result {
+            OperationResult::ExtractedText {
+                revision,
+                rectangle,
+                result,
+            } => {
+                if revision != self.preview.revision {
+                    self.set_copy_feedback(None, cx);
+                    self.feedback.status =
+                        "Image changed during text extraction; extract again".into();
+                } else {
+                    match result {
+                        Ok(text) => {
+                            if text.is_empty() {
+                                self.feedback.status =
+                                    "No text found. Try a clearer image or a smaller crop.".into();
+                                self.set_copy_feedback(Some(CopyFeedback::NoText), cx);
+                            } else {
+                                cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                                self.feedback.status = "Copied recognized text to clipboard".into();
+                                self.set_copy_feedback(Some(CopyFeedback::TextCopied), cx);
+                            }
+                            self.extraction = Some(super::Extraction {
+                                revision,
+                                rectangle,
+                                text,
+                            });
+                        }
+                        Err(error) => {
+                            self.set_copy_feedback(None, cx);
+                            self.feedback.status = error;
+                        }
+                    }
+                }
+            }
             OperationResult::ToolColorSample {
                 tool,
                 selected,

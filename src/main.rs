@@ -16,6 +16,7 @@ mod mcp;
 mod menus;
 mod motion_shader;
 mod navigation;
+mod ocr;
 #[cfg(test)]
 mod performance;
 mod platform;

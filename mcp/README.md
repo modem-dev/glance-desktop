@@ -109,6 +109,31 @@ the native export bar. State inspection and cancellation remain available while 
 Capture, open, save, and export actions use native permissions/dialogs;
 path-based export tools save directly to files.
 
+### Copy as OCR
+
+Text recognition is offline and uses the current source screenshot, ignoring
+annotations and backdrops. The UI and MCP share the `copy_ocr` action:
+
+```json
+{"action":{"type":"copy_ocr"},"expected_revision":7}
+{"action":{"type":"copy_ocr","rectangle":[20,40,600,200]},"expected_revision":7}
+```
+
+An omitted/null rectangle recognizes the full source image. A rectangle contains
+integer `[x,y,width,height]` source pixels, must lie inside the image, and must
+have positive dimensions. Finish any active annotation text or gesture first.
+`copy_ocr` returns an operation ID; poll `get_editor_state` until `busy` is false.
+Nonempty text is copied directly to the clipboard. On success, `extraction`
+contains `revision`, `rectangle`, `text`, and `engine: "local"`; empty text means
+no text was detected and the previous clipboard is preserved. Errors appear in
+`status`, with `extraction: null`, and also preserve the clipboard. Results expire
+after document changes; stale worker results cannot overwrite the clipboard.
+OCR does not open a panel or change the document, annotations, or undo history.
+
+macOS requires the bundled Vision helper; Linux requires optional Tesseract and
+English language data. Recognition times out after 45 seconds, limits text to
+64 KiB UTF-8, and runs in a worker using private temporary files.
+
 ### Select annotations
 
 Use `select_all`, `select_annotations` with revision-scoped `ids` from

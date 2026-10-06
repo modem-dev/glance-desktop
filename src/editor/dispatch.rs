@@ -90,6 +90,15 @@ impl Editor {
         };
         // Validate before committing text or canceling a gesture.
         match &action {
+            Action::CopyOcr { rectangle } => {
+                crate::ocr::validate_rectangle(self.document.base.dimensions(), *rectangle)?;
+                if self.interaction.text_edit.is_some() || self.interaction.gesture.is_active() {
+                    return Err(
+                        "Finish the current annotation text or gesture before extracting text"
+                            .into(),
+                    );
+                }
+            }
             Action::RandomizeMotion { .. }
                 if self
                     .document
@@ -296,6 +305,28 @@ impl Editor {
             Action::CopyImage => self.export(false, cx),
             Action::CopyRemote => self.copy_remote(cx),
             Action::PasteImage => self.paste_image(cx),
+            Action::CopyOcr { rectangle } => {
+                self.cancel_gesture();
+                let rectangle =
+                    crate::ocr::validate_rectangle(self.document.base.dimensions(), rectangle)?;
+                let revision = self.preview.revision;
+                let image = self.document.base.clone();
+                let id = self
+                    .start_operation(super::jobs::OperationKind::Ocr)
+                    .ok_or("Editor is busy")?;
+                self.extraction = None;
+                self.feedback.status = "Reading text locally…".into();
+                self.set_copy_feedback(Some(super::feedback::CopyFeedback::ReadingText), cx);
+                #[cfg(not(test))]
+                let recognize = crate::ocr::extract;
+                #[cfg(test)]
+                let recognize = self.recognize_text;
+                self.spawn_operation(id, move || super::jobs::OperationResult::ExtractedText {
+                    revision,
+                    rectangle,
+                    result: recognize(&image, Some(rectangle)),
+                });
+            }
             Action::Copy
             | Action::Cut
             | Action::Paste

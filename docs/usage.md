@@ -80,6 +80,24 @@ pans horizontally. Hold **Space** and drag, or right-drag, to pan.
 Hold **Z** and click to zoom in at a spot; Shift-click zooms out.
 Trackpad smart zoom toggles 100%/fit. Zoom ranges from 1–800%.
 
+## Copy as OCR
+
+Click **Copy as OCR** (the text-scanning icon beside Copy in the top toolbar), or
+**Edit → Copy as OCR**. Glance recognizes text in the source screenshot locally
+and puts it directly on your clipboard. Paste it into any text editor or app.
+The toolbar shows **Reading text…**, then **Text copied!**; no result panel opens.
+If no text is found or recognition fails, your existing clipboard is preserved.
+
+Crop first to limit recognition to part of the image. OCR ignores annotations
+and backdrops and does not change image pixels or image undo history.
+Recognition preserves detected line breaks but does not reconstruct tables or
+code indentation. Review the pasted text for recognition errors.
+
+macOS uses the bundled Apple Vision helper. Omarchy uses optional `tesseract`
+with its English language data; see [Linux setup](linux.md#text-extraction).
+No account, subscription, or upload is needed. Work runs in the background, with
+a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit is reached.
+
 ## Frame the image
 
 Open **Backdrop** and choose **Solid**, **Gradient**, or **Motion**.

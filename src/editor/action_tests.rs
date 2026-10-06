@@ -3,6 +3,231 @@ use crate::document::{Document, Tool};
 use gpui::{AppContext, TestAppContext, VisualTestContext};
 
 #[gpui::test]
+fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    use crate::automation::Request;
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.recognize_text = |_, _| Ok("First line\n第二行".into());
+        e.document.remember();
+        e.document.marks.push(crate::document::Mark {
+            tool: Tool::Text,
+            points: vec![(10., 10.)],
+            color: [0, 0, 0, 255],
+            width: 3.,
+            text: "An editable annotation".into(),
+            curve: None,
+            style: Default::default(),
+        });
+        let image = e.document.base.clone();
+        let revision = e.preview.revision;
+        let bridge = |e: &mut Editor, cx: &mut gpui::Context<Editor>, action, revision| {
+            let (reply, response) = std::sync::mpsc::channel();
+            e.automation(
+                Request::Dispatch {
+                    action,
+                    expected_revision: Some(revision),
+                    reply,
+                },
+                cx,
+            );
+            response.recv().unwrap()
+        };
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Existing clipboard".into()));
+        assert!(bridge(e, cx, Action::CopyOcr { rectangle: None }, revision + 1).is_err());
+        assert!(e.operations.active.is_none());
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    rectangle: Some([0, 0, 0, 10])
+                },
+                revision
+            )
+            .is_err()
+        );
+        assert!(e.operations.active.is_none());
+        let receipt = bridge(
+            e,
+            cx,
+            Action::CopyOcr {
+                rectangle: Some([0, 0, 100, 80]),
+            },
+            revision,
+        )
+        .unwrap();
+        let id = e.operations.active.as_ref().unwrap().id;
+        assert_eq!(receipt.operation_id, Some(id.value()));
+        assert_eq!(receipt.revision, revision);
+        assert!(!e.panels.enhance, "copy OCR must not open a result pane");
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Existing clipboard"
+        );
+        assert_eq!(
+            e.feedback.copy,
+            Some(super::feedback::CopyFeedback::ReadingText)
+        );
+        assert!(bridge(e, cx, Action::CopyOcr { rectangle: None }, revision).is_err());
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    revision,
+                    rectangle: [0, 0, 100, 80],
+                    result: Ok("First line\n第二行".into()),
+                },
+            ),
+            cx,
+        );
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["extraction"]["text"], "First line\n第二行");
+        assert_eq!(
+            state["extraction"]["rectangle"],
+            serde_json::json!([0, 0, 100, 80])
+        );
+        assert_eq!(state["extraction"]["engine"], "local");
+        assert_eq!(state["busy"], false);
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "First line\n第二行"
+        );
+        assert_eq!(
+            e.feedback.copy,
+            Some(super::feedback::CopyFeedback::TextCopied)
+        );
+        assert_eq!(e.preview.revision, revision);
+        assert!(std::sync::Arc::ptr_eq(&image, &e.document.base));
+        assert_eq!(e.document.marks[0].text, "An editable annotation");
+        assert!(!e.panels.enhance);
+        bridge(e, cx, Action::Undo, revision).unwrap();
+        assert!(
+            e.document.marks.is_empty(),
+            "OCR must not insert document undo steps"
+        );
+        assert!(e.extraction.is_none());
+    });
+}
+
+#[gpui::test]
+fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let revision = e.preview.revision;
+        let old = e.start_operation(OperationKind::Ocr).unwrap();
+        e.changed();
+        e.receive(
+            Message::Operation(
+                old,
+                OperationResult::ExtractedText {
+                    revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok("stale".into()),
+                },
+            ),
+            cx,
+        );
+        assert!(e.extraction.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        let current = e.start_operation(OperationKind::Ocr).unwrap();
+        e.receive(
+            Message::Operation(
+                old,
+                OperationResult::ExtractedText {
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok("wrong operation".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.operations.active.as_ref().unwrap().id, current);
+        assert!(e.extraction.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        e.receive(
+            Message::Operation(
+                current,
+                OperationResult::ExtractedText {
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok(String::new()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.extraction.as_ref().unwrap().text, "");
+        assert!(e.feedback.status.contains("No text found"));
+        assert_eq!(e.feedback.copy, Some(super::feedback::CopyFeedback::NoText));
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        e.recognize_text = |_, _| Err("OCR unavailable".into());
+        e.dispatch(Action::CopyOcr { rectangle: None }, cx).unwrap();
+        assert!(e.extraction.is_none());
+        let id = e.operations.active.as_ref().unwrap().id;
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Err("OCR unavailable".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.feedback.status, "OCR unavailable");
+        assert!(e.feedback.copy.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+    });
+}
+
+#[gpui::test]
+fn toolbar_ocr_starts_shared_copy_action_without_opening_panels(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.recognize_text = |_, _| Ok("Toolbar text".into());
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    visual.run_until_parked();
+    let bounds = visual.debug_bounds("copy-ocr").unwrap();
+    visual.simulate_click(bounds.center(), Default::default());
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(!e.panels.enhance && !e.panels.backdrop && !e.panels.animation);
+        assert!(
+            e.operations
+                .active
+                .as_ref()
+                .is_some_and(|op| op.kind == OperationKind::Ocr)
+                || e.extraction
+                    .as_ref()
+                    .is_some_and(|result| result.text == "Toolbar text")
+        );
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+
+#[gpui::test]
 fn nebula_and_legacy_stars_use_shared_motion_action_and_canonical_readback(
     cx: &mut TestAppContext,
 ) {
