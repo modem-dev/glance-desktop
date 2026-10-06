@@ -52,6 +52,11 @@ fn main() {
     let application = Application::new().with_assets(icons::Icons);
     application.on_reopen(|cx| cx.activate(true));
     application.run(move |cx: &mut App| {
+        cx.text_system()
+            .add_fonts(vec![std::borrow::Cow::Borrowed(
+                platform::FALLBACK_FONT_DATA,
+            )])
+            .expect("Unable to register the embedded annotation font");
         cx.on_action(|_: &Quit, cx: &mut App| cx.quit());
         cx.bind_keys([KeyBinding::new(&platform::key_binding("cmd-q"), Quit, None)]);
         menus::install(cx);

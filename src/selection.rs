@@ -17,8 +17,8 @@ impl Mark {
         let a = self.points.first().copied().unwrap_or_default();
         if self.tool == Tool::Text {
             let em = (self.width * 7.).max(1.);
-            let font = crate::platform::annotation_font();
-            let w = font.map_or(self.text.chars().count() as f32 * em * 0.65, |f| {
+            let w = {
+                let f = crate::platform::annotation_font();
                 let scaled = f.as_scaled(
                     em * f.height_unscaled() / f.units_per_em().unwrap_or(f.height_unscaled()),
                 );
@@ -33,7 +33,7 @@ impl Mark {
                     previous = Some(id);
                 }
                 width
-            });
+            };
             return (a.0, a.1, a.0 + w.max(1.), a.1 + em);
         }
         if self.tool == Tool::Magnifier {

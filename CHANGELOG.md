@@ -4,6 +4,11 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Numbered callouts and text labels remain visible in previews and exports when
+  the system annotation font is unavailable, using an embedded offline fallback.
+
 ## [0.4.0] - 2026-10-06
 
 ### Changed

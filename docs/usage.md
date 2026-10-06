@@ -36,6 +36,8 @@ For capture permission help, see the [macOS FAQ](../README.md#macos-faq).
 
 Text labels are single-line; pasted line breaks become spaces. Text selection,
 copy/paste, undo/redo, and native input methods work while editing.
+Numbered callouts stay visible without selecting them. Text and numbers use an
+embedded offline fallback if the system annotation font is unavailable.
 Spotlights have corner handles; magnifiers have separate source and lens handles.
 The magnifier enlarges the annotated foreground and keeps details bright within a spotlight.
 

@@ -38,6 +38,10 @@ with explicit authorization for that verification.
   cancellation, overwrite confirmation, and extension handling.
 - Draw each annotation. Select, move, restyle, duplicate, delete, and undo/redo.
   Check curved-arrow handles, spotlight corners, and magnifier source/lens handles.
+- Place numbered callouts, including multi-digit values; deselect and wait for
+  the preview to settle. Numbers must stay visible through zoom, drag/release,
+  undo/redo and PNG/clipboard export. Also check text labels on a system without
+  the preferred annotation font; do not remove system fonts to run this check.
 - Box-select several marks; test Shift-click/drag, group edits and one-step undo.
   Verify Select All works in the canvas, inline text, numeric fields, and hex fields.
 - Test text selection, Unicode/IME, copy/paste, caret placement, and tool shortcuts

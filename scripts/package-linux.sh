@@ -24,6 +24,7 @@ install -m644 assets/icons/glance.svg "$ROOT/share/icons/hicolor/scalable/apps/"
 install -m644 LICENSE THIRD_PARTY_NOTICES.md "$ROOT/share/licenses/glance/"
 install -m644 assets/gpui/LICENSE-APACHE "$ROOT/share/licenses/glance/GPUI-LICENSE"
 install -m644 assets/lucide/LICENSE "$ROOT/share/licenses/glance/Lucide-LICENSE"
+install -m644 assets/fonts/LICENSE "$ROOT/share/licenses/glance/Roboto-LICENSE"
 tar -czf "$DIST/$NAME.tar.gz" -C "$STAGE" "$NAME"
 HASH="$(sha256sum "$DIST/$NAME.tar.gz" | cut -d ' ' -f1)"
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@ARCH@/$ARCH/g" \
