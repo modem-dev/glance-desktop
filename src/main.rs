@@ -12,6 +12,8 @@ mod gestures;
 mod gif_export;
 mod glance;
 mod icons;
+#[cfg(target_os = "linux")]
+mod linux_compute;
 mod mcp;
 mod menus;
 mod motion_shader;

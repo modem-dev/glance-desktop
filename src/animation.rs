@@ -403,9 +403,9 @@ impl Renderer {
         renderer
     }
     fn prepare_preview(&self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         if self.image_animation.enabled() {
-            // A real command also warms Metal's first dispatch, behind the loading overlay.
+            // Warm the GPU's first dispatch behind the loading overlay.
             let _ = entrance::gpu_preview_warmup(
                 &self.foreground,
                 self.image_animation.effect,

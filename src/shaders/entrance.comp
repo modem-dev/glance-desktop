@@ -1,0 +1,61 @@
+#version 450
+// Vulkan port of entrance.metal; keep sampling/projection math in sync.
+// Scalar arrays match Rust's layout without Metal vec3 alignment padding.
+struct EntranceUniforms {
+    uint width, height, diagonal;
+    float threshold, edge;
+    float bounds[4];
+    float inverse[9];
+    float center[2];
+    float opacity;
+};
+
+layout(std430, set = 0, binding = 0) buffer Output { uint output_pixels[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Params { EntranceUniforms u; };
+layout(std430, set = 0, binding = 2) readonly buffer Source { uint source_pixels[]; };
+layout(local_size_x = 16, local_size_y = 16) in;
+
+vec4 sample_card(vec2 position) {
+    ivec2 origin = ivec2(floor(position));
+    vec2 t = position - vec2(origin);
+    float alpha = 0.0;
+    vec3 rgb = vec3(0.0);
+    for (int dy = 0; dy < 2; dy++) {
+        for (int dx = 0; dx < 2; dx++) {
+            ivec2 cell = origin + ivec2(dx, dy);
+            if (cell.x < 0 || cell.y < 0 || cell.x >= int(u.width) || cell.y >= int(u.height)) continue;
+            float weight = (dx == 0 ? 1.0 - t.x : t.x) * (dy == 0 ? 1.0 - t.y : t.y);
+            vec4 pixel = unpackUnorm4x8(source_pixels[uint(cell.y) * u.width + uint(cell.x)]) * 255.0;
+            float a = pixel.a * weight;
+            alpha += a;
+            rgb += pixel.rgb * a;
+        }
+    }
+    if (alpha < 0.5) return vec4(0.0);
+    return vec4(round(rgb / alpha), round(alpha));
+}
+
+void main() {
+    uvec2 id = gl_GlobalInvocationID.xy;
+    if (id.x >= u.width || id.y >= u.height) return;
+    uint index = id.y * u.width + id.x;
+    if (u.diagonal != 0u) {
+        vec4 pixel = unpackUnorm4x8(source_pixels[index]) * 255.0;
+        float local = (float(id.x) + 0.5 - u.bounds[0]) / u.bounds[2]
+                    + (float(id.y) + 0.5 - u.bounds[1]) / u.bounds[3];
+        pixel.a = round(float(pixel.a) * clamp((u.threshold - local) / u.edge + 0.5, 0.0, 1.0));
+        output_pixels[index] = packUnorm4x8(pixel / 255.0);
+        return;
+    }
+    vec2 xy = vec2(id) + 0.5 - vec2(u.center[0], u.center[1]);
+    float w = u.inverse[6] * xy.x + u.inverse[7] * xy.y + 1.0;
+    vec4 pixel = vec4(0.0);
+    if (w > 0.01) {
+        vec2 position = vec2(u.inverse[0] * xy.x + u.inverse[1] * xy.y,
+                                 u.inverse[3] * xy.x + u.inverse[4] * xy.y) / w
+                        + vec2(u.center[0], u.center[1]) - 0.5;
+        pixel = sample_card(position);
+        pixel.a = round(float(pixel.a) * u.opacity);
+    }
+    output_pixels[index] = packUnorm4x8(pixel / 255.0);
+}
