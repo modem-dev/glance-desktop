@@ -184,7 +184,7 @@ mod tests {
     #[ignore = "requires the native OCR helper (macOS) or Tesseract (Linux)"]
     fn native_ocr_recognizes_synthetic_text_and_regions() {
         use image::Rgba;
-        let font = crate::platform::annotation_font().expect("annotation font");
+        let font = crate::platform::annotation_font();
         let mut image = RgbaImage::from_pixel(600, 200, Rgba([255, 255, 255, 255]));
         imageproc::drawing::draw_text_mut(
             &mut image,
@@ -192,7 +192,7 @@ mod tests {
             20,
             20,
             40.,
-            &font,
+            font,
             "Glance OCR",
         );
         imageproc::drawing::draw_text_mut(
@@ -201,7 +201,7 @@ mod tests {
             20,
             110,
             40.,
-            &font,
+            font,
             "Copy this text",
         );
         let text = extract(&image, None).unwrap();

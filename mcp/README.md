@@ -234,6 +234,8 @@ Supply `expected_revision` to reject stale requests.
 
 Annotation tools accept pen, arrow, box, text, highlight, pixelate, counter,
 spotlight, and magnifier. Text uses one point; font size is `width × 7` pixels.
+Text and counter labels render offline in previews and exports, using an embedded
+font fallback when the system annotation font is unavailable.
 Spotlight uses opposite rectangle corners. Magnifier uses source and lens centers;
 radius is `width × 12` pixels (18–300), and `text` sets zoom (1.5–4, default 2).
 Replace its points to move source and lens independently.

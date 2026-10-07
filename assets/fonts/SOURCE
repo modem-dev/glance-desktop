@@ -1,0 +1,6 @@
+Roboto Regular by Google, licensed under Apache-2.0 (see LICENSE).
+Unmodified hinted TrueType font from googlefonts/roboto-2.
+Revision: 38062f4b4a0be4346d07a928408da21602545e9e
+Source: https://github.com/googlefonts/roboto-2/blob/38062f4b4a0be4346d07a928408da21602545e9e/src/hinted/Roboto-Regular.ttf
+SHA-256: 56a45233d29f11b4dfb86d248e921939d115778f87325e7ae8cc108383d6664d
+Embedded as an offline fallback when the platform annotation font cannot be read.

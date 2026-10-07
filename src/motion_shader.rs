@@ -1,4 +1,4 @@
-//! Distinct procedural backdrops. Metal handles preview/export; CPU is a fallback.
+//! Procedural backdrops. Metal/Vulkan handle preview/export; CPU is a fallback.
 use crate::{animation::Motion, backdrop::PRESETS};
 use image::RgbaImage;
 use std::f32::consts::TAU;
@@ -529,6 +529,38 @@ mod gpu {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod gpu {
+    use super::*;
+    static SHADER: std::sync::OnceLock<
+        std::sync::Mutex<Result<crate::linux_compute::Compute, String>>,
+    > = std::sync::OnceLock::new();
+    pub(super) fn frame(u: &Uniforms) -> Result<RgbaImage, String> {
+        // Explicit scalar packing matches GLSL std430; no struct padding/unsafe casts.
+        let mut words = vec![
+            u.width,
+            u.height,
+            u.orbit_sin.to_bits(),
+            u.orbit_cos.to_bits(),
+        ];
+        for color in [u.dark, u.blue, u.cyan, u.mint] {
+            words.extend(color.map(f32::to_bits));
+        }
+        words.extend([u.effect, u.seed]);
+        words.extend(u.offset.map(f32::to_bits));
+        let shader = SHADER.get_or_init(|| {
+            std::sync::Mutex::new(crate::linux_compute::Compute::new(
+                include_str!("shaders/motion.comp"),
+                20,
+            ))
+        });
+        match &mut *shader.lock().map_err(|e| e.to_string())? {
+            Ok(shader) => shader.frame(u.width, u.height, &words, None),
+            Err(error) => Err(error.clone()),
+        }
+    }
+}
+
 #[cfg(test)]
 pub fn frame(width: u32, height: u32, preset: usize, motion: Motion, phase: f32) -> RgbaImage {
     frame_with_colors(width, height, preset, motion, phase, None, 0)
@@ -552,7 +584,7 @@ pub fn frame_with_colors(
         uniforms.cyan = a;
         uniforms.mint = a.map(|v| v * 0.45 + 0.55);
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     match gpu::frame(&uniforms) {
         Ok(image) => return image,
         Err(error) => {
@@ -566,6 +598,48 @@ pub fn frame_with_colors(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "requires hardware Vulkan; synthetic frames only, no files/network"]
+    fn vulkan_matches_cpu_and_reports_throughput() {
+        for motion in Motion::EFFECTS.into_iter().filter(|m| m.uses_shader()) {
+            for (w, h) in [(97, 63), (63, 97)] {
+                for phase in [0., 0.37, 0.99] {
+                    for seed in [0, 12345] {
+                        let mut u = Uniforms::new(w, h, 1, motion, phase).seeded(seed);
+                        u.cyan = [0.2, 0.4, 0.7];
+                        let actual = gpu::frame(&u).expect("hardware Vulkan required");
+                        let expected = cpu_frame(&u);
+                        let error = actual
+                            .as_raw()
+                            .iter()
+                            .zip(expected.as_raw())
+                            .map(|(a, b)| a.abs_diff(*b))
+                            .max()
+                            .unwrap();
+                        assert!(
+                            error <= 2,
+                            "{motion:?} {w}x{h} phase={phase} seed={seed}: error={error}"
+                        );
+                    }
+                }
+            }
+            let u = Uniforms::new(960, 540, 1, motion, 0.37);
+            gpu::frame(&u).unwrap();
+            let start = std::time::Instant::now();
+            for _ in 0..12 {
+                std::hint::black_box(gpu::frame(&u).unwrap());
+            }
+            let gpu_ms = start.elapsed().as_secs_f64() * 1000. / 12.;
+            let start = std::time::Instant::now();
+            std::hint::black_box(cpu_frame(&u));
+            let cpu_ms = start.elapsed().as_secs_f64() * 1000.;
+            println!(
+                "{motion:?} 960x540: CPU {cpu_ms:.2} ms, Vulkan compute+readback {gpu_ms:.2} ms ({:.1}x)",
+                cpu_ms / gpu_ms
+            );
+        }
+    }
     #[test]
     fn prism_cells_remain_convex_throughout_motion() {
         // Either diagonal must remain valid: an inverted cell would overlap

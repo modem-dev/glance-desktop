@@ -3,6 +3,94 @@ use crate::document::{Document, Tool};
 use gpui::{AppContext, TestAppContext, VisualTestContext};
 
 #[gpui::test]
+fn counter_numbers_remain_in_settled_previews_after_deselection_and_undo(cx: &mut TestAppContext) {
+    use super::{Message, preview_base, render_image};
+    use crate::{automation::Request, document::actions::DocumentAction};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.document = Document::new(image::RgbaImage::from_pixel(
+            100,
+            100,
+            image::Rgba([0, 0, 0, 255]),
+        ));
+        let bridge = |e: &mut Editor, cx: &mut gpui::Context<Editor>, action, revision| {
+            let (reply, response) = std::sync::mpsc::channel();
+            e.automation(
+                Request::Dispatch {
+                    action,
+                    expected_revision: Some(revision),
+                    reply,
+                },
+                cx,
+            );
+            response.recv().unwrap()
+        };
+        let mark = crate::document::Mark {
+            style: Default::default(),
+            tool: Tool::Counter,
+            points: vec![(50., 50.)],
+            curve: None,
+            color: [255, 0, 0, 255],
+            width: 6.,
+            text: "1".into(),
+        };
+        let revision = e.preview.revision;
+        bridge(
+            e,
+            cx,
+            Action::Edit {
+                edit: DocumentAction::AddAnnotation { mark },
+            },
+            revision,
+        )
+        .unwrap();
+        let revision = e.preview.revision;
+        assert!(bridge(e, cx, Action::SetCounterNumber { number: 10 }, revision - 1).is_err());
+        assert_eq!(e.document.marks[0].text, "1");
+        bridge(e, cx, Action::SetCounterNumber { number: 10 }, revision).unwrap();
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        assert_eq!(
+            response.recv().unwrap().unwrap()["tool_options"]["counter_number"],
+            10
+        );
+
+        for (action, label) in [(Action::Undo, "1"), (Action::Redo, "10")] {
+            let revision = e.preview.revision;
+            bridge(e, cx, action, revision).unwrap();
+            let preview = render_image(preview_base(&e.document));
+            let expected = preview.as_bytes(0).unwrap().to_vec();
+            e.receive(Message::Preview(e.preview.revision, 1, 0, preview), cx);
+            bridge(
+                e,
+                cx,
+                Action::SelectAnnotations { ids: Vec::new() },
+                e.preview.revision,
+            )
+            .unwrap();
+            assert!(e.selected_indices().is_empty());
+            assert_eq!(e.document.marks[0].text, label);
+            assert!(
+                expected.as_chunks::<4>().0.iter().any(|p| p[1] > 128),
+                "{label}: number must remain visible without a live overlay"
+            );
+            assert_eq!(e.preview.mark_count, 1);
+            assert_eq!(e.preview.image.as_bytes(0).unwrap(), expected);
+            assert!(e.document.export().pixels().any(|p| p[1] > 128));
+            // Reselect for the next undo/redo cycle and check read-back.
+            e.dispatch(
+                Action::SelectAnnotations {
+                    ids: vec![format!("{}:0", e.preview.revision)],
+                },
+                cx,
+            )
+            .unwrap();
+            assert_eq!(e.counter_number().to_string(), label);
+        }
+    });
+}
+
+#[gpui::test]
 fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
     use super::jobs::{Message, OperationResult};
     use crate::automation::Request;

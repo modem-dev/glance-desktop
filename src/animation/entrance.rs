@@ -3,6 +3,9 @@ use image::{Rgba, RgbaImage};
 use std::borrow::Cow;
 #[cfg(target_os = "macos")]
 mod gpu;
+#[cfg(target_os = "linux")]
+#[path = "entrance/linux.rs"]
+mod gpu;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -281,7 +284,7 @@ pub(super) fn render_foreground(
     bounds: (f32, f32, f32, f32),
     seconds: f32,
 ) -> Cow<'_, RgbaImage> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     if let p = animation.progress(seconds)
         && p > 0.
         && p < 1.
@@ -298,7 +301,7 @@ pub(super) fn render_foreground(
     foreground(cached, animation, bounds, seconds)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(super) fn gpu_preview_warmup(
     source: &std::sync::Arc<image::RgbaImage>,
     effect: Entrance,

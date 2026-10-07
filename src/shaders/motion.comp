@@ -1,0 +1,302 @@
+#version 450
+// Vulkan port of motion.metal; keep the procedural math in sync.
+// Scalars/arrays keep the ABI identical to Rust (vec3 would introduce padding).
+struct LiquidUniforms {
+    uint width;
+    uint height;
+    float orbit_sin;
+    float orbit_cos;
+    float dark[3];
+    float blue[3];
+    float cyan[3];
+    float mint[3];
+    uint effect;
+    uint seed;
+    float offset[2];
+};
+
+layout(std430, set = 0, binding = 0) buffer Output { uint output_pixels[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Params { LiquidUniforms u; };
+layout(local_size_x = 16, local_size_y = 16) in;
+
+uint grain_hash(uint x, uint y) {
+    uint n = x * 1973u + y * 9277u + 89173u;
+    n = (n ^ (n >> 16u)) * 2246822519u;
+    n = (n ^ (n >> 13u)) * 3266489917u;
+    return n ^ (n >> 16u);
+}
+
+float random_value(uint x, uint y) {
+    return float(grain_hash(x, y) & 65535u) / 65535.0;
+}
+
+float paper_noise(vec2 p) {
+    ivec2 cell = ivec2(floor(p));
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(random_value(uint(cell.x), uint(cell.y)),
+                   random_value(uint(cell.x + 1), uint(cell.y)), f.x),
+               mix(random_value(uint(cell.x), uint(cell.y + 1)),
+                   random_value(uint(cell.x + 1), uint(cell.y + 1)), f.x), f.y);
+}
+
+float nebula_noise(vec2 p) {
+    float value = 0.0, weight = 0.55;
+    for (uint i = 0; i < 4; i++) {
+        value += paper_noise(p) * weight;
+        p = vec2(p.x * 1.6 - p.y * 1.2 + 9.1, p.x * 1.2 + p.y * 1.6 + 3.7);
+        weight *= 0.5;
+    }
+    return value;
+}
+
+vec3 nebula(vec2 p, vec3 blue, vec3 cyan, vec3 mint) {
+    vec2 q = p * 3.2 + vec2(random_value(u.seed, 53u), random_value(u.seed, 67u)) * 19.0;
+    // Locally deforming periodic currents, turbulent gas and dark dust lanes.
+    float wx = nebula_noise(q + vec2(0.38 * u.orbit_cos, 0.32 * u.orbit_sin));
+    float wy = nebula_noise(q + vec2(5.2 - 0.30 * u.orbit_sin, 1.3 + 0.35 * u.orbit_cos));
+    q += vec2(wx - 0.5, wy - 0.5) * 2.2
+       + vec2(0.18 * sin(q.y * 1.6 + u.orbit_sin), 0.18 * cos(q.x * 1.3 + u.orbit_cos));
+    float gas = nebula_noise(q);
+    float dust = nebula_noise(q * 1.7 + vec2(4.8, -2.6));
+    float spine = p.y + p.x * 0.35 + 0.12 * sin(p.x * 3.0 + u.orbit_sin);
+    float envelope = exp(-spine * spine * 4.5);
+    float density = smoothstep(0.22, 0.72, gas) * envelope;
+    float lanes = smoothstep(0.30, 0.67, dust);
+    float emission = density * (0.18 + 0.82 * lanes);
+    float filament = (1.0 - smoothstep(0.018, 0.15, abs(gas - 0.52)))
+                   * density * (0.35 + 0.65 * lanes);
+    float tint = smoothstep(0.25, 0.70, wy);
+    // Keep the cloud emission subdued so the crisp stars lead the scene.
+    return vec3(0.018, 0.026, 0.060) + blue * 0.025
+         + mix(blue, cyan, tint) * emission * 0.50 + mint * filament * 0.12;
+}
+
+vec3 lava(vec2 p, vec3 dark, vec3 blue, vec3 cyan, vec3 mint) {
+    float t = atan(u.orbit_sin, u.orbit_cos);
+    // Crossing currents deform the fluid; carry lighting through the Jacobian.
+    float a = p.y * 5.0 - t;
+    float b = p.x * 7.0 + p.y * 4.0 + 2.0 * t;
+    float c = p.x * 4.0 + t;
+    float d = p.y * 6.0 - p.x * 3.0 - 2.0 * t;
+    vec2 q = p + vec2(0.10 * sin(a) + 0.035 * sin(b), 0.08 * sin(c) + 0.035 * cos(d));
+    float jxx = 1.0 + 0.245 * cos(b), jxy = 0.50 * cos(a) + 0.14 * cos(b);
+    float jyx = 0.32 * cos(c) + 0.105 * sin(d), jyy = 1.0 - 0.21 * sin(d);
+    float field = 0.0;
+    vec2 gradient = vec2(0.0);
+    vec2 aspect = vec2(u.width, u.height) / float(min(u.width, u.height));
+    for (uint i = 0; i < 8; i++) {
+        float angle = float(i) * 1.8 + (u.seed == 0u ? 0.0 : random_value(i, u.seed) * 6.28318530718);
+        float s = sin(t + angle), c = cos(t + angle);
+        float surge = sin(2.0 * t - angle);
+        vec2 center;
+        float r;
+        if (i < 6u) {
+            center = vec2((float(i) / 5.0 - 0.5) * aspect.x * 0.9 + 0.18 * s + 0.07 * surge,
+                            aspect.y * 0.34 * c + 0.09 * surge);
+            r = 0.145 + 0.025 * sin(2.0 * t + angle);
+        } else {
+            // Small globules travel between the larger streams and rejoin them.
+            center = vec2(aspect.x * 0.40 * sin(2.0 * t + angle), aspect.y * 0.42 * c);
+            r = 0.065 + 0.015 * surge;
+        }
+        float tilt = 0.55 * s;
+        float sn = sin(tilt), cs = cos(tilt);
+        float stretch = 0.72 + 0.18 * cos(2.0 * t + angle);
+        vec2 delta = q - center;
+        float lx = delta.x * cs + delta.y * sn;
+        float ly = (-delta.x * sn + delta.y * cs) * stretch;
+        float d = lx * lx + ly * ly + 0.004;
+        field += r * r / d;
+        float slope = -2.0 * r * r / (d * d);
+        gradient += slope * vec2(lx * cs - ly * stretch * sn, lx * sn + ly * stretch * cs);
+    }
+    gradient = vec2(gradient.x * jxx + gradient.y * jyx, gradient.x * jxy + gradient.y * jyy);
+    float fill = smoothstep(0.85, 1.1, field);
+    float core = smoothstep(1.0, 2.1, field);
+    float shine = 0.4 + 0.6 * clamp(dot(gradient, vec2(-0.5, -0.8)) / max(length(gradient), 0.001) + 0.3, 0.0, 1.0);
+    float rim = exp(-(field - 1.15) * (field - 1.15) * 18.0) * shine;
+    return mix(dark + blue * min(field, 0.8) * 0.07, mix(mix(blue, cyan, core), mint, rim * 0.85), fill);
+}
+
+vec3 aurora(vec2 p, vec3 dark, vec3 blue, vec3 cyan, vec3 mint) {
+    vec3 color = dark;
+    for (uint i = 0; i < 2; i++) {
+        float f = float(i);
+        float edge = -0.18 + f * 0.32 + 0.13 * sin(p.x * 3.8 + f * 1.8 + 0.6 * u.orbit_sin)
+                   + 0.045 * cos(p.x * 9.0 - f + u.orbit_cos);
+        float d = p.y - edge;
+        // GLSL pow() is undefined for a negative base; square explicitly.
+        float fiber_wave = sin(p.x * 160.0 + sin(p.x * 11.0 + u.orbit_sin));
+        float fibers = 0.7 + 0.3 * fiber_wave * fiber_wave;
+        float curtain = exp(-max(d, 0.0) * 8.0) * smoothstep(-0.025, 0.03, d) * fibers;
+        float glow = 0.4 * exp(-d * d * 65.0) + 0.65 * exp(-d * d * 1250.0) + curtain * 0.4;
+        float t = 0.5 + 0.5 * sin(p.x * 2.0 + f + u.orbit_sin);
+        color += mix(mix(blue, cyan, t), mint, 0.20) * glow;
+    }
+    return color;
+}
+
+vec3 contours(vec2 p, vec3 dark, vec3 blue, vec3 cyan, vec3 mint) {
+    vec2 q = p * 4.0;
+    float t = atan(u.orbit_sin, u.orbit_cos);
+    // Locally deforming waves, with integer frequencies for a seamless loop.
+    float warp = q.x * 0.7 - q.y * 0.9 - 2.0 * t;
+    float bend = q.x * 0.65 + q.y * 0.45 - t;
+    float a = q.x + 0.85 * sin(q.y * 0.8 + t) + 0.30 * cos(warp);
+    float b = q.y * 0.85 - q.x * 0.25 + 0.65 * cos(bend);
+    float c = q.x * 1.6 + q.y * 1.2 + t;
+    float weight = 0.30 + 0.06 * u.orbit_sin;
+    float field = 0.52 * sin(a) + weight * cos(b) + 0.12 * sin(c);
+    // Travel through three major levels. The atan branch jump is exactly
+    // three major / nine minor levels, leaving the isolines continuous.
+    float level = field * 9.0 + 3.0 * t / 6.28318530718;
+    float d = abs(level - round(level));
+    float minor = abs(level * 3.0 - round(level * 3.0));
+    // Analytic field derivatives supply pixel coverage in a compute shader,
+    // where fragment fwidth() is unavailable. This keeps steep lines continuous.
+    float dx = 0.52 * cos(a) * (1.0 - 0.21 * sin(warp))
+             - weight * sin(b) * (-0.25 - 0.4225 * sin(bend)) + 0.192 * cos(c);
+    float dy = 0.52 * cos(a) * (0.68 * cos(q.y * 0.8 + t) + 0.27 * sin(warp))
+             - weight * sin(b) * (0.85 - 0.2925 * sin(bend)) + 0.144 * cos(c);
+    float width = clamp(36.0 * (abs(dx) + abs(dy)) / float(min(u.width, u.height)), 0.004, 0.14);
+    float line = 1.0 - smoothstep(width * 0.45, width * 1.35, d);
+    float fine = 1.0 - smoothstep(width * 0.60, width * 2.40, minor);
+    vec3 base = mix(dark, blue, 0.15 + 0.15 * field);
+    base = mix(base, cyan, fine * 0.16);
+    return mix(base, mix(cyan, mint, 0.35), line * 0.85);
+}
+
+vec3 prism_vertex(float x, float y, float t, uint seed) {
+    float jitter = random_value(uint(int(x)) ^ seed, uint(int(y))) - 0.5;
+    return vec3(x + 0.28 * jitter + 0.14 * sin(t + x * 1.7 + y * 0.9),
+                  y + 0.24 * jitter + 0.14 * cos(2.0 * t + x * 0.8 - y * 1.4),
+                  0.32 * sin(x * 0.9 + y * 1.1 - t)
+                  + 0.18 * cos(x * 1.6 - y * 0.7 + 2.0 * t) + 0.24 * jitter);
+}
+
+vec3 prism(vec2 p, vec3 dark, vec3 blue, vec3 cyan, vec3 mint) {
+    float t = atan(u.orbit_sin, u.orbit_cos);
+    vec2 grid = vec2(p.x * 0.8 + p.y * 0.6, -p.x * 0.6 + p.y * 0.8) * 3.0;
+    ivec2 cell = ivec2(floor(grid));
+    // Each neighbor uses the same moving vertices: straight edges, no gaps.
+    for (int y = cell.y - 1; y <= cell.y + 1; y++) {
+        for (int x = cell.x - 1; x <= cell.x + 1; x++) {
+            vec3 va = prism_vertex(float(x), float(y), t, u.seed);
+            vec3 vb = prism_vertex(float(x) + 1.0, float(y), t, u.seed);
+            vec3 vc = prism_vertex(float(x), float(y) + 1.0, t, u.seed);
+            vec3 vd = prism_vertex(float(x) + 1.0, float(y) + 1.0, t, u.seed);
+            uint cell_hash = grain_hash(uint(x) ^ u.seed, uint(y));
+            // Alternate the diagonal to break up the regular tiled pattern.
+            bool alternate = (cell_hash & 1u) != 0u;
+            for (uint side = 0; side < 2; side++) {
+                vec3 a = alternate ? va : (side == 0u ? va : vd);
+                vec3 b = alternate ? (side == 0u ? vb : vd) : (side == 0u ? vb : vc);
+                vec3 c = alternate ? (side == 0u ? vd : vc) : (side == 0u ? vc : vb);
+                vec2 e = b.xy - a.xy, f = c.xy - a.xy, v = grid - a.xy;
+                float det = e.x * f.y - e.y * f.x;
+                float s = (v.x * f.y - v.y * f.x) / det;
+                float r = (e.x * v.y - e.y * v.x) / det;
+                vec3 weights = vec3(1.0 - s - r, s, r);
+                if (any(lessThan(weights, vec3(0.0)))) continue;
+                uint hash = cell_hash ^ (side == 0u ? 0x5bd1e995u : 0u);
+                float phase = float(hash & 65535u) / 65535.0 * 6.28318530718;
+                // Shared heights form a crystalline surface. Each plane bends
+                // the same traveling light band by its own surface normal.
+                float ez = b.z - a.z, fz = c.z - a.z;
+                float nx = (e.y * fz - ez * f.y) / det;
+                float ny = (ez * f.x - e.x * fz) / det;
+                vec3 normal = vec3(nx, ny, 1.0) / sqrt(nx * nx + ny * ny + 1.0);
+                float light = max(dot(normal, vec3(-0.35, -0.45, 0.82)), 0.0);
+                float band = grid.x * 1.65 + grid.y * 0.85 - t;
+                float refraction = band + normal.x * 2.8 + normal.y * 1.8;
+                vec3 spectrum = 0.5 + 0.5 * cos(vec3(refraction, refraction - 6.28318530718 / 3.0,
+                                                        refraction + 6.28318530718 / 3.0));
+                // Neutral palettes stay neutral; colored palettes split light.
+                float saturation = max(max(cyan.x, cyan.y), cyan.z) - min(min(cyan.x, cyan.y), cyan.z);
+                vec3 face = mix(blue, cyan, 0.5 + 0.5 * sin(phase + normal.x - normal.y));
+                face = mix(face, spectrum, min(saturation * 1.4, 1.0) * 0.38);
+                float glint = pow(0.5 + 0.5 * cos(refraction), 10.0);
+                vec3 color = mix(mix(dark, face, 0.24 + 0.65 * light), mint, glint * 0.72);
+                vec3 distances = weights * abs(det) / vec3(length(e - f), length(f), length(e));
+                float edge = min(min(distances.x, distances.y), distances.z);
+                float seam = 1.0 - smoothstep(0.0015, 0.0015 + 2.0 / float(min(u.width, u.height)), edge);
+                // Match adjacent faces exactly at their shared edge.
+                float edge_light = pow(0.5 + 0.5 * cos(band), 8.0);
+                vec3 edge_color = mix(mix(dark, blue, 0.48), mint, 0.18 + 0.72 * edge_light);
+                return mix(color, edge_color, seam);
+            }
+        }
+    }
+    return dark;
+}
+
+vec3 painterly(vec2 p, vec3 blue, vec3 cyan, vec3 mint) {
+    vec3 color = mix(mint, vec3(1.0, 0.97, 0.90), 0.65);
+    for (uint i = 0; i < 14; i++) {
+        uint index = i ^ u.seed;
+        float phase = random_value(index, 29) * 6.28318530718;
+        float s = u.orbit_sin * cos(phase) + u.orbit_cos * sin(phase);
+        float c = u.orbit_cos * cos(phase) - u.orbit_sin * sin(phase);
+        float progress = 0.5 + 0.5 * s;
+        float a = random_value(index, 17) * 3.14159265 + 0.22 * c;
+        vec2 center = vec2((random_value(index, 21) - 0.5) * 1.7, (random_value(index, 22) - 0.5) * 1.3)
+                      + vec2(c, s) * 0.06;
+        vec2 delta = p - center;
+        vec2 local = vec2(delta.x * cos(a) + delta.y * sin(a), -delta.x * sin(a) + delta.y * cos(a));
+        float along = local.x;
+        local.y -= 0.022 * sin(along * 8.0 + s * 1.8);
+        float full_len = 0.18 + random_value(index, 23) * 0.25;
+        float len = full_len * (0.18 + 0.82 * progress);
+        local.x += full_len - len;
+        float width = (0.045 + random_value(index, 24) * 0.08) * (0.85 + 0.15 * c);
+        float rough = paper_noise(vec2(along, local.y) * 60.0 + float(i)) * 0.18;
+        float coverage = (1.0 - smoothstep(0.7, 1.0, abs(local.x) / len + rough))
+                       * (1.0 - smoothstep(0.7, 1.0, abs(local.y) / width + rough));
+        float fibers = 0.85 + 0.15 * sin(local.y * 260.0 + float(i));
+        vec3 brush = i % 3u == 0u ? blue : (i % 3u == 1u ? cyan : mint);
+        color = mix(color, brush, coverage * fibers * (0.15 + 0.70 * progress));
+    }
+    return color;
+}
+
+void main() {
+    uvec2 id = gl_GlobalInvocationID.xy;
+    if (id.x >= u.width || id.y >= u.height) return;
+    float unit = float(min(u.width, u.height));
+    vec2 p = (vec2(id) + 0.5 - vec2(u.width, u.height) * 0.5) / unit + vec2(u.offset[0], u.offset[1]);
+
+    // Orbit the domain rather than advancing time linearly: every term loops.
+    vec2 q = p * 3.4 + vec2(0.34 * u.orbit_cos, 0.28 * u.orbit_sin);
+    vec2 warp = vec2(
+        sin(q.y * 1.65 + 0.65 * u.orbit_sin) + 0.45 * cos(q.x * 1.3 - q.y),
+        sin(q.x * 1.45 - 0.55 * u.orbit_cos) + 0.40 * cos(q.y * 1.4 + q.x)
+    );
+    q += warp * 0.85;
+    float field = sin(q.x * 1.75 + sin(q.y * 1.35))
+                + 0.60 * cos(q.y * 1.90 - q.x * 0.65)
+                + 0.25 * sin(q.x * 0.80 + q.y * 1.20);
+    float band = 0.5 + 0.5 * sin(field * 3.8 + q.y * 0.55);
+
+    vec3 dark = vec3(u.dark[0], u.dark[1], u.dark[2]);
+    vec3 blue = vec3(u.blue[0], u.blue[1], u.blue[2]);
+    vec3 cyan = vec3(u.cyan[0], u.cyan[1], u.cyan[2]);
+    vec3 mint = vec3(u.mint[0], u.mint[1], u.mint[2]);
+    vec3 color = mix(dark, blue, smoothstep(0.08, 0.56, band));
+    color = mix(color, cyan, smoothstep(0.48, 0.82, band));
+    color = mix(color, mint, smoothstep(0.78, 0.98, band));
+    switch (u.effect) {
+        case 1: color = lava(p, dark, blue, cyan, mint); break;
+        case 2: color = aurora(p, dark, blue, cyan, mint); break;
+        case 3: color = contours(p, dark, blue, cyan, mint); break;
+        case 4: color = prism(p, dark, blue, cyan, mint); break;
+        case 5: color = painterly(p, blue, cyan, mint); break;
+        case 6: color = nebula(p, blue, cyan, mint); break;
+    }
+    // Fine fixed grain avoids flicker or a discontinuity at the loop boundary.
+    float grain = float(grain_hash(id.x, id.y) & 65535u) / 65535.0 - 0.5;
+    float amount = u.effect == 0 ? 0.105 * (0.25 + 0.75 * band) : (u.effect == 5 ? 0.075 : 0.015);
+    color += grain * amount;
+    uvec3 rgb = uvec3(round(clamp(color, 0.0, 1.0) * 255.0));
+    output_pixels[id.y * u.width + id.x] = rgb.r | (rgb.g << 8u) | (rgb.b << 16u) | 0xff000000u;
+}

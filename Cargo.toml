@@ -1,6 +1,6 @@
 [package]
 name = "glance"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "A native screenshot editor for annotation, animated backdrops, and sharing visual context with coding agents."
 license = "MIT"
@@ -39,6 +39,9 @@ fs2 = "0.4"
 # GPUI 0.2.2 pulls xattr 0.2.3, which still uses libc::ENOATTR on Linux.
 # Keep the last verified compatible libc until that upstream dependency changes.
 libc = "=0.2.186"
+wgpu = { version = "28", default-features = false, features = ["std", "vulkan", "glsl"] }
+pollster = "0.4"
+bytemuck = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 raw-window-handle = "0.6"

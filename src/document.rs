@@ -312,42 +312,40 @@ pub(crate) fn paint(out: &mut RgbaImage, mark: &Mark) {
         }
         Tool::Text => {
             let font = crate::platform::annotation_font();
-            if let Some(font) = font {
-                // GPUI uses em pixels; ab_glyph scales by ascent + descent.
-                let em_size = (mark.width * 7.).max(1.);
-                let scale = em_size * font.height_unscaled()
-                    / font.units_per_em().unwrap_or(font.height_unscaled());
-                use image::{GrayImage, Luma};
-                let bounds = mark.bounds();
-                // Advance bounds are for selection; glyph ink (such as j's
-                // negative bearing or accented capitals) extends beyond them.
-                // Reserve an em around the label, clipped to the image.
-                let margin = em_size.ceil();
-                let x = (bounds.0.floor() - margin).max(0.) as u32;
-                let y = (bounds.1.floor() - margin).max(0.) as u32;
-                let right = (bounds.2.ceil() + margin).max(0.).min(out.width() as f32) as u32;
-                let bottom = (bounds.3.ceil() + margin).max(0.).min(out.height() as f32) as u32;
-                if x >= right || y >= bottom {
-                    return;
+            // GPUI uses em pixels; ab_glyph scales by ascent + descent.
+            let em_size = (mark.width * 7.).max(1.);
+            let scale = em_size * font.height_unscaled()
+                / font.units_per_em().unwrap_or(font.height_unscaled());
+            use image::{GrayImage, Luma};
+            let bounds = mark.bounds();
+            // Advance bounds are for selection; glyph ink (such as j's
+            // negative bearing or accented capitals) extends beyond them.
+            // Reserve an em around the label, clipped to the image.
+            let margin = em_size.ceil();
+            let x = (bounds.0.floor() - margin).max(0.) as u32;
+            let y = (bounds.1.floor() - margin).max(0.) as u32;
+            let right = (bounds.2.ceil() + margin).max(0.).min(out.width() as f32) as u32;
+            let bottom = (bounds.3.ceil() + margin).max(0.).min(out.height() as f32) as u32;
+            if x >= right || y >= bottom {
+                return;
+            }
+            let mut mask = GrayImage::new(right - x, bottom - y);
+            draw_text_mut(
+                &mut mask,
+                Luma([255]),
+                (a.0 - x as f32) as i32,
+                (a.1 + (em_size - scale) / 2. - y as f32).round() as i32,
+                scale,
+                font,
+                &mark.text,
+            );
+            for (dx, dy, p) in mask.enumerate_pixels() {
+                if p[0] == 0 {
+                    continue;
                 }
-                let mut mask = GrayImage::new(right - x, bottom - y);
-                draw_text_mut(
-                    &mut mask,
-                    Luma([255]),
-                    (a.0 - x as f32) as i32,
-                    (a.1 + (em_size - scale) / 2. - y as f32).round() as i32,
-                    scale,
-                    font,
-                    &mark.text,
-                );
-                for (dx, dy, p) in mask.enumerate_pixels() {
-                    if p[0] == 0 {
-                        continue;
-                    }
-                    let mut tint = color;
-                    tint[3] = ((tint[3] as u16 * p[0] as u16 + 127) / 255) as u8;
-                    crate::style::blend(out.get_pixel_mut(x + dx, y + dy), tint);
-                }
+                let mut tint = color;
+                tint[3] = ((tint[3] as u16 * p[0] as u16 + 127) / 255) as u8;
+                crate::style::blend(out.get_pixel_mut(x + dx, y + dy), tint);
             }
         }
         Tool::Pen | Tool::Rectangle => paint_shape(out, mark),
@@ -577,9 +575,45 @@ pub fn demo() -> RgbaImage {
 mod tests {
     use super::*;
     #[test]
+    fn counter_labels_survive_raster_rendering_and_export() {
+        for text in ["1", "10", "999"] {
+            for color in [[255, 0, 0, 255], [255, 255, 255, 255]] {
+                let mut doc = Document::new(RgbaImage::new(120, 120));
+                doc.commit(Mark {
+                    style: Default::default(),
+                    tool: Tool::Counter,
+                    points: vec![(60., 60.)],
+                    curve: None,
+                    color,
+                    width: 6.,
+                    text: text.into(),
+                });
+                for image in [doc.render(None), doc.export()] {
+                    let label_pixels = image
+                        .enumerate_pixels()
+                        .filter(|(x, y, p)| {
+                            (45..75).contains(x)
+                                && (45..75).contains(y)
+                                && if color == [255; 4] {
+                                    p[0] < 128 && p[3] == 255
+                                } else {
+                                    p[1] > 128 && p[3] == 255
+                                }
+                        })
+                        .count();
+                    assert!(
+                        label_pixels > 10,
+                        "{text}: dot must contain visible number ink"
+                    );
+                }
+                assert_eq!(doc.marks[0].text, text, "Rendering keeps numbers editable");
+            }
+        }
+    }
+    #[test]
     fn text_exports_preserve_glyph_overhangs() {
         use ab_glyph::Font;
-        let font = crate::platform::annotation_font().expect("annotation font is available");
+        let font = crate::platform::annotation_font();
         let em = 35.;
         let scale =
             em * font.height_unscaled() / font.units_per_em().unwrap_or(font.height_unscaled());
