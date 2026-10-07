@@ -571,29 +571,6 @@ impl Render for Editor {
                                 Action::CopyRemote,
                             )),
                     )
-                    .child(
-                        div()
-                            .relative()
-                            .child(self.compact_button(
-                                "ChatGPT account",
-                                "account",
-                                self.chatgpt.menu,
-                                cx,
-                                Action::ToggleChatgptAccountMenu,
-                            ))
-                            .child(
-                                canvas(
-                                    {
-                                        let bounds = self.chatgpt.trigger_bounds.clone();
-                                        move |rect, _, _| bounds.set(rect)
-                                    },
-                                    |_, _, _, _| {},
-                                )
-                                .absolute()
-                                .size_full(),
-                            ),
-                    )
-                    .child(self.ask_button("Ask Glance", true, true, Action::ToggleAskGlance, cx))
                     .child(self.export_menu(cx))
                     .child(
                         div()
@@ -629,6 +606,50 @@ impl Render for Editor {
                                         this.dispatch_ui(Action::Fit, cx);
                                     })),
                             ),
+                    )
+                    .child(
+                        div()
+                            .id("ai-controls")
+                            .debug_selector(|| "ai-controls".into())
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .gap(px(2.))
+                            .ml_2()
+                            .pl_2()
+                            .border_l_1()
+                            .border_color(rgb(0xe5e5ec))
+                            .child(
+                                div()
+                                    .id("chatgpt-trigger")
+                                    .debug_selector(|| "chatgpt-trigger".into())
+                                    .relative()
+                                    .child(self.compact_button(
+                                        "ChatGPT account",
+                                        "account",
+                                        self.chatgpt.menu,
+                                        cx,
+                                        Action::ToggleChatgptAccountMenu,
+                                    ))
+                                    .child(
+                                        canvas(
+                                            {
+                                                let bounds = self.chatgpt.trigger_bounds.clone();
+                                                move |rect, _, _| bounds.set(rect)
+                                            },
+                                            |_, _, _, _| {},
+                                        )
+                                        .absolute()
+                                        .size_full(),
+                                    ),
+                            )
+                            .child(self.ask_button(
+                                "Ask Glance",
+                                true,
+                                true,
+                                Action::ToggleAskGlance,
+                                cx,
+                            )),
                     ),
             )
             .child(self.canvas(window, cx))

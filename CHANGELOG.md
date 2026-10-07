@@ -21,6 +21,8 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- Grouped the account icon and **AI** button at the far right of the toolbar,
+  separated from export controls.
 - Ask Glance’s model dropdown opens only the model list above the prompt,
   keeping account settings separate.
 - Ask Glance shows a spinner, elapsed time, and the current activity while running.

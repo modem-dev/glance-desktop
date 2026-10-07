@@ -246,7 +246,14 @@ fn remote_copy_toolbar_fits_at_minimum_window_width(cx: &mut TestAppContext) {
     let mut visual = gpui::VisualTestContext::from_window(*view, cx);
     visual.simulate_resize(size(px(1050.), px(600.)));
     visual.run_until_parked();
-    for selector in ["copy-remote", "header-zoom", "ask-Ask Glance"] {
+    for selector in [
+        "copy-remote",
+        "export-menu",
+        "header-zoom",
+        "ai-controls",
+        "chatgpt-trigger",
+        "ask-Ask Glance",
+    ] {
         let bounds = visual.debug_bounds(selector).unwrap();
         assert!(bounds.size.width > px(0.));
         assert!(bounds.origin.x >= px(0.));
@@ -255,6 +262,16 @@ fn remote_copy_toolbar_fits_at_minimum_window_width(cx: &mut TestAppContext) {
             "{selector} overflows: {bounds:?}"
         );
     }
+    let export = visual.debug_bounds("export-menu").unwrap();
+    let zoom = visual.debug_bounds("header-zoom").unwrap();
+    let group = visual.debug_bounds("ai-controls").unwrap();
+    let account = visual.debug_bounds("chatgpt-trigger").unwrap();
+    let ai = visual.debug_bounds("ask-Ask Glance").unwrap();
+    assert!(export.right() <= zoom.left());
+    assert!(zoom.right() < group.left());
+    assert!(account.right() <= ai.left());
+    assert!(ai.right() <= group.right());
+    assert!(group.right() >= px(1030.));
 }
 #[gpui::test]
 fn remote_copy_updates_clipboard_only_after_upload_success(cx: &mut TestAppContext) {

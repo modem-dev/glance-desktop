@@ -100,7 +100,7 @@ with a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit 
 
 ## Ask Glance
 
-Click **Ask** in the toolbar, choose **Edit → Ask Glance…**, or press
+Click **AI** at the far right of the toolbar, choose **Edit → Ask Glance…**, or press
 **⌘K** (**Ctrl+K** on Linux). Type a request and press **Enter** or **Run**:
 
 - “Pixelate the email addresses and highlight the error.”
@@ -111,7 +111,7 @@ Click **Ask** in the toolbar, choose **Edit → Ask Glance…**, or press
 Connect a ChatGPT account first. Ask Glance uses the selected account/model
 independently of the **OCR source** setting; local OCR can remain selected.
 The model dropdown opens only the available models, directly above the prompt.
-Account settings stay separate in the toolbar account menu.
+The account icon sits beside **AI**, separated from the export controls.
 Running a request sends the current annotated image (as a downscaled preview),
 annotation metadata, and your prompt to OpenAI using your ChatGPT plan.
 Opening the prompt bar, typing, or signing in does not send the image.

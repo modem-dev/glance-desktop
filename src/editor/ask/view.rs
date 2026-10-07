@@ -54,7 +54,7 @@ impl Editor {
                 el.child(icon("sparkles", if primary { 0xffffff } else { 0x293142 }))
             })
             .child(if label == "Ask Glance" {
-                "Ask".to_owned()
+                "AI".to_owned()
             } else {
                 label.to_owned()
             })
