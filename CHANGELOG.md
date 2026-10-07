@@ -4,6 +4,8 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-07
+
 ### Added
 
 - **Ask Glance** prompt bar (⌘K / Ctrl+K): use your ChatGPT plan to inspect,
