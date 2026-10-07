@@ -2339,12 +2339,57 @@ fn ask_glance_prompt_bar_keeps_native_text_and_model_controls_compact(cx: &mut T
     let model = visual.debug_bounds("ask-model").unwrap();
     visual.simulate_click(model.center(), Default::default());
     visual.run_until_parked();
+    let picker = visual.debug_bounds("chatgpt-picker").unwrap();
     assert!(
-        visual.debug_bounds("chatgpt-model").is_some(),
-        "Model selection works while local OCR remains selected"
+        picker.bottom() <= model.top(),
+        "picker={picker:?}, model={model:?}"
     );
+    assert!(visual.debug_bounds("chatgpt-menu").is_none());
     entity.update(&mut visual, |e, cx| {
-        e.chatgpt.menu = false;
+        use super::chatgpt::Picker;
+        use crate::automation::Request;
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["chatgpt"]["picker"], "model");
+        assert_eq!(state["chatgpt"]["menu_open"], false);
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Model,
+                },
+                expected_revision: Some(e.preview.revision),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert!(e.chatgpt.picker.is_none());
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Model,
+                },
+                expected_revision: Some(e.preview.revision),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert_eq!(e.chatgpt.picker, Some(Picker::Model));
+        assert!(!e.chatgpt.menu);
+    });
+    visual.run_until_parked();
+    visual.simulate_keystrokes("escape");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(e.chatgpt.picker.is_none());
+        assert!(e.ask.open);
+    });
+    entity.update(&mut visual, |e, cx| {
+        assert!(!e.chatgpt.menu);
         e.dispatch(Action::ToggleAskGlance, cx).unwrap();
     });
     visual.run_until_parked();

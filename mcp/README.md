@@ -198,7 +198,9 @@ no access, refresh or ID tokens. Models come from the selected account’s catal
 choose an image-capable model. Selecting an account refreshes its catalog.
 
 `toggle_chatgpt_picker` opens/closes the matching dropdown; the model picker
-requires an eligible account and either the Ask Glance bar or ChatGPT OCR. Choosing an entry uses the existing
+requires an eligible account and either the Ask Glance bar or ChatGPT OCR. With
+Ask Glance open and account settings closed, the model list opens above the
+prompt without opening account settings (`menu_open` stays false). Choosing an entry uses the existing
 `select_chatgpt_account` or `set_chatgpt_model` action.
 
 Signing in does not change the OCR engine or upload a screenshot. Explicitly

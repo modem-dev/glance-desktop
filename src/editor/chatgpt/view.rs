@@ -142,16 +142,21 @@ impl Editor {
                 .collect(),
         }
     }
-    fn account_dropdown(
+    pub(in crate::editor) fn account_dropdown(
         &self,
         picker: Picker,
         label: String,
         enabled: bool,
+        in_ask: bool,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let id = match picker {
-            Picker::Account => "chatgpt-account",
-            Picker::Model => "chatgpt-model",
+        let id = if in_ask {
+            "ask-model"
+        } else {
+            match picker {
+                Picker::Account => "chatgpt-account",
+                Picker::Model => "chatgpt-model",
+            }
         };
         let bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
         let painted = bounds.clone();
@@ -192,15 +197,17 @@ impl Editor {
                     cx.new(|_| HoverLabel(accessible_label.clone().into()))
                         .into()
                 })
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     if enabled {
+                        this.focus.focus(window);
                         this.dispatch_ui(action.clone(), cx);
                     }
                 })),
         );
         div()
             .relative()
-            .flex_1()
+            .when(in_ask, |el| el.w(px(180.)).flex_shrink_0())
+            .when(!in_ask, |el| el.flex_1())
             .min_w_0()
             .child(trigger)
             .child(
@@ -208,122 +215,136 @@ impl Editor {
                     .absolute()
                     .size_full(),
             )
-            .when(self.chatgpt.picker == Some(picker), |el| {
-                el.child(
-                    deferred(
-                        anchored()
-                            .position_mode(AnchoredPositionMode::Local)
-                            .position(point(px(0.), px(38.)))
-                            .snap_to_window()
-                            .child(
-                                div()
-                                    .id("chatgpt-picker")
-                                    .debug_selector(|| "chatgpt-picker".into())
-                                    .w(px(292.))
-                                    .max_h(px(220.))
-                                    .overflow_y_scroll()
-                                    .occlude()
-                                    .p_1()
-                                    .flex()
-                                    .flex_col()
-                                    .rounded_lg()
-                                    .shadow_lg()
-                                    .border_1()
-                                    .border_color(rgb(0xbcc5d3))
-                                    .bg(rgb(0xffffff))
-                                    .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    })
-                                    .on_mouse_down_out(cx.listener(
-                                        move |this, e: &MouseDownEvent, _, cx| {
-                                            if this.chatgpt.picker == Some(picker)
-                                                && !bounds.get().contains(&e.position)
-                                            {
-                                                this.dispatch_ui(
-                                                    Action::ToggleChatgptPicker { picker },
-                                                    cx,
-                                                );
-                                            }
-                                        },
-                                    ))
-                                    .children(options.into_iter().enumerate().map(
-                                        |(index, (label, action))| {
-                                            let selected = match &action {
-                                                Action::SelectChatgptAccount { account_id } => {
-                                                    Some(account_id)
-                                                        == self
-                                                            .chatgpt
-                                                            .snapshot
-                                                            .active_account
-                                                            .as_ref()
+            .when(
+                self.chatgpt.picker == Some(picker) && (!in_ask || !self.chatgpt.menu),
+                |el| {
+                    el.child(
+                        deferred(
+                            anchored()
+                                .position_mode(AnchoredPositionMode::Local)
+                                .anchor(if in_ask {
+                                    Corner::BottomLeft
+                                } else {
+                                    Corner::TopLeft
+                                })
+                                // The local anchor follows the 34px trigger; leave a 4px gap.
+                                .position(point(px(0.), if in_ask { px(-38.) } else { px(38.) }))
+                                .snap_to_window()
+                                .child(
+                                    div()
+                                        .id("chatgpt-picker")
+                                        .debug_selector(|| "chatgpt-picker".into())
+                                        .w(px(292.))
+                                        .max_h(px(220.))
+                                        .overflow_y_scroll()
+                                        .occlude()
+                                        .p_1()
+                                        .flex()
+                                        .flex_col()
+                                        .rounded_lg()
+                                        .shadow_lg()
+                                        .border_1()
+                                        .border_color(rgb(0xbcc5d3))
+                                        .bg(rgb(0xffffff))
+                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                            cx.stop_propagation()
+                                        })
+                                        .on_mouse_down_out(cx.listener(
+                                            move |this, e: &MouseDownEvent, _, cx| {
+                                                if this.chatgpt.picker == Some(picker)
+                                                    && !bounds.get().contains(&e.position)
+                                                {
+                                                    this.dispatch_ui(
+                                                        Action::ToggleChatgptPicker { picker },
+                                                        cx,
+                                                    );
                                                 }
-                                                Action::SetChatgptModel { model } => {
-                                                    Some(model)
-                                                        == self.chatgpt.snapshot.model.as_ref()
-                                                }
-                                                _ => false,
-                                            };
-                                            self.accessible_button(
-                                                label.clone(),
-                                                enabled,
-                                                action.clone(),
-                                                div()
-                                                    .id(("chatgpt-option", index))
-                                                    .debug_selector(move || {
-                                                        format!("chatgpt-option-{index}")
-                                                    })
-                                                    .h(px(32.))
-                                                    .px_2()
-                                                    .flex()
-                                                    .items_center()
-                                                    .gap_2()
-                                                    .rounded_md()
-                                                    .text_color(rgb(0x293142))
-                                                    .bg(rgb(
-                                                        if self.chatgpt.picker_index == index {
-                                                            0xe0e6ef
-                                                        } else {
-                                                            0xffffff
-                                                        },
-                                                    ))
-                                                    .cursor_pointer()
-                                                    .hover(|s| s.bg(rgb(0xe0e6ef)))
-                                                    .child(div().w(px(18.)).when(selected, |el| {
-                                                        el.child(icon("check", 0x293142))
-                                                    }))
-                                                    .child(
-                                                        div()
-                                                            .min_w_0()
-                                                            .flex_1()
-                                                            .truncate()
-                                                            .child(label),
-                                                    )
-                                                    .on_mouse_move(cx.listener(
-                                                        move |this, _, _, cx| {
-                                                            if this.chatgpt.picker_index != index {
-                                                                this.chatgpt.picker_index = index;
-                                                                cx.notify();
-                                                            }
-                                                        },
-                                                    ))
-                                                    .on_click(cx.listener(
-                                                        move |this, _, _, cx| {
-                                                            if enabled {
-                                                                this.dispatch_ui(
-                                                                    action.clone(),
-                                                                    cx,
-                                                                );
-                                                            }
-                                                        },
-                                                    )),
-                                            )
-                                        },
-                                    )),
-                            ),
+                                            },
+                                        ))
+                                        .children(options.into_iter().enumerate().map(
+                                            |(index, (label, action))| {
+                                                let selected = match &action {
+                                                    Action::SelectChatgptAccount { account_id } => {
+                                                        Some(account_id)
+                                                            == self
+                                                                .chatgpt
+                                                                .snapshot
+                                                                .active_account
+                                                                .as_ref()
+                                                    }
+                                                    Action::SetChatgptModel { model } => {
+                                                        Some(model)
+                                                            == self.chatgpt.snapshot.model.as_ref()
+                                                    }
+                                                    _ => false,
+                                                };
+                                                self.accessible_button(
+                                                    label.clone(),
+                                                    enabled,
+                                                    action.clone(),
+                                                    div()
+                                                        .id(("chatgpt-option", index))
+                                                        .debug_selector(move || {
+                                                            format!("chatgpt-option-{index}")
+                                                        })
+                                                        .h(px(32.))
+                                                        .px_2()
+                                                        .flex()
+                                                        .items_center()
+                                                        .gap_2()
+                                                        .rounded_md()
+                                                        .text_color(rgb(0x293142))
+                                                        .bg(rgb(
+                                                            if self.chatgpt.picker_index == index {
+                                                                0xe0e6ef
+                                                            } else {
+                                                                0xffffff
+                                                            },
+                                                        ))
+                                                        .cursor_pointer()
+                                                        .hover(|s| s.bg(rgb(0xe0e6ef)))
+                                                        .child(
+                                                            div().w(px(18.)).when(selected, |el| {
+                                                                el.child(icon("check", 0x293142))
+                                                            }),
+                                                        )
+                                                        .child(
+                                                            div()
+                                                                .min_w_0()
+                                                                .flex_1()
+                                                                .truncate()
+                                                                .child(label),
+                                                        )
+                                                        .on_mouse_move(cx.listener(
+                                                            move |this, _, _, cx| {
+                                                                if this.chatgpt.picker_index
+                                                                    != index
+                                                                {
+                                                                    this.chatgpt.picker_index =
+                                                                        index;
+                                                                    cx.notify();
+                                                                }
+                                                            },
+                                                        ))
+                                                        .on_click(cx.listener(
+                                                            move |this, _, _, cx| {
+                                                                if enabled {
+                                                                    this.dispatch_ui(
+                                                                        action.clone(),
+                                                                        cx,
+                                                                    );
+                                                                }
+                                                            },
+                                                        )),
+                                                )
+                                            },
+                                        )),
+                                ),
+                        )
+                        .with_priority(3),
                     )
-                    .with_priority(3),
-                )
-            })
+                },
+            )
             .into_any_element()
     }
     pub(in crate::editor) fn chatgpt_menu(
@@ -399,7 +420,7 @@ impl Editor {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(self.account_dropdown(Picker::Account, label, enabled, cx))
+                    .child(self.account_dropdown(Picker::Account, label, enabled, false, cx))
                     .child(self.account_icon(
                         "Reconnect account",
                         "rotate-cw",
@@ -511,7 +532,7 @@ impl Editor {
                     .items_center()
                     .gap_3()
                     .child(div().text_xs().text_color(rgb(0x515d70)).child("Model"))
-                    .child(self.account_dropdown(Picker::Model, model, enabled, cx)),
+                    .child(self.account_dropdown(Picker::Model, model, enabled, false, cx)),
             );
         } else if account.is_some_and(|a| a.signed_in && !a.plan_enabled) {
             panel = panel.child(

@@ -172,7 +172,9 @@ impl Editor {
         if self.chatgpt.picker == Some(picker) {
             self.chatgpt.picker = None;
         } else {
-            self.chatgpt.menu = true;
+            if picker == Picker::Account || !self.ask.open {
+                self.chatgpt.menu = true;
+            }
             self.chatgpt.picker = Some(picker);
             self.chatgpt.picker_index = match picker {
                 Picker::Account => self
@@ -193,7 +195,7 @@ impl Editor {
         cx.notify();
     }
     pub(super) fn chatgpt_key(&mut self, key: &str, cx: &mut Context<Self>) -> bool {
-        if !self.chatgpt.menu {
+        if !self.chatgpt.menu && self.chatgpt.picker.is_none() {
             return false;
         }
         if let Some(picker) = self.chatgpt.picker {

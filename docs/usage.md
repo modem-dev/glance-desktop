@@ -110,7 +110,8 @@ Click **Ask** in the toolbar, choose **Edit → Ask Glance…**, or press
 
 Connect a ChatGPT account first. Ask Glance uses the selected account/model
 independently of the **OCR source** setting; local OCR can remain selected.
-The model control opens the account menu, where **Model** is a dropdown.
+The model dropdown opens only the available models, directly above the prompt.
+Account settings stay separate in the toolbar account menu.
 Running a request sends the current annotated image (as a downscaled preview),
 annotation metadata, and your prompt to OpenAI using your ChatGPT plan.
 Opening the prompt bar, typing, or signing in does not send the image.

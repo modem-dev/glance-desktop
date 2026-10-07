@@ -123,35 +123,12 @@ impl Editor {
             .find(|m| Some(&m.slug) == self.chatgpt.snapshot.model.as_ref())
             .map(|m| m.display_name.as_str())
             .unwrap_or("Choose model");
-        let model_button = self.accessible_button(
-            format!("ChatGPT model: {model}"),
-            !running,
-            Action::ToggleChatgptAccountMenu,
-            div()
-                .id("ask-model")
-                .debug_selector(|| "ask-model".into())
-                .flex()
-                .items_center()
-                .gap_1()
-                .px_2()
-                .h(px(36.))
-                .max_w(px(220.))
-                .flex_shrink_0()
-                .rounded_md()
-                .border_1()
-                .border_color(rgb(0xbcc5d3))
-                .bg(rgb(0xeef1f6))
-                .text_color(rgb(0x293142))
-                .child(div().min_w_0().truncate().child(model.to_owned()))
-                .child(icon("chevron-down", 0x293142))
-                .cursor_pointer()
-                .hover(|s| s.bg(rgb(0xe0e6ef)))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    if !running {
-                        this.focus.focus(window);
-                        this.dispatch_ui(Action::ToggleChatgptAccountMenu, cx);
-                    }
-                })),
+        let model_button = self.account_dropdown(
+            super::super::chatgpt::Picker::Model,
+            model.to_owned(),
+            !running && !self.chatgpt.busy,
+            true,
+            cx,
         );
         let close = self.accessible_button(
             "Close Ask Glance",
