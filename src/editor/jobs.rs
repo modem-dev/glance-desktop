@@ -23,6 +23,8 @@ pub(super) enum OperationKind {
     Upload,
     Crop,
     Transform,
+    Ocr,
+    Ask,
     Video,
 }
 pub(super) struct ActiveOperation {
@@ -35,6 +37,23 @@ pub(super) struct OperationState {
     next_id: u64,
 }
 pub(crate) enum Message {
+    AskProgress {
+        id: OperationId,
+        steps: usize,
+        status: String,
+    },
+    AskFinished {
+        id: OperationId,
+        result: Result<crate::chatgpt::agent::ResultDocument, String>,
+    },
+    ChatgptAuthorization {
+        generation: u64,
+        url: String,
+    },
+    ChatgptFinished {
+        generation: u64,
+        outcome: super::chatgpt::Outcome,
+    },
     Accessibility(super::panels::number::Scope, Action),
     AccessibilityPopup(
         super::panels::number::Scope,
@@ -54,6 +73,12 @@ pub(crate) enum Message {
     VideoProgress(OperationId, u32),
 }
 pub(crate) enum OperationResult {
+    ExtractedText {
+        revision: u64,
+        rectangle: [u32; 4],
+        result: Result<String, String>,
+        engine: crate::chatgpt::OcrEngine,
+    },
     ToolColorSample {
         tool: crate::document::Tool,
         selected: Option<usize>,
@@ -95,6 +120,7 @@ impl Editor {
     }
     pub(super) fn changed(&mut self) {
         self.preview.revision += 1;
+        self.extraction = None;
         self.schedule_preview();
     }
     pub(super) fn is_busy(&self) -> bool {
@@ -126,6 +152,41 @@ impl Editor {
     }
     pub(super) fn receive(&mut self, message: Message, cx: &mut Context<Self>) {
         match message {
+            Message::AskProgress { id, steps, status } => {
+                if self.ask.running.as_ref().is_some_and(|run| run.id == id) {
+                    self.ask.steps = steps;
+                    self.ask.status = status;
+                    cx.notify();
+                }
+            }
+            Message::AskFinished { id, result } => self.finish_ask(id, result, cx),
+            Message::ChatgptAuthorization { generation, url } => {
+                if generation == self.chatgpt.generation
+                    && self.chatgpt.signing_in
+                    && !self
+                        .chatgpt
+                        .cancel
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    cx.open_url(&url);
+                }
+            }
+            Message::ChatgptFinished {
+                generation,
+                outcome,
+            } => {
+                if generation == self.chatgpt.generation {
+                    self.chatgpt.busy = false;
+                    self.chatgpt.signing_in = false;
+                    if let Some(snapshot) = outcome.snapshot {
+                        self.chatgpt.snapshot = snapshot;
+                    }
+                    self.chatgpt.status = outcome.status;
+                    self.chatgpt.error = outcome.error;
+                    cx.notify();
+                }
+            }
+
             Message::Accessibility(scope, action) => {
                 if scope == self.tool_scope() {
                     self.dispatch_ui(action, cx);
@@ -222,7 +283,17 @@ impl Editor {
                     return;
                 }
                 self.operations.active = None;
+                let chatgpt_ocr = matches!(
+                    &result,
+                    OperationResult::ExtractedText {
+                        engine: crate::chatgpt::OcrEngine::Chatgpt,
+                        ..
+                    }
+                );
                 self.receive_result(result, cx);
+                if chatgpt_ocr && !self.chatgpt.busy {
+                    let _ = self.chatgpt_job(super::chatgpt::Job::Load, cx);
+                }
             }
         }
     }
@@ -238,8 +309,53 @@ impl Editor {
                 | OperationResult::Copied(Err(_))
                 | OperationResult::RemoteCopied(Err(_))
                 | OperationResult::Transformed(Err(_))
+                | OperationResult::ExtractedText { result: Err(_), .. }
         );
         match result {
+            OperationResult::ExtractedText {
+                revision,
+                rectangle,
+                result,
+                engine,
+            } => {
+                if revision != self.preview.revision {
+                    self.set_copy_feedback(None, cx);
+                    self.feedback.status =
+                        "Image changed during text extraction; extract again".into();
+                } else if engine == crate::chatgpt::OcrEngine::Chatgpt
+                    && self
+                        .chatgpt
+                        .inference_cancel
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    self.set_copy_feedback(None, cx);
+                    self.feedback.status = "ChatGPT OCR canceled".into();
+                } else {
+                    match result {
+                        Ok(text) => {
+                            if text.is_empty() {
+                                self.feedback.status =
+                                    "No text found. Try a clearer image or a smaller crop.".into();
+                                self.set_copy_feedback(Some(CopyFeedback::NoText), cx);
+                            } else {
+                                cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                                self.feedback.status = "Copied recognized text to clipboard".into();
+                                self.set_copy_feedback(Some(CopyFeedback::TextCopied), cx);
+                            }
+                            self.extraction = Some(super::Extraction {
+                                revision,
+                                rectangle,
+                                text,
+                                engine,
+                            });
+                        }
+                        Err(error) => {
+                            self.set_copy_feedback(None, cx);
+                            self.feedback.status = error;
+                        }
+                    }
+                }
+            }
             OperationResult::ToolColorSample {
                 tool,
                 selected,
@@ -392,7 +508,10 @@ impl Editor {
             }
         }
         crate::platform::show_editor(cx);
-        if failed && let Some(window) = cx.windows().first().copied() {
+        if failed
+            && self.feedback.status != "ChatGPT OCR canceled"
+            && let Some(window) = cx.windows().first().copied()
+        {
             let detail = self.feedback.status.clone();
             if let Ok(answer) = window.update(cx, |_, window, cx| {
                 window.prompt(

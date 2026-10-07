@@ -9,6 +9,8 @@ license=('MIT')
 depends=('gcc-libs' 'glibc' 'fontconfig' 'freetype2' 'libx11' 'libxcb'
          'libxkbcommon' 'libxkbcommon-x11' 'wayland' 'vulkan-icd-loader'
          'xdg-utils' 'ttf-dejavu' 'grim' 'slurp' 'wl-clipboard' 'zenity' 'ffmpeg')
+optdepends=('tesseract: offline text extraction'
+            'tesseract-data-eng: English text recognition data')
 options=('!strip')
 source=('@ARCHIVE@')
 sha256sums=('@SHA256@')

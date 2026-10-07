@@ -3,6 +3,7 @@ mod animation;
 mod arrow;
 mod automation;
 mod backdrop;
+mod chatgpt;
 mod color_picker;
 mod document;
 mod drawing;
@@ -18,6 +19,7 @@ mod mcp;
 mod menus;
 mod motion_shader;
 mod navigation;
+mod ocr;
 #[cfg(test)]
 mod performance;
 mod platform;

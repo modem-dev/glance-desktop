@@ -241,7 +241,10 @@ impl Render for Editor {
         };
         let fit_zoom = ((f32::from(viewport.width) - 260. - 80.) / output_dimensions.0 as f32)
             .min(
-                (f32::from(viewport.height) - 48. - export_height - 70.)
+                (f32::from(viewport.height)
+                    - 48.
+                    - export_height
+                    - if self.ask.open { 190. } else { 70. })
                     / output_dimensions.1 as f32,
             )
             .clamp(0.01, 1.);
@@ -398,6 +401,24 @@ impl Render for Editor {
             .on_action(cx.listener(|this, _: &menus::ImageTools, _, cx| {
                 this.dispatch_ui(Action::ToggleEnhance, cx)
             }))
+            .on_action(cx.listener(|this, _: &menus::AskGlance, window, cx| {
+                this.dispatch_ui(Action::ToggleAskGlance, cx);
+                if this.ask.open {
+                    this.ask.input.read(cx).focus(window);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &menus::ChatgptAccount, _, cx| {
+                this.dispatch_ui(Action::ToggleChatgptAccountMenu, cx)
+            }))
+            .on_action(cx.listener(|this, _: &menus::CopyOcr, _, cx| {
+                this.dispatch_ui(
+                    Action::CopyOcr {
+                        rectangle: None,
+                        engine: None,
+                    },
+                    cx,
+                )
+            }))
             .on_action(
                 cx.listener(|this, _: &menus::Help, _, cx| this.dispatch_ui(Action::Help, cx)),
             )
@@ -509,6 +530,32 @@ impl Render for Editor {
                     ))
                     .child(
                         div()
+                            .id("copy-ocr")
+                            .debug_selector(|| "copy-ocr".into())
+                            .flex_shrink_0()
+                            .child(self.compact_button(
+                                if self.chatgpt.snapshot.ocr_engine
+                                    == crate::chatgpt::OcrEngine::Chatgpt
+                                {
+                                    "Copy as OCR · ChatGPT"
+                                } else {
+                                    "Copy as OCR · Recognize text offline"
+                                },
+                                if self.feedback.copy == Some(CopyFeedback::TextCopied) {
+                                    "check"
+                                } else {
+                                    "scan-text"
+                                },
+                                false,
+                                cx,
+                                Action::CopyOcr {
+                                    rectangle: None,
+                                    engine: None,
+                                },
+                            )),
+                    )
+                    .child(
+                        div()
                             .id("copy-remote")
                             .debug_selector(|| "copy-remote".into())
                             .flex_shrink_0()
@@ -559,14 +606,66 @@ impl Render for Editor {
                                         this.dispatch_ui(Action::Fit, cx);
                                     })),
                             ),
+                    )
+                    .child(
+                        div()
+                            .id("ai-controls")
+                            .debug_selector(|| "ai-controls".into())
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .gap(px(2.))
+                            .ml_2()
+                            .pl_2()
+                            .border_l_1()
+                            .border_color(rgb(0xe5e5ec))
+                            .child(
+                                div()
+                                    .id("chatgpt-trigger")
+                                    .debug_selector(|| "chatgpt-trigger".into())
+                                    .relative()
+                                    .child(self.compact_button(
+                                        "ChatGPT account",
+                                        "account",
+                                        self.chatgpt.menu,
+                                        cx,
+                                        Action::ToggleChatgptAccountMenu,
+                                    ))
+                                    .child(
+                                        canvas(
+                                            {
+                                                let bounds = self.chatgpt.trigger_bounds.clone();
+                                                move |rect, _, _| bounds.set(rect)
+                                            },
+                                            |_, _, _, _| {},
+                                        )
+                                        .absolute()
+                                        .size_full(),
+                                    ),
+                            )
+                            .child(self.ask_button(
+                                "Ask Glance",
+                                true,
+                                true,
+                                Action::ToggleAskGlance,
+                                cx,
+                            )),
                     ),
             )
             .child(self.canvas(window, cx))
+            .when(self.ask.open, |el| el.child(self.ask_bar(cx)))
             .when_some(self.video_export.progress, |el, progress| {
                 el.child(self.export_progress(progress, cx))
             })
             .when_some(self.feedback.copy, |el, feedback| {
                 el.child(self.copy_confirmation(feedback))
+            });
+        let contents = contents
+            .when(self.chatgpt.menu, |el| {
+                el.child(self.chatgpt_menu(window, cx))
+            })
+            .when(self.chatgpt.snapshot.welcome_pending, |el| {
+                el.child(self.chatgpt_welcome(cx))
             });
         self.accessibility.root(contents)
     }

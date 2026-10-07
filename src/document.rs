@@ -88,6 +88,14 @@ impl Document {
             redo: vec![],
         }
     }
+    /// Commit a completed private agent draft as one undoable change.
+    pub(crate) fn apply_agent_draft(&mut self, draft: Self) {
+        self.remember();
+        self.base = draft.base;
+        self.marks = draft.marks;
+        self.backdrop = draft.backdrop;
+        self.image_animation = draft.image_animation;
+    }
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             base: self.base.clone(),

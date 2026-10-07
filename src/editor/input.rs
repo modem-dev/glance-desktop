@@ -501,7 +501,8 @@ impl Editor {
         }
     }
     pub(super) fn key(&mut self, e: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if self.tool_color_picker.read(cx).has_focus(window)
+        if (self.ask.open && self.ask.input.read(cx).has_focus(window))
+            || self.tool_color_picker.read(cx).has_focus(window)
             || self
                 .number_inputs
                 .values()
@@ -514,7 +515,7 @@ impl Editor {
             return;
         }
         let key = e.keystroke.key.as_str();
-        if self.popup_key(key, cx) {
+        if self.chatgpt_key(key, cx) || self.popup_key(key, cx) {
             cx.stop_propagation();
             return;
         }

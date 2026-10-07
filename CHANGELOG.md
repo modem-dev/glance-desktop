@@ -4,10 +4,40 @@ Notable user-visible changes are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- **Ask Glance** prompt bar (⌘K / Ctrl+K): use your ChatGPT plan to inspect,
+  crop, resize, annotate, redact with pixelation, and style a screenshot through
+  a native agent loop. Completed edits apply together with one undo; Stop, failed
+  requests, and stale results discard the draft. Includes model selection,
+  answer copying, and matching MCP actions/state.
+- Optional **Continue with ChatGPT** sign-in, saved account/model selection, and
+  subscription-powered OCR through the existing Copy as OCR button, with usage
+  controls, private credential storage, and matching MCP actions. The compact
+  account panel uses dropdowns, labeled icon actions, and a contrasting OCR switch.
+- **Copy as OCR** in the top toolbar recognizes screenshot text offline and copies
+  it directly to the clipboard: Apple Vision on macOS, optional Tesseract on
+  Omarchy, and a matching MCP action with source-region selection and read-back.
+
+### Changed
+
+- Grouped the account icon and **AI** button at the far right of the toolbar,
+  separated from export controls.
+- Ask Glance’s model dropdown opens only the model list above the prompt,
+  keeping account settings separate.
+- Ask Glance shows a spinner, elapsed time, and the current activity while running.
+  The latest reply appears without an extra copy button.
+- Ask Glance uses a single compact control row
+  and no repeated plan/upload disclosures or Done/Undo banners. Account controls
+  omit redundant explanatory text; image sharing behavior is documented in usage.
+
 ### Fixed
 
 - Numbered callouts and text labels remain visible in previews and exports when
   the system annotation font is unavailable, using an embedded offline fallback.
+- Ask Glance retains completed streamed tool calls and answers when the ChatGPT
+  plan response finishes with an empty output array, avoiding false “no answer”
+  failures. Failed, interrupted, or canceled requests still discard edits.
 
 ## [0.4.0] - 2026-10-06
 

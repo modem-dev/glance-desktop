@@ -19,6 +19,7 @@ under `target/`. Run only the checks relevant to the change:
 | Check | Command |
 | --- | --- |
 | Native MP4 encode/frame decode | `cargo test --locked native_mcp_video_roundtrip -- --ignored --nocapture` |
+| Local OCR on synthetic text, source crop and blank image | `cargo test --locked native_ocr_recognizes_synthetic_text_and_regions -- --ignored --nocapture` |
 | Image entrance export samples | `cargo test --release --locked image_entrance_export_qa -- --ignored --nocapture` |
 | Focus effects and loop samples | `cargo test --release --locked focus_and_loop_demo_qa -- --ignored --nocapture` |
 | Native motion export samples | `cargo test --release --locked native_motion_export_qa -- --ignored --nocapture` |
@@ -50,7 +51,44 @@ with explicit authorization for that verification.
   scrolling, tool help, and exact-value edits. Check backdrop and annotation color
   pickers, screen sampling/cancellation, opacity, and undo.
 - Test framing, crop, resize, and rotation; inspect PNG/clipboard output at full resolution.
+- Click **Copy as OCR** on synthetic multiline text and paste into a text editor.
+  Confirm the toolbar shows reading/copied feedback, no result panel opens, and
+  image history is untouched. Empty images and failures preserve the clipboard;
+  stale results cannot overwrite it. Confirm recognition stays offline.
 - Check accessible toolbar/inspector/menu discovery, exact values, and VoiceOver navigation.
+
+## Ask Glance
+
+- Open Ask Glance using the toolbar, Edit menu, and ⌘K / Ctrl+K. Check its prompt
+  and Run/Stop controls fit at the minimum window size and have visible borders.
+- Verify Unicode/IME input, selection, paste, prompt undo, and Enter to submit.
+  Typing letter shortcuts must not change tools; prompt undo must not undo edits.
+- Model selection must remain available when OCR is set to On device.
+- With explicit authorization for inference on a test account, use only a
+  synthetic screenshot: ask for two annotations and a crop; check progress,
+  editable annotations, and one Undo restores the entire previous document.
+- Stop a run, close its bar, then start another. Late progress/results from the
+  canceled run must not affect the new run or image. Check failure and usage-limit
+  messages; clipboard/document must remain unchanged until successful completion.
+- Ask a question without edits, copy its reply, and confirm history is unchanged.
+- MCP: dispatch `ask_glance` with an expected revision, poll `ask_glance` state,
+  cancel it, and verify fresh IDs after completion. Never return bearer tokens.
+
+## ChatGPT account controls
+
+- Open ChatGPT from the toolbar; check account controls remain accessible and fit
+  a small window. Check contrast, account/model dropdowns, arrow/Enter/Escape
+  navigation, outside-click dismissal and icon hover/accessibility labels. Models
+  appear only for ChatGPT OCR. Confirm local OCR works without an account or network.
+- With explicit authorization for the test account, use Continue with ChatGPT in
+  the system browser. Check the first-use modal, account/model display, restart
+  persistence, reconnect, account/workspace switching, cancellation and sign-out.
+- Select ChatGPT OCR and use only a synthetic image. Check the clipboard after
+  completed inference and compare offline recognition. Verify missing permission,
+  expired sign-in, model errors, usage limits, incomplete/interrupted streams and
+  sign-out leave existing clipboard text intact.
+- Confirm MCP account state never includes credentials, and screenshots/support
+  logs contain no tokens or authorization URLs.
 
 ## Animation and export
 

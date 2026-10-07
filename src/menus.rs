@@ -10,6 +10,9 @@ actions!(
         Magnifier,
         Copy,
         CopyRemote,
+        CopyOcr,
+        ChatgptAccount,
+        AskGlance,
         Paste,
         Undo,
         Redo,
@@ -38,6 +41,7 @@ actions!(
 );
 pub fn install(cx: &mut App) {
     cx.bind_keys([
+        KeyBinding::new(&crate::platform::key_binding("cmd-k"), AskGlance, None),
         KeyBinding::new(&crate::platform::key_binding("cmd-o"), Open, None),
         KeyBinding::new(&crate::platform::key_binding("cmd-s"), Save, None),
         KeyBinding::new(&crate::platform::key_binding("cmd-c"), Copy, None),
@@ -54,62 +58,62 @@ pub fn install(cx: &mut App) {
         KeyBinding::new(
             &crate::platform::key_binding("cmd-a"),
             SelectAll,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "v",
             Select,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "p",
             Pen,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "a",
             Arrow,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "r",
             Rectangle,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "t",
             Text,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "h",
             Highlight,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "b",
             Pixelate,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "x",
             Crop,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "n",
             Counter,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "s",
             Spotlight,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             "m",
             Magnifier,
-            Some("GlanceCanvas && !ColorPicker && !NumberInput"),
+            Some("GlanceCanvas && !ColorPicker && !NumberInput && !AskPrompt"),
         ),
         KeyBinding::new(
             &crate::platform::key_binding("cmd-alt-2"),
@@ -129,7 +133,10 @@ pub fn install(cx: &mut App) {
     cx.set_menus(vec![
         Menu {
             name: "Glance".into(),
-            items: vec![MenuItem::action("Quit Glance", crate::Quit)],
+            items: vec![
+                MenuItem::action("ChatGPT account…", ChatgptAccount),
+                MenuItem::action("Quit Glance", crate::Quit),
+            ],
         },
         Menu {
             name: "File".into(),
@@ -151,6 +158,8 @@ pub fn install(cx: &mut App) {
                 MenuItem::separator(),
                 MenuItem::action("Copy", Copy),
                 MenuItem::action("Copy (remote)", CopyRemote),
+                MenuItem::action("Copy as OCR", CopyOcr),
+                MenuItem::action("Ask Glance…", AskGlance),
                 MenuItem::action("Paste", Paste),
                 MenuItem::action("Delete", Delete),
                 MenuItem::action("Duplicate", Duplicate),

@@ -25,6 +25,8 @@ ICON_NAME="Glance-$ICON_HASH.icns"
 iconutil -c icns target/Glance.iconset -o "$APP/Contents/Resources/$ICON_NAME"
 /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/video_encoder.swift -o target/glance-video-encoder
 /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/video_frame.swift -o target/glance-video-frame
+/usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/ocr.swift -o target/glance-ocr
+cp target/glance-ocr "$APP/Contents/MacOS/glance-ocr"
 cp target/glance-video-frame "$APP/Contents/MacOS/glance-video-frame"
 cp target/glance-video-encoder "$APP/Contents/MacOS/glance-video-encoder"
 cp assets/gpui/LICENSE-APACHE "$APP/Contents/Resources/GPUI-LICENSE"

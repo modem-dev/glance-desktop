@@ -7,7 +7,7 @@ The instructions below build from source using Rust and Cargo.
 
 Requires macOS 12+, Xcode Command Line Tools, and stable Rust from
 [rustup](https://rustup.rs/). Development is verified on Apple Silicon.
-The bundle includes AVFoundation video helpers.
+The bundle includes AVFoundation video helpers and an offline Vision OCR helper.
 
 ```sh
 xcode-select --install # If Command Line Tools are missing.
@@ -59,7 +59,7 @@ Switching signing identities may require this again.
 ### Build modes and signing
 
 Use `./scripts/bundle.sh debug` for a faster bundle. `cargo run --locked` is useful
-for UI iteration; run the bundle build once to compile the native video helpers.
+for UI iteration; run the bundle build once to compile the native video and OCR helpers.
 The packaged app gives capture permissions a consistent identity.
 
 To use an existing code-signing certificate:

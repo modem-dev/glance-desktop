@@ -109,6 +109,113 @@ the native export bar. State inspection and cancellation remain available while 
 Capture, open, save, and export actions use native permissions/dialogs;
 path-based export tools save directly to files.
 
+### Copy as OCR
+
+Text recognition uses the current source screenshot, ignoring annotations and
+backdrops. `copy_ocr` uses the saved engine by default; optional `engine: "local"`
+forces offline recognition and `engine: "chatgpt"` sends the image to OpenAI using
+the selected ChatGPT plan and model. The UI and MCP share the action:
+
+```json
+{"action":{"type":"copy_ocr"},"expected_revision":7}
+{"action":{"type":"copy_ocr","rectangle":[20,40,600,200]},"expected_revision":7}
+```
+
+An omitted/null rectangle recognizes the full source image. A rectangle contains
+integer `[x,y,width,height]` source pixels, must lie inside the image, and must
+have positive dimensions. Finish any active annotation text or gesture first.
+`copy_ocr` returns an operation ID; poll `get_editor_state` until `busy` is false.
+Nonempty text is copied directly to the clipboard. On success, `extraction`
+contains `revision`, `rectangle`, `text`, and `engine` (`local` or `chatgpt`); empty text means
+no text was detected and the previous clipboard is preserved. Errors appear in
+`status`, with `extraction: null`, and also preserve the clipboard. Results expire
+after document changes; stale worker results cannot overwrite the clipboard.
+OCR does not open a panel or change the document, annotations, or undo history.
+
+Local OCR on macOS requires the bundled Vision helper; Linux requires optional
+Tesseract and English language data. Local recognition times out after 45 seconds, limits text to
+64 KiB UTF-8, and runs in a worker using private temporary files.
+
+### Ask Glance
+
+Use the native prompt bar and agent through the shared dispatcher:
+
+```json
+{"action":{"type":"toggle_ask_glance"}}
+{"action":{"type":"set_ask_glance_prompt","prompt":"Highlight the error"}}
+{"action":{"type":"ask_glance","prompt":"Pixelate emails and highlight the error"},"expected_revision":12}
+{"action":{"type":"cancel_ask_glance"}}
+{"action":{"type":"copy_ask_glance_answer"}}
+```
+
+`set_ask_glance_prompt` changes only the draft (empty is allowed).
+`ask_glance` requires a nonempty prompt of at most 8,000 UTF-8 bytes and an
+eligible signed-in account/model; it explicitly sends the annotated image,
+annotation metadata, and prompt to OpenAI using the selected ChatGPT plan.
+The OCR engine is independent. The returned `operation_id` accepts background
+work; poll `get_editor_state.ask_glance` (`open`, `running`, `prompt`, `answer`,
+`status`, `error`, `steps`, `operation_id`, `elapsed_seconds`) until `running=false`.
+`elapsed_seconds` is the total running time, or null when idle; it measures the
+local wait, not server activity. The native UI shows a spinner and this clock
+alongside the latest tool/round status.
+
+The bounded native loop uses a namespace of local editing tools whose schemas
+and execution are shared with MCP: document inspection, crop/resize, annotation
+add/update/move/delete, backdrop settings, and preview inspection. It operates
+on a private draft. Only successful completion applies the draft as one undoable
+edit; failure, cancellation, or a document/account/model conflict preserves the
+live document. After completion, use `get_document` for fresh object IDs. The
+agent cannot invoke export, upload, clipboard, file import, or shell tools.
+Copying the answer is a separate explicit action. Bounds: eight model rounds,
+32 tool calls, five minutes, 16 MP source, 32 MP framed preview, and 24 MiB history.
+
+### ChatGPT sign-in and OCR settings
+
+Use `dispatch_action` for the same account controls as the native ChatGPT menu:
+
+```json
+{"action":{"type":"toggle_chatgpt_account_menu"}}
+{"action":{"type":"toggle_chatgpt_picker","picker":"account"}}
+{"action":{"type":"toggle_chatgpt_picker","picker":"model"}}
+{"action":{"type":"chatgpt_sign_in"}}
+{"action":{"type":"chatgpt_sign_in","account_id":"<saved account ID>"}}
+{"action":{"type":"cancel_chatgpt_sign_in"}}
+{"action":{"type":"select_chatgpt_account","account_id":"<saved account ID>"}}
+{"action":{"type":"set_chatgpt_model","model":"<available model slug>"}}
+{"action":{"type":"set_ocr_engine","engine":"chatgpt"}}
+{"action":{"type":"copy_ocr","engine":"chatgpt","rectangle":[20,40,600,200]}}
+{"action":{"type":"set_ocr_engine","engine":"local"}}
+{"action":{"type":"manage_chatgpt_usage"}}
+{"action":{"type":"dismiss_chatgpt_welcome"}}
+{"action":{"type":"sign_out_chatgpt"}}
+```
+
+`chatgpt_sign_in` opens the system browser for authentication and consent; omitted
+or null `account_id` adds a registration, while a saved ID reconnects it. Account
+jobs run independently of document workers: poll `get_editor_state.chatgpt.busy`
+(the dispatch receipt’s document `operation_id` can be null). The state includes
+`generation`, `signing_in`, `menu_open`, `picker` (`account`, `model`, or null), `status`, and `account` with saved account
+IDs/labels, sign-in and plan-permission flags, active account ID, available model
+slugs/display names, selected model/engine and first-use welcome state. It contains
+no access, refresh or ID tokens. Models come from the selected account’s catalog;
+choose an image-capable model. Selecting an account refreshes its catalog.
+
+`toggle_chatgpt_picker` opens/closes the matching dropdown; the model picker
+requires an eligible account and either the Ask Glance bar or ChatGPT OCR. With
+Ask Glance open and account settings closed, the model list opens above the
+prompt without opening account settings (`menu_open` stays false). Choosing an entry uses the existing
+`select_chatgpt_account` or `set_chatgpt_model` action.
+
+Signing in does not change the OCR engine or upload a screenshot. Explicitly
+selecting `chatgpt` enables subscription OCR; `copy_ocr` with an explicit engine
+also overrides the saved choice for one request. Failed, incomplete, interrupted,
+empty, or stale results preserve the clipboard. ChatGPT OCR uses the public
+Responses API with `store: false` and `stream: true`, waits for `response.completed`,
+and bounds image/text sizes and runtime. Usage-limit errors direct users to Manage
+usage. Signing out attempts revocation before clearing local tokens and preserves
+the issued client/account mapping and host ID. Unconfirmed revocation appears in
+`chatgpt.status`; users can disconnect Glance in ChatGPT settings.
+
 ### Select annotations
 
 Use `select_all`, `select_annotations` with revision-scoped `ids` from

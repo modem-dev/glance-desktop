@@ -91,6 +91,267 @@ fn counter_numbers_remain_in_settled_previews_after_deselection_and_undo(cx: &mu
 }
 
 #[gpui::test]
+fn ocr_bridge_copies_text_and_preserves_image_history(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    use crate::automation::Request;
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.recognize_text = |_, _| Ok("First line\n第二行".into());
+        e.document.remember();
+        e.document.marks.push(crate::document::Mark {
+            tool: Tool::Text,
+            points: vec![(10., 10.)],
+            color: [0, 0, 0, 255],
+            width: 3.,
+            text: "An editable annotation".into(),
+            curve: None,
+            style: Default::default(),
+        });
+        let image = e.document.base.clone();
+        let revision = e.preview.revision;
+        let bridge = |e: &mut Editor, cx: &mut gpui::Context<Editor>, action, revision| {
+            let (reply, response) = std::sync::mpsc::channel();
+            e.automation(
+                Request::Dispatch {
+                    action,
+                    expected_revision: Some(revision),
+                    reply,
+                },
+                cx,
+            );
+            response.recv().unwrap()
+        };
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Existing clipboard".into()));
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    rectangle: None,
+                    engine: None
+                },
+                revision + 1
+            )
+            .is_err()
+        );
+        assert!(e.operations.active.is_none());
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    engine: None,
+                    rectangle: Some([0, 0, 0, 10])
+                },
+                revision
+            )
+            .is_err()
+        );
+        assert!(e.operations.active.is_none());
+        let receipt = bridge(
+            e,
+            cx,
+            Action::CopyOcr {
+                engine: None,
+                rectangle: Some([0, 0, 100, 80]),
+            },
+            revision,
+        )
+        .unwrap();
+        let id = e.operations.active.as_ref().unwrap().id;
+        assert_eq!(receipt.operation_id, Some(id.value()));
+        assert_eq!(receipt.revision, revision);
+        assert!(!e.panels.enhance, "copy OCR must not open a result pane");
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Existing clipboard"
+        );
+        assert_eq!(
+            e.feedback.copy,
+            Some(super::feedback::CopyFeedback::ReadingText)
+        );
+        assert!(
+            bridge(
+                e,
+                cx,
+                Action::CopyOcr {
+                    rectangle: None,
+                    engine: None
+                },
+                revision
+            )
+            .is_err()
+        );
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
+                    revision,
+                    rectangle: [0, 0, 100, 80],
+                    result: Ok("First line\n第二行".into()),
+                },
+            ),
+            cx,
+        );
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["extraction"]["text"], "First line\n第二行");
+        assert_eq!(
+            state["extraction"]["rectangle"],
+            serde_json::json!([0, 0, 100, 80])
+        );
+        assert_eq!(state["extraction"]["engine"], "local");
+        assert_eq!(state["busy"], false);
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "First line\n第二行"
+        );
+        assert_eq!(
+            e.feedback.copy,
+            Some(super::feedback::CopyFeedback::TextCopied)
+        );
+        assert_eq!(e.preview.revision, revision);
+        assert!(std::sync::Arc::ptr_eq(&image, &e.document.base));
+        assert_eq!(e.document.marks[0].text, "An editable annotation");
+        assert!(!e.panels.enhance);
+        bridge(e, cx, Action::Undo, revision).unwrap();
+        assert!(
+            e.document.marks.is_empty(),
+            "OCR must not insert document undo steps"
+        );
+        assert!(e.extraction.is_none());
+    });
+}
+
+#[gpui::test]
+fn ocr_stale_empty_and_failed_results_preserve_clipboard(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let revision = e.preview.revision;
+        let old = e.start_operation(OperationKind::Ocr).unwrap();
+        e.changed();
+        e.receive(
+            Message::Operation(
+                old,
+                OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
+                    revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok("stale".into()),
+                },
+            ),
+            cx,
+        );
+        assert!(e.extraction.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        let current = e.start_operation(OperationKind::Ocr).unwrap();
+        e.receive(
+            Message::Operation(
+                old,
+                OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok("wrong operation".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.operations.active.as_ref().unwrap().id, current);
+        assert!(e.extraction.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        e.receive(
+            Message::Operation(
+                current,
+                OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Ok(String::new()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.extraction.as_ref().unwrap().text, "");
+        assert!(e.feedback.status.contains("No text found"));
+        assert_eq!(e.feedback.copy, Some(super::feedback::CopyFeedback::NoText));
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        e.recognize_text = |_, _| Err("OCR unavailable".into());
+        e.dispatch(
+            Action::CopyOcr {
+                rectangle: None,
+                engine: None,
+            },
+            cx,
+        )
+        .unwrap();
+        assert!(e.extraction.is_none());
+        let id = e.operations.active.as_ref().unwrap().id;
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    engine: crate::chatgpt::OcrEngine::Local,
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    result: Err("OCR unavailable".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(e.feedback.status, "OCR unavailable");
+        assert!(e.feedback.copy.is_none());
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+    });
+}
+
+#[gpui::test]
+fn toolbar_ocr_starts_shared_copy_action_without_opening_panels(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.recognize_text = |_, _| Ok("Toolbar text".into());
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    visual.run_until_parked();
+    let bounds = visual.debug_bounds("copy-ocr").unwrap();
+    visual.simulate_click(bounds.center(), Default::default());
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(!e.panels.enhance && !e.panels.backdrop && !e.panels.animation);
+        assert!(
+            e.operations
+                .active
+                .as_ref()
+                .is_some_and(|op| op.kind == OperationKind::Ocr)
+                || e.extraction
+                    .as_ref()
+                    .is_some_and(|result| result.text == "Toolbar text")
+        );
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+
+#[gpui::test]
 fn nebula_and_legacy_stars_use_shared_motion_action_and_canonical_readback(
     cx: &mut TestAppContext,
 ) {
@@ -1657,5 +1918,685 @@ fn multi_selection_bridge_checks_state_revisions_and_group_undo(cx: &mut TestApp
         assert!(e.document.marks.is_empty());
         e.document.undo();
         assert_eq!(e.document.marks, original);
+    });
+}
+
+#[gpui::test]
+fn chatgpt_bridge_requires_sign_in_for_remote_ocr_and_preserves_document(cx: &mut TestAppContext) {
+    use crate::{automation::Request, chatgpt::OcrEngine};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        let revision = e.preview.revision;
+        let base = e.document.base.clone();
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let dispatch = |e: &mut Editor, cx: &mut gpui::Context<Editor>, action| {
+            let (reply, response) = std::sync::mpsc::channel();
+            e.automation(
+                Request::Dispatch {
+                    action,
+                    expected_revision: Some(revision),
+                    reply,
+                },
+                cx,
+            );
+            response.recv().unwrap()
+        };
+        for action in [
+            Action::CopyOcr {
+                rectangle: None,
+                engine: Some(OcrEngine::Chatgpt),
+            },
+            Action::SetOcrEngine {
+                engine: OcrEngine::Chatgpt,
+            },
+            Action::ChatgptSignIn {
+                account_id: Some("unknown".into()),
+            },
+            Action::SelectChatgptAccount {
+                account_id: "unknown".into(),
+            },
+            Action::SetChatgptModel {
+                model: "unknown".into(),
+            },
+            Action::SignOutChatgpt,
+        ] {
+            assert!(dispatch(e, cx, action).is_err());
+        }
+        assert!(e.operations.active.is_none());
+        assert!(!e.chatgpt.busy);
+        dispatch(e, cx, Action::ToggleChatgptAccountMenu).unwrap();
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["chatgpt"]["menu_open"], true);
+        assert_eq!(state["chatgpt"]["account"]["ocr_engine"], "local");
+        assert_eq!(e.preview.revision, revision);
+        assert!(std::sync::Arc::ptr_eq(&base, &e.document.base));
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+    });
+}
+#[gpui::test]
+fn canceled_and_stale_account_jobs_cannot_open_browser_or_replace_state(cx: &mut TestAppContext) {
+    use super::{chatgpt::Outcome, jobs::Message};
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.chatgpt.generation = 7;
+        e.chatgpt.busy = true;
+        e.chatgpt.signing_in = true;
+        e.dispatch(Action::CancelChatgptSignIn, cx).unwrap();
+        assert!(e.chatgpt.cancel.load(std::sync::atomic::Ordering::Relaxed));
+        e.receive(
+            Message::ChatgptAuthorization {
+                generation: 7,
+                url: "https://example.invalid/must-not-open".into(),
+            },
+            cx,
+        );
+        e.receive(
+            Message::ChatgptFinished {
+                generation: 6,
+                outcome: Outcome {
+                    snapshot: None,
+                    status: "Stale".into(),
+                    error: false,
+                },
+            },
+            cx,
+        );
+        assert!(e.chatgpt.busy);
+        assert_ne!(e.chatgpt.status, "Stale");
+        e.receive(
+            Message::ChatgptFinished {
+                generation: 7,
+                outcome: Outcome {
+                    snapshot: None,
+                    status: "Canceled".into(),
+                    error: false,
+                },
+            },
+            cx,
+        );
+        assert!(!e.chatgpt.busy && !e.chatgpt.signing_in);
+        assert_eq!(e.chatgpt.status, "Canceled");
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+#[gpui::test]
+fn account_menu_is_accessible_and_fits_small_windows(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.chatgpt.menu = true;
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1050.), px(500.)));
+    visual.run_until_parked();
+    let bounds = visual.debug_bounds("chatgpt-menu").unwrap();
+    assert!(bounds.top() >= px(0.) && bounds.bottom() <= px(500.));
+    entity.read_with(&visual, |e, _| {
+        for label in ["Continue with ChatGPT", "On device"] {
+            assert!(
+                e.accessibility
+                    .nodes()
+                    .iter()
+                    .any(|node| node.label == label),
+                "{label}"
+            );
+        }
+        assert!(e.document.marks.is_empty());
+        assert_eq!(e.preview.revision, 0);
+    });
+}
+
+#[gpui::test]
+fn sign_out_cancellation_rejects_queued_success_before_clipboard_write(cx: &mut TestAppContext) {
+    use super::jobs::{Message, OperationResult};
+    use crate::chatgpt::OcrEngine;
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string("Keep this".into()));
+        let id = e.start_operation(OperationKind::Ocr).unwrap();
+        e.chatgpt
+            .inference_cancel
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        e.receive(
+            Message::Operation(
+                id,
+                OperationResult::ExtractedText {
+                    revision: e.preview.revision,
+                    rectangle: [0, 0, 100, 100],
+                    engine: OcrEngine::Chatgpt,
+                    result: Ok("Must not copy".into()),
+                },
+            ),
+            cx,
+        );
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "Keep this"
+        );
+        assert!(e.extraction.is_none());
+        assert_eq!(e.feedback.status, "ChatGPT OCR canceled");
+    });
+}
+
+#[gpui::test]
+fn compact_account_pickers_use_shared_actions_and_keyboard_dismissal(cx: &mut TestAppContext) {
+    use super::chatgpt::Picker;
+    use crate::automation::Request;
+    use crate::chatgpt::{AccountInfo, Model, OcrEngine};
+    use gpui::{px, size};
+    let window = cx.add_window(|window, cx| {
+        let mut e = Editor::with_native(cx, false);
+        e.focus.focus(window);
+        e.chatgpt.menu = true;
+        e.chatgpt.snapshot.accounts = vec![AccountInfo {
+            id: "synthetic-account".into(),
+            label: "demo@example.invalid · synthetic".into(),
+            signed_in: true,
+            plan_enabled: true,
+        }];
+        e.chatgpt.snapshot.active_account = Some("synthetic-account".into());
+        e.chatgpt.snapshot.models = vec![
+            Model {
+                slug: "synthetic-a".into(),
+                display_name: "Synthetic A".into(),
+            },
+            Model {
+                slug: "synthetic-b".into(),
+                display_name: "Synthetic B".into(),
+            },
+        ];
+        e.chatgpt.snapshot.model = Some("synthetic-a".into());
+        e
+    });
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1050.), px(500.)));
+    visual.run_until_parked();
+    assert!(
+        visual.debug_bounds("chatgpt-model").is_none(),
+        "offline OCR hides model choices"
+    );
+    assert!(visual.debug_bounds("chatgpt-picker").is_none());
+    entity.update(&mut visual, |e, cx| {
+        assert!(
+            e.dispatch(
+                Action::ToggleChatgptPicker {
+                    picker: Picker::Model
+                },
+                cx
+            )
+            .is_err()
+        );
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Account,
+                },
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert_eq!(e.chatgpt.picker, Some(Picker::Account));
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        assert_eq!(
+            response.recv().unwrap().unwrap()["chatgpt"]["picker"],
+            "account"
+        );
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("chatgpt-picker").is_some());
+    visual.simulate_keystrokes("escape");
+    visual.run_until_parked();
+    entity.update(&mut visual, |e, cx| {
+        assert!(e.chatgpt.menu);
+        assert!(e.chatgpt.picker.is_none());
+        e.chatgpt.snapshot.ocr_engine = OcrEngine::Chatgpt;
+        e.dispatch(
+            Action::ToggleChatgptPicker {
+                picker: Picker::Model,
+            },
+            cx,
+        )
+        .unwrap();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("chatgpt-model").is_some());
+    assert!(visual.debug_bounds("chatgpt-option-1").is_some());
+    let menu = visual.debug_bounds("chatgpt-menu").unwrap();
+    assert!(
+        menu.size.height <= px(350.),
+        "connected OCR panel stays compact"
+    );
+    visual.simulate_keystrokes("down");
+    entity.read_with(&visual, |e, _| assert_eq!(e.chatgpt.picker_index, 1));
+    visual.simulate_keystrokes("escape escape");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(!e.chatgpt.menu);
+        assert!(e.chatgpt.picker.is_none());
+        assert_eq!(e.preview.revision, 0);
+        assert!(e.document.marks.is_empty());
+    });
+}
+
+fn connected_ask(e: &mut Editor) {
+    e.chatgpt.snapshot.accounts = vec![crate::chatgpt::AccountInfo {
+        id: "synthetic-account".into(),
+        label: "demo@example.test · abc".into(),
+        signed_in: true,
+        plan_enabled: true,
+    }];
+    e.chatgpt.snapshot.active_account = Some("synthetic-account".into());
+    e.chatgpt.snapshot.models = vec![crate::chatgpt::Model {
+        slug: "synthetic-model".into(),
+        display_name: "Synthetic model".into(),
+    }];
+    e.chatgpt.snapshot.model = Some("synthetic-model".into());
+}
+fn begin_synthetic_ask(e: &mut Editor, cx: &mut gpui::Context<Editor>) -> super::jobs::OperationId {
+    connected_ask(e);
+    let id = e.start_operation(OperationKind::Ask).unwrap();
+    e.ask.running = Some(super::ask::Run {
+        id,
+        started: std::time::Instant::now(),
+        revision: e.preview.revision,
+        account: "synthetic-account".into(),
+        model: "synthetic-model".into(),
+        cancel: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    });
+    e.ask.open = true;
+    e.ask
+        .input
+        .update(cx, |input, cx| input.set_disabled(true, cx));
+    id
+}
+fn synthetic_ask_result(e: &Editor) -> crate::chatgpt::agent::ResultDocument {
+    let mut round = 0;
+    crate::chatgpt::agent::run(e.document.clone(),e.preview.revision,"synthetic-model","Add two boxes",&std::sync::atomic::AtomicBool::new(false),|_|{
+        round+=1;
+        Ok(if round==1 {
+            (0..2).map(|i|serde_json::json!({"type":"function_call","namespace":"glance","name":"add_annotation","call_id":format!("call_{i}"),"arguments":serde_json::json!({"mark":{"tool":"rectangle","points":[[10+i*40,20],[40+i*40,50]],"color":[255,0,0,255],"width":3,"text":""}}).to_string()})).collect()
+        } else {vec![serde_json::json!({"type":"message","content":[{"type":"output_text","text":"Added two editable boxes."}]})]})
+    },|_,_|{}).unwrap()
+}
+#[gpui::test]
+fn ask_glance_bridge_exposes_prompt_state_and_rejects_missing_signin(cx: &mut TestAppContext) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(
+            crate::automation::Request::Dispatch {
+                action: Action::ToggleAskGlance,
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        recv.recv().unwrap().unwrap();
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: "Highlight the error".into(),
+            },
+            cx,
+        )
+        .unwrap();
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        let state = recv.recv().unwrap().unwrap();
+        assert_eq!(state["ask_glance"]["open"], true);
+        assert_eq!(state["ask_glance"]["prompt"], "Highlight the error");
+        assert_eq!(state["ask_glance"]["running"], false);
+        assert!(
+            e.dispatch(
+                Action::AskGlance {
+                    prompt: "Highlight".into()
+                },
+                cx
+            )
+            .is_err()
+        );
+        assert!(e.operations.active.is_none());
+        assert!(
+            e.dispatch(
+                Action::SetAskGlancePrompt {
+                    prompt: "a".repeat(8001)
+                },
+                cx
+            )
+            .is_err()
+        );
+        assert_eq!(e.ask.prompt, "Highlight the error");
+        assert!(e.dispatch(Action::CopyAskGlanceAnswer, cx).is_err());
+        e.ask.answer = "A synthetic reply".into();
+        e.dispatch(Action::CopyAskGlanceAnswer, cx).unwrap();
+        assert_eq!(
+            cx.read_from_clipboard().unwrap().text().unwrap(),
+            "A synthetic reply"
+        );
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: String::new(),
+            },
+            cx,
+        )
+        .unwrap();
+        assert_eq!(e.ask.prompt, "");
+    });
+}
+#[gpui::test]
+fn ask_glance_completed_draft_preserves_prior_history_as_one_undo(cx: &mut TestAppContext) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    entity.update(cx, |e, cx| {
+        e.document.commit(crate::document::Mark {
+            tool: Tool::Text,
+            points: vec![(10., 10.)],
+            curve: None,
+            color: [0, 0, 0, 255],
+            width: 3.,
+            text: "Keep me".into(),
+            style: Default::default(),
+        });
+        let original = e.document.marks.clone();
+        let revision = e.preview.revision;
+        let result = synthetic_ask_result(e);
+        let id = begin_synthetic_ask(e, cx);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 1,
+                status: "Adding an annotation…".into(),
+            },
+            cx,
+        );
+        assert_eq!(e.ask.steps, 1);
+        e.receive(
+            super::Message::AskFinished {
+                id,
+                result: Ok(result),
+            },
+            cx,
+        );
+        assert_eq!(e.preview.revision, revision + 1);
+        assert_eq!(e.document.marks.len(), original.len() + 2);
+        assert_eq!(e.ask.answer, "Added two editable boxes.");
+        assert!(!e.ask.error);
+        assert!(!e.is_busy());
+        e.document.undo();
+        assert_eq!(e.document.marks, original);
+        e.document.undo();
+        assert!(e.document.marks.is_empty());
+        e.document.redo();
+        assert_eq!(e.document.marks, original);
+        e.document.redo();
+        assert_eq!(e.document.marks.len(), original.len() + 2);
+    });
+}
+#[gpui::test]
+fn ask_glance_discards_canceled_stale_and_account_conflicting_results(cx: &mut TestAppContext) {
+    for scenario in 0..5 {
+        let entity = cx.new(|cx| Editor::with_native(cx, false));
+        entity.update(cx, |e, cx| {
+            let original = e.document.base.clone();
+            let result = synthetic_ask_result(e);
+            let id = begin_synthetic_ask(e, cx);
+            match scenario {
+                0 => {
+                    e.dispatch(Action::CancelAskGlance, cx).unwrap();
+                    assert!(!e.is_busy());
+                }
+                1 => e.preview.revision += 1,
+                2 => e.chatgpt.snapshot.model = Some("different-model".into()),
+                3 => e.chatgpt.snapshot.active_account = Some("different-account".into()),
+                _ => {
+                    e.dispatch(Action::ToggleAskGlance, cx).unwrap();
+                    assert!(!e.ask.open);
+                }
+            }
+            let revision = e.preview.revision;
+            e.receive(
+                super::Message::AskFinished {
+                    id,
+                    result: Ok(result),
+                },
+                cx,
+            );
+            e.receive(
+                super::Message::AskProgress {
+                    id,
+                    steps: 8,
+                    status: "Stale progress".into(),
+                },
+                cx,
+            );
+            assert_eq!(e.preview.revision, revision);
+            assert!(e.document.marks.is_empty());
+            assert!(std::sync::Arc::ptr_eq(&original, &e.document.base));
+            assert!(e.ask.answer.is_empty());
+            assert_ne!(e.ask.status, "Stale progress");
+        });
+    }
+}
+#[gpui::test]
+fn ask_glance_prompt_bar_keeps_native_text_and_model_controls_compact(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| Editor::with_native(cx, false));
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    visual.run_until_parked();
+    let trigger = visual.debug_bounds("ask-Ask Glance").unwrap();
+    visual.simulate_click(trigger.center(), Default::default());
+    visual.run_until_parked();
+    let bar = visual.debug_bounds("ask-bar").unwrap();
+    assert!(f32::from(bar.size.height) < 150.);
+    assert!(visual.debug_bounds("ask-Sign in").is_some());
+    entity.update(&mut visual, |e, cx| {
+        connected_ask(e);
+        e.dispatch(
+            Action::SetAskGlancePrompt {
+                prompt: "Highlight the error".into(),
+            },
+            cx,
+        )
+        .unwrap();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-Run").is_some());
+    assert!(visual.debug_bounds("ask-model").is_some());
+    let prompt = visual.debug_bounds("ask-prompt-input").unwrap();
+    visual.simulate_click(prompt.center(), Default::default());
+    visual.simulate_keystrokes("cmd-a");
+    visual.simulate_input("Blur emails 日本語");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert_eq!(e.ask.prompt, "Blur emails 日本語")
+    });
+    visual.simulate_keystrokes("cmd-z");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| assert!(e.document.marks.is_empty()));
+    let model = visual.debug_bounds("ask-model").unwrap();
+    visual.simulate_click(model.center(), Default::default());
+    visual.run_until_parked();
+    let picker = visual.debug_bounds("chatgpt-picker").unwrap();
+    assert!(
+        picker.bottom() <= model.top(),
+        "picker={picker:?}, model={model:?}"
+    );
+    assert!(visual.debug_bounds("chatgpt-menu").is_none());
+    entity.update(&mut visual, |e, cx| {
+        use super::chatgpt::Picker;
+        use crate::automation::Request;
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["chatgpt"]["picker"], "model");
+        assert_eq!(state["chatgpt"]["menu_open"], false);
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Model,
+                },
+                expected_revision: Some(e.preview.revision),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert!(e.chatgpt.picker.is_none());
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(
+            Request::Dispatch {
+                action: Action::ToggleChatgptPicker {
+                    picker: Picker::Model,
+                },
+                expected_revision: Some(e.preview.revision),
+                reply,
+            },
+            cx,
+        );
+        response.recv().unwrap().unwrap();
+        assert_eq!(e.chatgpt.picker, Some(Picker::Model));
+        assert!(!e.chatgpt.menu);
+    });
+    visual.run_until_parked();
+    visual.simulate_keystrokes("escape");
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| {
+        assert!(e.chatgpt.picker.is_none());
+        assert!(e.ask.open);
+    });
+    entity.update(&mut visual, |e, cx| {
+        assert!(!e.chatgpt.menu);
+        e.dispatch(Action::ToggleAskGlance, cx).unwrap();
+    });
+    visual.run_until_parked();
+    entity.read_with(&visual, |e, _| assert!(!e.ask.open));
+}
+
+#[gpui::test]
+fn ask_glance_running_feedback_and_completion_stay_compact(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| Editor::with_native(cx, false));
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    let id = entity.update(&mut visual, |e, cx| {
+        let id = begin_synthetic_ask(e, cx);
+        e.ask.running.as_mut().unwrap().started =
+            std::time::Instant::now() - std::time::Duration::from_secs(42);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 0,
+                status: "Looking at your screenshot…".into(),
+            },
+            cx,
+        );
+        id
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-spinner").is_some());
+    assert!(visual.debug_bounds("ask-Stop").is_some());
+    let status = visual.debug_bounds("ask-status").unwrap();
+    let bar = visual.debug_bounds("ask-bar").unwrap();
+    assert!(status.bottom() <= bar.bottom());
+    assert!(f32::from(bar.size.height) < 150.);
+    entity.update(&mut visual, |e, cx| {
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["ask_glance"]["elapsed_seconds"], 42);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 1,
+                status: "Adding an annotation…".into(),
+            },
+            cx,
+        );
+        assert_eq!(e.ask.status, "Adding an annotation…");
+        let result = synthetic_ask_result(e);
+        e.receive(
+            super::Message::AskFinished {
+                id,
+                result: Ok(result),
+            },
+            cx,
+        );
+        assert!(e.ask.running.is_none());
+        assert!(e.ask.status.is_empty());
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        assert!(response.recv().unwrap().unwrap()["ask_glance"]["elapsed_seconds"].is_null());
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-answer").is_some());
+    assert!(visual.debug_bounds("ask-Copy answer").is_none());
+}
+#[gpui::test]
+fn ask_glance_dispatch_starts_worker_and_cancel_rejects_its_late_completion(
+    cx: &mut TestAppContext,
+) {
+    let entity = cx.new(|cx| Editor::with_native(cx, false));
+    let (sender, receiver) = async_channel::unbounded();
+    entity.update(cx, |e, cx| {
+        e.sender = sender;
+        connected_ask(e);
+        let (reply, recv) = std::sync::mpsc::channel();
+        e.automation(
+            crate::automation::Request::Dispatch {
+                action: Action::AskGlance {
+                    prompt: "Highlight the error".into(),
+                },
+                expected_revision: Some(0),
+                reply,
+            },
+            cx,
+        );
+        let receipt = recv.recv().unwrap().unwrap();
+        assert!(receipt.operation_id.is_some());
+        assert!(e.is_busy());
+        assert!(e.ask.open);
+        assert_eq!(e.ask.prompt, "Highlight the error");
+        assert!(e.dispatch(Action::Rotate, cx).is_err());
+        e.dispatch(Action::CancelAskGlance, cx).unwrap();
+        assert!(!e.is_busy());
+    });
+    let first = receiver.recv_blocking().unwrap();
+    entity.update(cx, |e, cx| {
+        e.dispatch(
+            Action::AskGlance {
+                prompt: "Add a box".into(),
+            },
+            cx,
+        )
+        .unwrap();
+        let current = e.ask.running.as_ref().unwrap().id;
+        e.receive(first, cx);
+        assert_eq!(e.ask.running.as_ref().unwrap().id, current);
+        assert!(e.is_busy());
+        assert!(e.document.marks.is_empty());
+    });
+    let second = receiver.recv_blocking().unwrap();
+    entity.update(cx, |e, cx| {
+        // The virtual editor has no credentials: this worker fails before any network request.
+        e.receive(second, cx);
+        assert!(!e.is_busy());
+        assert!(e.ask.error);
+        assert!(e.ask.answer.is_empty());
+        assert!(e.document.marks.is_empty());
+        assert_eq!(e.preview.revision, 0);
     });
 }

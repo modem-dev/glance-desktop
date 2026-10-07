@@ -82,6 +82,96 @@ pans horizontally. Hold **Space** and drag, or right-drag, to pan.
 Hold **Z** and click to zoom in at a spot; Shift-click zooms out.
 Trackpad smart zoom toggles 100%/fit. Zoom ranges from 1–800%.
 
+## Copy as OCR
+
+Click **Copy as OCR** (the text-scanning icon beside Copy in the top toolbar), or
+**Edit → Copy as OCR**. Glance recognizes text in the source screenshot locally
+and puts it directly on your clipboard. Paste it into any text editor or app.
+The toolbar shows **Reading text…**, then **Text copied!**; no result panel opens.
+If no text is found or recognition fails, your existing clipboard is preserved.
+
+Crop first to limit recognition to part of the image. OCR ignores annotations
+and backdrops and does not change image pixels or image undo history.
+Recognition preserves detected line breaks but does not reconstruct tables or
+code indentation. Review the pasted text for recognition errors.
+
+macOS uses the bundled Apple Vision helper. Omarchy uses optional `tesseract`
+with its English language data; see [Linux setup](linux.md#text-extraction).
+Local OCR needs no account, subscription, or upload. Work runs in the background,
+with a 45-second timeout and a 64 KiB text limit; use a smaller crop if a limit is reached.
+
+## Ask Glance
+
+Click **AI** at the far right of the toolbar, choose **Edit → Ask Glance…**, or press
+**⌘K** (**Ctrl+K** on Linux). Type a request and press **Enter** or **Run**:
+
+- “Pixelate the email addresses and highlight the error.”
+- “Crop to the dialog and add numbered steps.”
+- “Make this screenshot presentable with a rounded ocean backdrop.”
+- “Explain this error and draft a bug report.”
+
+Connect a ChatGPT account first. Ask Glance uses the selected account/model
+independently of the **OCR source** setting; local OCR can remain selected.
+The model dropdown opens only the available models, directly above the prompt.
+The account icon sits beside **AI**, separated from the export controls.
+Running a request sends the current annotated image (as a downscaled preview),
+annotation metadata, and your prompt to OpenAI using your ChatGPT plan.
+Opening the prompt bar, typing, or signing in does not send the image.
+
+The agent uses the same validated crop, resize, annotation, and backdrop actions
+as the editor and MCP. It works on a private draft, inspects previews, and can
+make several edits before finishing. A completed draft appears on the canvas as
+**one undoable change**; annotations remain selectable and editable. Review
+pixelated regions before sharing. **Stop** or **Esc** cancels a running request;
+closing the bar also cancels it. Failure, interruption, cancellation, and
+revision/account conflicts discard the draft and preserve your document.
+
+Ask Glance stays in a compact row with the prompt, model, Run/Stop, and close
+controls. A spinner and elapsed time accompany the current activity while a
+request runs; the status changes as edits execute and results are checked.
+Only the latest reply appears below the row, without an extra copy button.
+There is no conversation history or extra completion banner. Ask Glance
+can answer questions without changing the image. It does not export/upload
+images, control other apps, or modify Glance's source code. Use the normal export
+and copy controls after reviewing the result. Requests are bounded to eight
+model rounds, 32 tool calls, five minutes, and 16 MP source images. Very large
+contexts or framed previews may require a smaller crop or simpler request.
+
+## Use your ChatGPT plan
+
+Open the **ChatGPT account** icon in the top toolbar (or
+**Glance → ChatGPT account…**) and choose **Continue with ChatGPT**. Finish signing in and granting permission in your
+system browser. Eligible ChatGPT accounts can use their plan for image editing
+and OCR without an API key. A first-use connection confirmation offers usage settings; choose
+**Got it** to continue.
+
+In the account menu, select **ChatGPT** under **OCR source**, then choose an
+available model from the **Model** dropdown. The same OCR
+button now sends the source screenshot to OpenAI and copies the completed result
+to the clipboard. Signing in alone does not upload images or select ChatGPT OCR.
+Choose **On device** to use local recognition again. ChatGPT can help
+preserve text layout and code indentation; review the pasted result for errors.
+
+The menu shows saved accounts separately, including accounts with the same email.
+Use the account dropdown to switch accounts or **Continue with ChatGPT** to add
+another account/workspace. The circular-arrow icon reconnects the selected account;
+the exit icon signs it out. Both have labels and hover hints. **Cancel sign-in**
+stops a pending browser callback. Signing out clears the selected account’s local
+credentials and attempts remote session revocation,
+while preserving the account registration for later sign-in.
+
+**Manage usage** opens ChatGPT usage settings. Requests count toward your ChatGPT
+plan or available credits and may reach account/app limits. If permission or usage
+is unavailable, Glance shows an error and preserves your clipboard. It does not
+silently switch OCR providers. The integration currently uses OpenAI’s preview
+subscription API; availability and models depend on the selected account.
+
+Credentials are kept outside the repository in private, owner-only local files,
+with atomic writes and serialized token refresh. MCP exposes account metadata,
+model choices and OCR settings, never tokens. ChatGPT OCR sends at most a 16 MP,
+20 MB source image, limits each network request to 90 seconds and returned text to 64 KiB,
+and waits for complete inference before copying. Cropping limits the image sent.
+
 ## Frame the image
 
 Open **Backdrop** and choose **Solid**, **Gradient**, or **Motion**.
