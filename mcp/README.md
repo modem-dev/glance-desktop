@@ -154,7 +154,10 @@ eligible signed-in account/model; it explicitly sends the annotated image,
 annotation metadata, and prompt to OpenAI using the selected ChatGPT plan.
 The OCR engine is independent. The returned `operation_id` accepts background
 work; poll `get_editor_state.ask_glance` (`open`, `running`, `prompt`, `answer`,
-`status`, `error`, `steps`, `operation_id`) until `running=false`.
+`status`, `error`, `steps`, `operation_id`, `elapsed_seconds`) until `running=false`.
+`elapsed_seconds` is the total running time, or null when idle; it measures the
+local wait, not server activity. The native UI shows a spinner and this clock
+alongside the latest tool/round status.
 
 The bounded native loop uses a namespace of local editing tools whose schemas
 and execution are shared with MCP: document inspection, crop/resize, annotation

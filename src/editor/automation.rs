@@ -30,7 +30,8 @@ impl Editor {
                         "signing_in":self.chatgpt.signing_in,"menu_open":self.chatgpt.menu,"picker":self.chatgpt.picker,"status":self.chatgpt.status},
                     "ask_glance":{"open":self.ask.open,"running":self.ask.running.is_some(),"prompt":self.ask.prompt,
                         "answer":self.ask.answer,"status":self.ask.status,"error":self.ask.error,"steps":self.ask.steps,
-                        "operation_id":self.ask.running.as_ref().map(|run|run.id.value())},
+                        "operation_id":self.ask.running.as_ref().map(|run|run.id.value()),
+                        "elapsed_seconds":self.ask.running.as_ref().map(|run|run.started.elapsed().as_secs())},
                     "extraction": self.extraction.as_ref().filter(|result| result.revision == self.preview.revision).map(|result| json!({
                         "revision":result.revision, "rectangle":result.rectangle,
                         "text":result.text, "engine":result.engine,

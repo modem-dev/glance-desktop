@@ -125,7 +125,9 @@ closing the bar also cancels it. Failure, interruption, cancellation, and
 revision/account conflicts discard the draft and preserve your document.
 
 Ask Glance stays in a compact row with the prompt, model, Run/Stop, and close
-controls. Only the latest reply appears below it; the copy icon copies the reply.
+controls. A spinner and elapsed time accompany the current activity while a
+request runs; the status changes as edits execute and results are checked.
+Only the latest reply appears below the row, without an extra copy button.
 There is no conversation history or extra completion banner. Ask Glance
 can answer questions without changing the image. It does not export/upload
 images, control other apps, or modify Glance's source code. Use the normal export

@@ -23,7 +23,9 @@ Notable user-visible changes are recorded here.
 
 - Ask Glance’s model dropdown opens only the model list above the prompt,
   keeping account settings separate.
-- Ask Glance uses a single compact control row, a copy icon for the latest reply,
+- Ask Glance shows a spinner, elapsed time, and the current activity while running.
+  The latest reply appears without an extra copy button.
+- Ask Glance uses a single compact control row
   and no repeated plan/upload disclosures or Done/Undo banners. Account controls
   omit redundant explanatory text; image sharing behavior is documented in usage.
 - Reorganized documentation around release installation and first use, added a

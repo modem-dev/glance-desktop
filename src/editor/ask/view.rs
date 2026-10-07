@@ -53,15 +53,10 @@ impl Editor {
             .when(label == "Ask Glance", |el| {
                 el.child(icon("sparkles", if primary { 0xffffff } else { 0x293142 }))
             })
-            .when(label == "Copy answer", |el| {
-                el.child(icon("copy", 0x293142))
-            })
-            .when(label != "Copy answer", |el| {
-                el.child(if label == "Ask Glance" {
-                    "Ask".to_owned()
-                } else {
-                    label.to_owned()
-                })
+            .child(if label == "Ask Glance" {
+                "Ask".to_owned()
+            } else {
+                label.to_owned()
             })
             .tooltip({
                 let label = label.to_owned();
@@ -202,34 +197,49 @@ impl Editor {
                     div()
                         .id("ask-status")
                         .debug_selector(|| "ask-status".into())
+                        .flex()
+                        .items_center()
+                        .gap_2()
                         .text_xs()
                         .text_color(rgb(if self.ask.error { 0xb63025 } else { 0x536078 }))
-                        .child(self.ask.status.clone()),
+                        .when_some(self.ask.running.as_ref(), |el, run| {
+                            el.child(
+                                div()
+                                    .id("ask-spinner")
+                                    .debug_selector(|| "ask-spinner".into())
+                                    .size(px(14.))
+                                    .child(
+                                        svg()
+                                            .path("icons/rotate-cw.svg")
+                                            .size(px(14.))
+                                            .text_color(rgb(0x536078))
+                                            .with_animation(
+                                                "ask-spin",
+                                                Animation::new(std::time::Duration::from_secs(1))
+                                                    .repeat(),
+                                                |svg, delta| {
+                                                    svg.with_transformation(Transformation::rotate(
+                                                        percentage(delta),
+                                                    ))
+                                                },
+                                            ),
+                                    ),
+                            )
+                            .child(self.ask.status.clone())
+                            .child(format!("{}s", run.started.elapsed().as_secs()))
+                        })
+                        .when(!running, |el| el.child(self.ask.status.clone())),
                 )
             })
             .when(!self.ask.answer.is_empty(), |el| {
                 el.child(
                     div()
-                        .flex()
-                        .gap_2()
-                        .items_start()
-                        .child(
-                            div()
-                                .id("ask-answer")
-                                .debug_selector(|| "ask-answer".into())
-                                .flex_1()
-                                .max_h(px(100.))
-                                .overflow_y_scroll()
-                                .text_sm()
-                                .child(self.ask.answer.clone()),
-                        )
-                        .child(self.ask_button(
-                            "Copy answer",
-                            false,
-                            true,
-                            Action::CopyAskGlanceAnswer,
-                            cx,
-                        )),
+                        .id("ask-answer")
+                        .debug_selector(|| "ask-answer".into())
+                        .max_h(px(100.))
+                        .overflow_y_scroll()
+                        .text_sm()
+                        .child(self.ask.answer.clone()),
                 )
             })
             .into_any_element()

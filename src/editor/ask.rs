@@ -8,9 +8,12 @@ use super::{
 };
 use crate::chatgpt::agent;
 use gpui::*;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 pub(super) struct State {
@@ -25,6 +28,7 @@ pub(super) struct State {
 }
 pub(super) struct Run {
     pub id: OperationId,
+    pub started: Instant,
     pub revision: u64,
     pub account: String,
     pub model: String,
@@ -63,6 +67,7 @@ impl Editor {
         self.chatgpt.inference_cancel = cancel.clone();
         self.ask.running = Some(Run {
             id,
+            started: Instant::now(),
             revision,
             account: account.clone(),
             model: model.clone(),
@@ -80,6 +85,27 @@ impl Editor {
         self.ask.error = false;
         self.chatgpt.menu = false;
         self.chatgpt.picker = None;
+        // Keep the clock live even while the worker waits for a model response.
+        // The operation ID prevents an old clock from repainting a newer run.
+        cx.spawn(async move |view, cx| {
+            loop {
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                let keep = view
+                    .update(cx, |editor, cx| {
+                        if editor.ask.running.as_ref().is_some_and(|run| run.id == id) {
+                            cx.notify();
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap_or(false);
+                if !keep {
+                    break;
+                }
+            }
+        })
+        .detach();
         let runtime = self.chatgpt.runtime.clone();
         let document = self.document.clone();
         let sender = self.sender.clone();

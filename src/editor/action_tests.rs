@@ -2121,6 +2121,7 @@ fn begin_synthetic_ask(e: &mut Editor, cx: &mut gpui::Context<Editor>) -> super:
     let id = e.start_operation(OperationKind::Ask).unwrap();
     e.ask.running = Some(super::ask::Run {
         id,
+        started: std::time::Instant::now(),
         revision: e.preview.revision,
         account: "synthetic-account".into(),
         model: "synthetic-model".into(),
@@ -2396,6 +2397,66 @@ fn ask_glance_prompt_bar_keeps_native_text_and_model_controls_compact(cx: &mut T
     entity.read_with(&visual, |e, _| assert!(!e.ask.open));
 }
 
+#[gpui::test]
+fn ask_glance_running_feedback_and_completion_stay_compact(cx: &mut TestAppContext) {
+    use gpui::{px, size};
+    let window = cx.add_window(|_, cx| Editor::with_native(cx, false));
+    let entity = window.root(cx).unwrap();
+    let mut visual = VisualTestContext::from_window(*window, cx);
+    visual.simulate_resize(size(px(1200.), px(760.)));
+    let id = entity.update(&mut visual, |e, cx| {
+        let id = begin_synthetic_ask(e, cx);
+        e.ask.running.as_mut().unwrap().started =
+            std::time::Instant::now() - std::time::Duration::from_secs(42);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 0,
+                status: "Looking at your screenshot…".into(),
+            },
+            cx,
+        );
+        id
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-spinner").is_some());
+    assert!(visual.debug_bounds("ask-Stop").is_some());
+    let status = visual.debug_bounds("ask-status").unwrap();
+    let bar = visual.debug_bounds("ask-bar").unwrap();
+    assert!(status.bottom() <= bar.bottom());
+    assert!(f32::from(bar.size.height) < 150.);
+    entity.update(&mut visual, |e, cx| {
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        let state = response.recv().unwrap().unwrap();
+        assert_eq!(state["ask_glance"]["elapsed_seconds"], 42);
+        e.receive(
+            super::Message::AskProgress {
+                id,
+                steps: 1,
+                status: "Adding an annotation…".into(),
+            },
+            cx,
+        );
+        assert_eq!(e.ask.status, "Adding an annotation…");
+        let result = synthetic_ask_result(e);
+        e.receive(
+            super::Message::AskFinished {
+                id,
+                result: Ok(result),
+            },
+            cx,
+        );
+        assert!(e.ask.running.is_none());
+        assert!(e.ask.status.is_empty());
+        let (reply, response) = std::sync::mpsc::channel();
+        e.automation(crate::automation::Request::State(reply), cx);
+        assert!(response.recv().unwrap().unwrap()["ask_glance"]["elapsed_seconds"].is_null());
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("ask-answer").is_some());
+    assert!(visual.debug_bounds("ask-Copy answer").is_none());
+}
 #[gpui::test]
 fn ask_glance_dispatch_starts_worker_and_cancel_rejects_its_late_completion(
     cx: &mut TestAppContext,
