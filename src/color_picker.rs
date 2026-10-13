@@ -14,14 +14,15 @@ impl EventEmitter<ColorPickerEvent> for ColorPicker {}
 
 struct PickerLabel(SharedString);
 impl Render for PickerLabel {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         div()
             .px_2()
             .py_1()
             .rounded_md()
             .text_xs()
-            .bg(rgb(0x282b34))
-            .text_color(rgb(0xffffff))
+            .bg(rgb(theme.tooltip))
+            .text_color(rgb(theme.tooltip_text))
             .child(self.0.clone())
     }
 }
@@ -284,6 +285,7 @@ impl ColorPicker {
         cx.notify();
     }
     fn surface(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let wheel_bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
         let wheel_paint_bounds = wheel_bounds.clone();
         let brightness_bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
@@ -340,9 +342,9 @@ impl ColorPicker {
             .gap_3()
             .rounded_lg()
             .shadow_md()
-            .bg(rgb(0xffffff))
+            .bg(rgb(theme.surface))
             .border_1()
-            .border_color(rgb(0xdfe1e7))
+            .border_color(rgb(theme.border))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|_, _, _, cx| cx.stop_propagation()),
@@ -443,7 +445,7 @@ impl ColorPicker {
                                     px(6.),
                                     rgb(packed(from_hsv([hsv[0], hsv[1], 1.]))),
                                     px(2.),
-                                    rgb(0xffffff),
+                                    rgb(theme.knob),
                                     Default::default(),
                                 ));
                                 window.paint_quad(quad(
@@ -512,7 +514,7 @@ impl ColorPicker {
                                         size(px(12.), px(12.)),
                                     ),
                                     px(6.),
-                                    rgb(0xffffff),
+                                    rgb(theme.knob),
                                     px(1.),
                                     rgb(0x777777),
                                     Default::default(),
@@ -541,7 +543,11 @@ impl ColorPicker {
                             .h(px(30.))
                             .rounded_md()
                             .border_1()
-                            .border_color(rgb(if self.error { 0xd33d3d } else { 0xdfe1e7 }))
+                            .border_color(rgb(if self.error {
+                                theme.error
+                            } else {
+                                theme.border
+                            }))
                             .cursor(CursorStyle::IBeam)
                             .on_mouse_down(
                                 MouseButton::Left,
@@ -577,7 +583,7 @@ impl ColorPicker {
                 el.child(
                     div()
                         .text_xs()
-                        .text_color(rgb(0xd33d3d))
+                        .text_color(rgb(theme.error))
                         .child("Enter #RGB or #RRGGBB"),
                 )
             })
@@ -593,14 +599,14 @@ impl ColorPicker {
                     .text_xs()
                     .rounded_md()
                     .border_1()
-                    .border_color(rgb(0xdfe1e7))
+                    .border_color(rgb(theme.border))
                     .cursor_pointer()
                     .child(
                         svg()
                             .path("icons/pipette.svg")
                             .size(px(16.))
                             .flex_shrink_0()
-                            .text_color(rgb(0x282b34)),
+                            .text_color(rgb(theme.text)),
                     )
                     .child("Pick from screen")
                     .on_click(cx.listener(|this, _, window, cx| {
@@ -612,6 +618,7 @@ impl ColorPicker {
 }
 impl Render for ColorPicker {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let label = self.label;
         let selector = format!(
             "color-picker-{}",
@@ -636,9 +643,13 @@ impl Render for ColorPicker {
                     .justify_center()
                     .rounded_md()
                     .border_1()
-                    .border_color(rgb(if self.open { 0x147d6d } else { 0xdfe1e7 }))
-                    .bg(rgb(0xffffff))
-                    .hover(|style| style.border_color(rgb(0xb3b8c4)))
+                    .border_color(rgb(if self.open {
+                        theme.positive
+                    } else {
+                        theme.border
+                    }))
+                    .bg(rgb(theme.surface))
+                    .hover(|style| style.border_color(rgb(theme.knob_border)))
                     .cursor_pointer()
                     .tooltip(move |_, cx| {
                         cx.new(|_| PickerLabel(format!("Edit {label}").into()))
@@ -664,7 +675,7 @@ impl Render for ColorPicker {
                             .rounded_sm()
                             .bg(rgb(packed(self.external)))
                             .border_1()
-                            .border_color(rgb(0xdfe1e7)),
+                            .border_color(rgb(theme.border)),
                     )
                     .child(
                         canvas(

@@ -10,6 +10,7 @@ use std::{cell::Cell, rc::Rc};
 
 impl Editor {
     fn animation_slider(&self, control: AnimationControl, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
         let painted = bounds.clone();
         let a = self.document.image_animation;
@@ -45,7 +46,7 @@ impl Editor {
                                 control.label()
                             )))
                             .debug_selector(move || format!("animation-value-{}", control.label()))
-                            .text_color(rgb(0x646976))
+                            .text_color(rgb(theme.muted))
                             .child(control.display(value)),
                     ),
             )
@@ -94,9 +95,9 @@ impl Editor {
                                         size(b.size.width, px(4.)),
                                     ),
                                     px(2.),
-                                    rgb(0xe7e8ee),
+                                    rgb(theme.track),
                                     px(0.),
-                                    rgb(0xe7e8ee),
+                                    rgb(theme.track),
                                     Default::default(),
                                 ));
                                 window.paint_quad(quad(
@@ -105,9 +106,9 @@ impl Editor {
                                         size(x - b.left(), px(4.)),
                                     ),
                                     px(2.),
-                                    rgb(0x32b49b),
+                                    rgb(theme.slider_fill),
                                     px(0.),
-                                    rgb(0x32b49b),
+                                    rgb(theme.slider_fill),
                                     Default::default(),
                                 ));
                                 window.paint_quad(quad(
@@ -116,9 +117,9 @@ impl Editor {
                                         size(px(14.), px(14.)),
                                     ),
                                     px(7.),
-                                    rgb(0xffffff),
+                                    rgb(theme.knob),
                                     px(1.),
-                                    rgb(0xd3d6df),
+                                    rgb(theme.knob_border),
                                     Default::default(),
                                 ));
                             },
@@ -143,6 +144,7 @@ impl Editor {
         )
     }
     pub(in crate::editor) fn animation_controls(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let a = self.document.image_animation;
         let finished = self.clip_time() >= a.seconds as f32;
         super::controls::panel("animation-panel", cx)
@@ -156,7 +158,7 @@ impl Editor {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .child(icon("play", 0x147d6d))
+                            .child(icon("play", theme.positive))
                             .child(
                                 div()
                                     .text_sm()
@@ -197,9 +199,9 @@ impl Editor {
                                     .child(icon(
                                         name,
                                         if a.effect == effect {
-                                            0xd94d38
+                                            theme.accent
                                         } else {
-                                            0x555966
+                                            theme.secondary
                                         },
                                     ))
                                     .child(effect.label())
@@ -228,7 +230,7 @@ impl Editor {
                     )),
             )
             .child(self.animation_slider(AnimationControl::Time, cx))
-            .child(div().text_xs().text_color(rgb(0x646976)).child(format!(
+            .child(div().text_xs().text_color(rgb(theme.muted)).child(format!(
                 "{:.1} / {} s",
                 self.clip_time(),
                 a.seconds
@@ -263,6 +265,7 @@ impl Editor {
                         },
                         cx,
                     )),
+                cx,
             ))
     }
     pub(in crate::editor) fn animation_slider_move(

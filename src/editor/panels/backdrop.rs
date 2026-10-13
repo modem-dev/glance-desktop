@@ -23,6 +23,7 @@ impl Editor {
         active: bool,
         cx: &Context<Self>,
     ) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let name = match motion {
             Motion::Still => "square",
             Motion::Flow => "motion-flow",
@@ -46,16 +47,28 @@ impl Editor {
             .rounded_md()
             .cursor_pointer()
             .text_sm()
-            .bg(rgb(if active { 0xffe9e4 } else { 0xffffff }))
-            .text_color(rgb(if active { 0xd94d38 } else { 0x44454f }))
-            .hover(|s| s.bg(rgb(0xf0f1f5)))
-            .active(|s| s.bg(rgb(0xe5e7ed)))
+            .bg(rgb(if active {
+                theme.accent_background
+            } else {
+                theme.surface
+            }))
+            .text_color(rgb(if active {
+                theme.accent
+            } else {
+                theme.secondary
+            }))
+            .hover(|s| s.bg(rgb(theme.hover)))
+            .active(|s| s.bg(rgb(theme.pressed)))
             .child(
                 svg()
                     .path(format!("icons/{name}.svg"))
                     .size(px(16.))
                     .flex_shrink_0()
-                    .text_color(rgb(if active { 0xd94d38 } else { 0x555966 })),
+                    .text_color(rgb(if active {
+                        theme.accent
+                    } else {
+                        theme.secondary
+                    })),
             )
             .child(motion.label())
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -83,6 +96,7 @@ impl Editor {
         b: Backdrop,
         cx: &Context<Self>,
     ) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
         let painted_bounds = bounds.clone();
         let value = control.value(b);
@@ -96,7 +110,7 @@ impl Editor {
                     .flex_col()
                     .text_xs()
                     .child(div().whitespace_nowrap().child(control.label()))
-                    .child(div().text_color(rgb(0x8a8d99)).child(format!(
+                    .child(div().text_color(rgb(theme.muted)).child(format!(
                         "{value} {}",
                         if control == Control::Duration {
                             "s"
@@ -151,17 +165,17 @@ impl Editor {
                                 window.paint_quad(quad(
                                     track,
                                     px(2.),
-                                    rgb(0xe7e8ee),
+                                    rgb(theme.track),
                                     px(0.),
-                                    rgb(0xe7e8ee),
+                                    rgb(theme.track),
                                     Default::default(),
                                 ));
                                 window.paint_quad(quad(
                                     Bounds::new(track.origin, size(x - bounds.left(), px(4.))),
                                     px(2.),
-                                    rgb(0x32b49b),
+                                    rgb(theme.slider_fill),
                                     px(0.),
-                                    rgb(0x32b49b),
+                                    rgb(theme.slider_fill),
                                     Default::default(),
                                 ));
                                 window.paint_quad(quad(
@@ -170,9 +184,9 @@ impl Editor {
                                         size(px(14.), px(14.)),
                                     ),
                                     px(7.),
-                                    rgb(0xffffff),
+                                    rgb(theme.knob),
                                     px(1.),
-                                    rgb(0xd3d6df),
+                                    rgb(theme.knob_border),
                                     Default::default(),
                                 ));
                             },
@@ -296,6 +310,7 @@ impl Editor {
         )
     }
     fn dropdown(&self, popup: Popup, trigger: AnyElement, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let trigger_bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
         let painted_bounds = trigger_bounds.clone();
         let b = self
@@ -348,9 +363,9 @@ impl Editor {
                                     .flex_col()
                                     .rounded_lg()
                                     .shadow_md()
-                                    .bg(rgb(0xffffff))
+                                    .bg(rgb(theme.surface))
                                     .border_1()
-                                    .border_color(rgb(0xdfe1e7))
+                                    .border_color(rgb(theme.border))
                                     .on_mouse_down(
                                         MouseButton::Left,
                                         cx.listener(|_, _, _, cx| cx.stop_propagation()),
@@ -396,12 +411,14 @@ impl Editor {
                                                         .cursor_pointer()
                                                         .bg(rgb(
                                                             if self.panels.popup_index == index {
-                                                                0xe5f4f0
+                                                                theme.positive_background
                                                             } else {
-                                                                0xffffff
+                                                                theme.surface
                                                             },
                                                         ))
-                                                        .hover(|s| s.bg(rgb(0xe5f4f0)))
+                                                        .hover(|s| {
+                                                            s.bg(rgb(theme.positive_background))
+                                                        })
                                                         .child(div().w(px(12.)).child(
                                                             if popup == Popup::Format
                                                                 && b.format == Format::ALL[index]
@@ -425,7 +442,9 @@ impl Editor {
                                                 ),
                                             )
                                             .when(popup == Popup::Format && index == 6, |el| {
-                                                el.child(div().h(px(1.)).my_1().bg(rgb(0xe5e5ec)))
+                                                el.child(
+                                                    div().h(px(1.)).my_1().bg(rgb(theme.divider)),
+                                                )
                                             })
                                     })),
                             ),
@@ -435,6 +454,7 @@ impl Editor {
             })
     }
     pub(in crate::editor) fn export_menu(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         // A single toolbar control replaces the separate sidebar export buttons.
         div()
             .id("export-menu")
@@ -454,14 +474,14 @@ impl Editor {
                         .gap_1()
                         .rounded_md()
                         .cursor_pointer()
-                        .hover(|s| s.bg(rgb(0xf0f1f5)))
+                        .hover(|s| s.bg(rgb(theme.hover)))
                         .child(icon(
                             if self.video_export.progress.is_some() {
                                 "square"
                             } else {
                                 "save"
                             },
-                            0x555966,
+                            theme.secondary,
                         ))
                         .child("▾")
                         .tooltip(|_, cx| {
@@ -485,6 +505,7 @@ impl Editor {
         &mut self,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let b = self
             .document
             .backdrop
@@ -536,8 +557,8 @@ impl Editor {
                                 .gap_1()
                                 .rounded_md()
                                 .border_1()
-                                .border_color(rgb(0xdfe1e7))
-                                .bg(rgb(0xffffff))
+                                .border_color(rgb(theme.border))
+                                .bg(rgb(theme.surface))
                                 .cursor_pointer()
                                 .child(b.format.short_label())
                                 .child("▾")
@@ -576,7 +597,7 @@ impl Editor {
                         }),
                     ),
             )
-            .child(div().h(px(1.)).bg(rgb(0xe5e5ec)))
+            .child(div().h(px(1.)).bg(rgb(theme.divider)))
             .child(div().text_xs().child("Background"))
             .child(
                 div()
@@ -584,7 +605,7 @@ impl Editor {
                     .gap_1()
                     .p_1()
                     .rounded_md()
-                    .bg(rgb(0xeff0f4))
+                    .bg(rgb(theme.workspace))
                     .children(
                         [("Solid", false), ("Gradient", true), ("Motion", true)]
                             .into_iter()
@@ -607,8 +628,8 @@ impl Editor {
                                     .rounded_md()
                                     .text_xs()
                                     .cursor_pointer()
-                                    .bg(rgb(if active { 0xffffff } else { 0xeff0f4 }))
-                                    .text_color(rgb(if active { 0x292d37 } else { 0x646976 }))
+                                    .bg(rgb(if active { theme.surface } else { theme.workspace }))
+                                    .text_color(rgb(if active { theme.text } else { theme.muted }))
                                     .on_click(cx.listener({ let action = action.clone(); move |this, _, _, cx| this.dispatch_ui(action.clone(), cx) }))
                                     .child(label);
                                 self.accessible_button(label, true, action, button)
@@ -628,7 +649,7 @@ impl Editor {
                                 .debug_selector(|| "backdrop-randomize".into())
                                 .rounded_md()
                                 .border_1()
-                                .border_color(rgb(0xdfe1e7))
+                                .border_color(rgb(theme.border))
                                 .tooltip(|_, cx| {
                                     cx.new(|_| {
                                         HoverLabel(
@@ -681,9 +702,9 @@ impl Editor {
                             .rounded_md()
                             .border_2()
                             .border_color(rgb(if i == b.preset && b.colors.is_none() {
-                                0x147d6d
+                                theme.positive
                             } else {
-                                0xe5e6eb
+                                theme.divider
                             }))
                             .bg(style.background())
                             .cursor_pointer()
@@ -735,7 +756,7 @@ impl Editor {
                                 .flex_shrink_0()
                                 .rounded_md()
                                 .border_1()
-                                .border_color(rgb(0xd3d6df))
+                                .border_color(rgb(theme.knob_border))
                                 .child(self.compact_button(
                                     if self.playback.paused {
                                         "Play"
@@ -754,7 +775,7 @@ impl Editor {
                         ),
                 )
             })
-            .child(div().h(px(1.)).bg(rgb(0xe5e5ec)))
+            .child(div().h(px(1.)).bg(rgb(theme.divider)))
             .child(
                 self.accessible_button("Enable backdrop", true, Action::ToggleBackdropEnabled, div()
                     .id("backdrop-enabled")
@@ -769,13 +790,13 @@ impl Editor {
                             .size(px(14.))
                             .rounded_sm()
                             .border_1()
-                            .border_color(rgb(0x147d6d))
+                            .border_color(rgb(theme.positive))
                             .bg(rgb(if self.document.backdrop.is_some() {
-                                0x147d6d
+                                theme.positive_fill
                             } else {
-                                0xffffff
+                                theme.surface
                             }))
-                            .text_color(rgb(0xffffff))
+                            .text_color(rgb(theme.on_fill))
                             .child(if self.document.backdrop.is_some() {
                                 "✓"
                             } else {

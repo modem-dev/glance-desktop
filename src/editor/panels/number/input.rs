@@ -115,6 +115,7 @@ pub(super) fn paint(
     window: &mut Window,
     cx: &mut App,
 ) {
+    let theme = crate::theme::Theme::get(cx);
     let this = entity.read(cx);
     let text: SharedString = this.buffer.text().to_string().into();
     let line = window.text_system().shape_line(
@@ -123,7 +124,7 @@ pub(super) fn paint(
         &[TextRun {
             len: text.len(),
             font: font(crate::platform::UI_FONT),
-            color: rgb(0x292d37).into(),
+            color: rgb(theme.text).into(),
             background_color: None,
             underline: None,
             strikethrough: None,
@@ -166,7 +167,7 @@ pub(super) fn paint(
                     point(origin.x + line.x_for_index(cursor), origin.y),
                     size(px(1.), px(16.)),
                 ),
-                rgb(0x147d6d),
+                rgb(theme.positive),
             ));
         }
     });

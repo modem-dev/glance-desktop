@@ -139,7 +139,10 @@ impl Editor {
                         move |bounds, _, _| bounds,
                         move |bounds, _, window, cx| {
                             canvas_bounds.set(bounds);
-                            window.paint_quad(fill(bounds, rgb(0xeff0f4)));
+                            window.paint_quad(fill(
+                                bounds,
+                                rgb(crate::theme::Theme::get(cx).workspace),
+                            ));
                             let fit = ((f32::from(bounds.size.width) - 80.)
                                 / output_dimensions.0 as f32)
                                 .min(
@@ -432,8 +435,9 @@ impl Editor {
 // An opaque cover hides partial backdrops/cards until a matching worker frame exists.
 // Preparation has no measurable total, so use a status rather than a fake percentage.
 fn paint_preparing(bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
+    let theme = crate::theme::Theme::get(cx);
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
-        window.paint_quad(fill(bounds, rgb(0xe7e9ef)));
+        window.paint_quad(fill(bounds, rgb(theme.preparing)));
         let text: SharedString = "Preparing preview…".into();
         let font_size = px(14.);
         let line = window.text_system().shape_line(
@@ -442,7 +446,7 @@ fn paint_preparing(bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
             &[TextRun {
                 len: text.len(),
                 font: font(crate::platform::UI_FONT),
-                color: rgb(0x303542).into(),
+                color: rgb(theme.text).into(),
                 background_color: None,
                 underline: None,
                 strikethrough: None,
@@ -456,9 +460,9 @@ fn paint_preparing(bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
         window.paint_quad(quad(
             badge,
             px(10.),
-            rgb(0xffffff),
+            rgb(theme.surface),
             px(1.),
-            rgb(0xd8dbe4),
+            rgb(theme.border),
             Default::default(),
         ));
         let _ = line.paint(

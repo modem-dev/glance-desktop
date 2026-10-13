@@ -4,6 +4,7 @@ use crate::style::{Dash, End, Fill};
 use gpui::{prelude::*, *};
 
 pub(super) fn panel(id: &'static str, cx: &Context<Editor>) -> Stateful<Div> {
+    let theme = crate::theme::Theme::get(cx);
     div()
         .id(id)
         .debug_selector(move || id.into())
@@ -15,9 +16,9 @@ pub(super) fn panel(id: &'static str, cx: &Context<Editor>) -> Stateful<Div> {
         .flex_col()
         .gap_3()
         .overflow_y_scroll()
-        .bg(rgb(0xfcfcfd))
+        .bg(rgb(theme.chrome))
         .border_l_1()
-        .border_color(rgb(0xe5e5ec))
+        .border_color(rgb(theme.divider))
         .cursor(CursorStyle::Arrow)
         .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
         .on_mouse_down(
@@ -28,7 +29,8 @@ pub(super) fn panel(id: &'static str, cx: &Context<Editor>) -> Stateful<Div> {
             }),
         )
 }
-pub(super) fn field(label: &str, content: impl IntoElement) -> AnyElement {
+pub(super) fn field(label: &str, content: impl IntoElement, cx: &App) -> AnyElement {
+    let theme = crate::theme::Theme::get(cx);
     let id = format!("field-{}", label.to_lowercase().replace(' ', "-"));
     div()
         .id(SharedString::from(id.clone()))
@@ -40,7 +42,7 @@ pub(super) fn field(label: &str, content: impl IntoElement) -> AnyElement {
         .child(
             div()
                 .text_xs()
-                .text_color(rgb(0x646976))
+                .text_color(rgb(theme.muted))
                 .child(label.to_string()),
         )
         .child(content)
@@ -176,6 +178,7 @@ impl Editor {
         action: Action,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let theme = crate::theme::Theme::get(cx);
         let (active, enabled) = state;
         let debug_id = id.clone();
         let element = div()
@@ -190,13 +193,17 @@ impl Editor {
             .justify_center()
             .rounded_md()
             .text_xs()
-            .bg(rgb(if active { 0xffe9e4 } else { 0xf0f1f5 }))
-            .text_color(rgb(if !enabled {
-                0xa6a8b2
-            } else if active {
-                0xd94d38
+            .bg(rgb(if active {
+                theme.accent_background
             } else {
-                0x555966
+                theme.input
+            }))
+            .text_color(rgb(if !enabled {
+                theme.disabled
+            } else if active {
+                theme.accent
+            } else {
+                theme.secondary
             }))
             .tooltip({
                 let label = label.clone();
@@ -204,7 +211,7 @@ impl Editor {
             })
             .when(enabled, |el| {
                 el.cursor_pointer()
-                    .hover(|s| s.bg(rgb(0xe9e9ef)))
+                    .hover(|s| s.bg(rgb(theme.hover)))
                     .on_click(cx.listener({
                         let action = action.clone();
                         move |this, _, _, cx| this.dispatch_ui(action.clone(), cx)

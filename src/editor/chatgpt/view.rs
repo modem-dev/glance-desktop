@@ -557,6 +557,7 @@ impl Editor {
         panel
     }
     pub(in crate::editor) fn chatgpt_welcome(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         div()
             .id("chatgpt-welcome")
             .absolute()
@@ -572,7 +573,8 @@ impl Editor {
                     .w(px(390.))
                     .p_5()
                     .rounded_lg()
-                    .bg(rgb(0xfcfcfd))
+                    .bg(rgb(theme.surface))
+                    .text_color(rgb(theme.text))
                     .flex()
                     .flex_col()
                     .gap_3()

@@ -4,6 +4,7 @@ use super::super::view::{HoverLabel, icon};
 use gpui::{prelude::*, *};
 impl Editor {
     pub(in crate::editor) fn enhance_controls(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = crate::theme::Theme::get(cx);
         let target =
             crate::enhance::dimensions(self.document.base.dimensions(), self.panels.resize_scale);
         super::controls::panel("image-panel", cx)
@@ -17,7 +18,7 @@ impl Editor {
                             .flex()
                             .items_center()
                             .gap_2()
-                            .child(icon("sparkles", 0xf35d45))
+                            .child(icon("sparkles", theme.accent_fill))
                             .child(
                                 div()
                                     .text_sm()
@@ -70,16 +71,16 @@ impl Editor {
                                 .size(px(16.))
                                 .rounded_sm()
                                 .border_1()
-                                .border_color(rgb(0xd5d8e0))
+                                .border_color(rgb(theme.border))
                                 .bg(rgb(if self.panels.resize_smart {
-                                    0xf35d45
+                                    theme.accent_fill
                                 } else {
-                                    0xffffff
+                                    theme.surface
                                 }))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .text_color(rgb(0xffffff))
+                                .text_color(rgb(theme.on_fill))
                                 .child(if self.panels.resize_smart { "✓" } else { "" }),
                         )
                         .child("Smart upscale")
@@ -99,13 +100,13 @@ impl Editor {
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgb(0x878b98))
+                    .text_color(rgb(theme.muted))
                     .child("Sharper edges when enlarging. Annotations redraw at full resolution."),
             )
             .child(
                 div()
                     .text_xs()
-                    .text_color(rgb(0x555966))
+                    .text_color(rgb(theme.secondary))
                     .child(match target {
                         Ok((w, h)) => format!(
                             "{}×{} → {w}×{h}",
@@ -125,7 +126,7 @@ impl Editor {
                 cx,
                 Action::ApplyResize,
             ))
-            .child(div().h(px(1.)).bg(rgb(0xe5e5ec)))
+            .child(div().h(px(1.)).bg(rgb(theme.divider)))
             .child(
                 div()
                     .flex()
