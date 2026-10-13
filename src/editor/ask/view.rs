@@ -90,6 +90,7 @@ impl Editor {
         self.accessible_button(label, enabled, action, button)
     }
     pub(in crate::editor) fn ask_bar(&self, cx: &Context<Self>) -> AnyElement {
+        let theme = crate::theme::Theme::get(cx);
         let running = self.ask.running.is_some();
         let connected = self.chatgpt.snapshot.can_infer();
         let input = self.ask.input.clone();
@@ -139,8 +140,8 @@ impl Editor {
                 .justify_center()
                 .rounded_md()
                 .cursor_pointer()
-                .hover(|s| s.bg(rgb(0xe0e6ef)))
-                .child(icon("x", 0x293142))
+                .hover(|s| s.bg(rgb(theme.hover)))
+                .child(icon("x", theme.text))
                 .tooltip(|_, cx| cx.new(|_| HoverLabel("Close".into())).into())
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.dispatch_ui(Action::ToggleAskGlance, cx);
@@ -157,9 +158,10 @@ impl Editor {
             .flex()
             .flex_col()
             .gap_2()
-            .bg(rgb(0xf5f7fa))
+            .bg(rgb(theme.chrome))
+            .text_color(rgb(theme.text))
             .border_t_1()
-            .border_color(rgb(0xbcc5d3))
+            .border_color(rgb(theme.border))
             .child(
                 div()
                     .flex()
@@ -201,7 +203,11 @@ impl Editor {
                         .items_center()
                         .gap_2()
                         .text_xs()
-                        .text_color(rgb(if self.ask.error { 0xb63025 } else { 0x536078 }))
+                        .text_color(rgb(if self.ask.error {
+                            theme.error
+                        } else {
+                            theme.secondary
+                        }))
                         .when_some(self.ask.running.as_ref(), |el, run| {
                             el.child(
                                 div()
@@ -212,7 +218,7 @@ impl Editor {
                                         svg()
                                             .path("icons/rotate-cw.svg")
                                             .size(px(14.))
-                                            .text_color(rgb(0x536078))
+                                            .text_color(rgb(theme.secondary))
                                             .with_animation(
                                                 "ask-spin",
                                                 Animation::new(std::time::Duration::from_secs(1))
