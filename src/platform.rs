@@ -210,16 +210,41 @@ pub fn animation_destination(gif: bool) -> Result<Option<PathBuf>, String> {
     })
 }
 #[cfg(target_os = "macos")]
-pub const ANNOTATION_FONT: &str = "Arial";
+const SYSTEM_ANNOTATION_FONT: &str = "Arial";
 #[cfg(target_os = "linux")]
-pub const ANNOTATION_FONT: &str = "DejaVu Sans";
+const SYSTEM_ANNOTATION_FONT: &str = "DejaVu Sans";
 #[cfg(target_os = "macos")]
 pub const UI_FONT: &str = ".AppleSystemUIFont";
 #[cfg(target_os = "linux")]
 pub const UI_FONT: &str = "DejaVu Sans";
 
-pub fn annotation_font() -> Option<&'static ab_glyph::FontArc> {
-    static FONT: std::sync::OnceLock<Option<ab_glyph::FontArc>> = std::sync::OnceLock::new();
+pub const FALLBACK_FONT_DATA: &[u8] = include_bytes!("../assets/fonts/Roboto-Regular.ttf");
+
+struct AnnotationFont {
+    family: &'static str,
+    font: ab_glyph::FontArc,
+}
+
+fn load_annotation_font(paths: &[&str]) -> AnnotationFont {
+    if let Some(font) = paths
+        .iter()
+        .find_map(|path| ab_glyph::FontArc::try_from_vec(std::fs::read(path).ok()?).ok())
+    {
+        AnnotationFont {
+            family: SYSTEM_ANNOTATION_FONT,
+            font,
+        }
+    } else {
+        AnnotationFont {
+            family: "Roboto",
+            font: ab_glyph::FontArc::try_from_slice(FALLBACK_FONT_DATA)
+                .expect("The embedded annotation font must be valid"),
+        }
+    }
+}
+
+fn annotation_font_data() -> &'static AnnotationFont {
+    static FONT: std::sync::OnceLock<AnnotationFont> = std::sync::OnceLock::new();
     FONT.get_or_init(|| {
         #[cfg(target_os = "macos")]
         let paths = ["/System/Library/Fonts/Supplemental/Arial.ttf"];
@@ -228,11 +253,16 @@ pub fn annotation_font() -> Option<&'static ab_glyph::FontArc> {
             "/usr/share/fonts/TTF/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         ];
-        paths
-            .iter()
-            .find_map(|path| ab_glyph::FontArc::try_from_vec(std::fs::read(path).ok()?).ok())
+        load_annotation_font(&paths)
     })
-    .as_ref()
+}
+
+pub fn annotation_font() -> &'static ab_glyph::FontArc {
+    &annotation_font_data().font
+}
+
+pub fn annotation_font_family() -> &'static str {
+    annotation_font_data().family
 }
 
 pub fn key_binding(key: &str) -> String {
@@ -350,11 +380,33 @@ mod tests {
         ));
     }
     #[test]
+    fn missing_or_invalid_system_fonts_render_with_the_embedded_fallback() {
+        use ab_glyph::Font;
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing.ttf");
+        let invalid = dir.path().join("invalid.ttf");
+        std::fs::write(&invalid, b"not a font").unwrap();
+        for path in [&missing, &invalid] {
+            let loaded = super::load_annotation_font(&[path.to_str().unwrap()]);
+            assert_eq!(loaded.family, "Roboto");
+            for label in ["1", "10", "999", "Glance"] {
+                assert!(label.chars().all(|c| loaded.font.glyph_id(c).0 != 0));
+                let mut image = image::GrayImage::new(160, 60);
+                imageproc::drawing::draw_text_mut(
+                    &mut image,
+                    image::Luma([255]),
+                    10,
+                    10,
+                    28.,
+                    &loaded.font,
+                    label,
+                );
+                assert!(image.pixels().any(|p| p[0] > 128), "Missing ink: {label}");
+            }
+        }
+    }
+    #[test]
     fn exported_text_uses_an_available_platform_font() {
-        assert!(
-            super::annotation_font().is_some(),
-            "Install the platform annotation font"
-        );
         let mut document = crate::document::Document::new(image::RgbaImage::from_pixel(
             200,
             60,

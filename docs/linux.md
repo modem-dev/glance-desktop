@@ -37,6 +37,18 @@ Use **Ctrl** in place of **⌘** for [editor shortcuts](usage.md): Ctrl+C copies
 Ctrl+Shift+C shares a temporary link, Ctrl+S saves PNG, and Ctrl+Z undoes.
 Ctrl+Alt+2/3 captures while the editor is focused.
 
+## Text extraction
+
+Offline OCR uses optional Tesseract with English language data:
+
+```sh
+sudo pacman -S --needed tesseract tesseract-data-eng
+```
+
+Use **Copy as OCR** beside Copy in Glance's top toolbar to recognize text and
+put it directly on the clipboard. Missing OCR dependencies leave the rest of the
+editor usable and show an installation hint. See [Copy as OCR](usage.md#copy-as-ocr).
+
 ## Troubleshooting
 
 - **Glance appears in the capture:** use the startup capture commands above.

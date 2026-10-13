@@ -50,6 +50,7 @@ jobs:
           test -x target/Glance.app/Contents/MacOS/Glance
           test -x target/Glance.app/Contents/MacOS/glance-video-encoder
           test -x target/Glance.app/Contents/MacOS/glance-video-frame
+          test -x target/Glance.app/Contents/MacOS/glance-ocr
           for notice in LICENSE THIRD_PARTY_NOTICES.md GPUI-LICENSE Lucide-LICENSE; do
             test -s "target/Glance.app/Contents/Resources/$notice"
           done

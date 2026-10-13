@@ -3,8 +3,10 @@ mod accessibility;
 #[cfg(test)]
 mod action_tests;
 pub(crate) mod actions;
+mod ask;
 mod automation;
 mod canvas;
+mod chatgpt;
 mod commands;
 mod dispatch;
 mod feedback;
@@ -41,6 +43,11 @@ pub(crate) struct Editor {
     tool_color_picker: Entity<crate::color_picker::ColorPicker>,
     tool_picker_target: Option<(Tool, Option<usize>, u64)>,
     number_inputs: std::collections::BTreeMap<&'static str, Entity<panels::number::NumberInput>>,
+    extraction: Option<Extraction>,
+    chatgpt: chatgpt::State,
+    ask: ask::State,
+    #[cfg(test)]
+    recognize_text: crate::ocr::Recognizer,
     _color_subscriptions: Vec<Subscription>,
     document: Document,
     interaction: InteractionState,
@@ -57,6 +64,13 @@ pub(crate) struct Editor {
     sender: async_channel::Sender<Message>,
     #[cfg(target_os = "macos")]
     _hotkeys: Option<GlobalHotKeyManager>,
+}
+#[derive(serde::Serialize)]
+struct Extraction {
+    revision: u64,
+    rectangle: [u32; 4],
+    text: String,
+    engine: crate::chatgpt::OcrEngine,
 }
 pub(crate) fn render_image(mut image: image::RgbaImage) -> Arc<RenderImage> {
     for p in image.pixels_mut() {
@@ -224,12 +238,42 @@ impl Editor {
         #[cfg(target_os = "macos")]
         let gestures =
             native.then(|| gestures::Monitor::new(sender.clone(), canvas_bounds.clone()));
+        let ask_input = cx.new(|cx| ask::input::PromptInput::new(focus.clone(), cx));
+        color_subscriptions.push(cx.subscribe(&ask_input, |this, _, event, cx| {
+            let action = match event {
+                ask::input::Event::Changed(prompt) => actions::Action::SetAskGlancePrompt {
+                    prompt: prompt.clone(),
+                },
+                ask::input::Event::Submit => actions::Action::AskGlance {
+                    prompt: this.ask.prompt.clone(),
+                },
+                ask::input::Event::Close if this.ask.running.is_some() => {
+                    actions::Action::CancelAskGlance
+                }
+                ask::input::Event::Close => actions::Action::ToggleAskGlance,
+            };
+            this.dispatch_ui(action, cx);
+        }));
         Self {
             accessibility: crate::accessibility::Tree::new(native),
             color_pickers,
             tool_color_picker,
             tool_picker_target: None,
             number_inputs,
+            extraction: None,
+            chatgpt: chatgpt::State::new(native, sender.clone()),
+            ask: ask::State {
+                open: false,
+                input: ask_input,
+                prompt: String::new(),
+                answer: String::new(),
+                status: String::new(),
+                error: false,
+                running: None,
+                steps: 0,
+            },
+            #[cfg(test)]
+            recognize_text: crate::ocr::extract,
             _color_subscriptions: color_subscriptions,
             document,
             interaction: InteractionState {

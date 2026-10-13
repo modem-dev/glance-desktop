@@ -110,6 +110,7 @@ sign() {
 # Sign nested executable first, then seal the bundle, rather than using --deep.
 sign "$APP/Contents/MacOS/glance-video-encoder"
 sign "$APP/Contents/MacOS/glance-video-frame"
+sign "$APP/Contents/MacOS/glance-ocr"
 sign "$APP"
 codesign --verify --deep --strict "$APP"
 if [ "$SIGN_IDENTITY" = '-' ]; then

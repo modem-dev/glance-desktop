@@ -188,7 +188,7 @@ pub fn paint(mark: &Mark, layout: Layout, window: &mut Window, cx: &mut App) {
             let font_size = px((mark.width * 4.4).max(1.) * layout.scale);
             let run = TextRun {
                 len: mark.text.len(),
-                font: font(crate::platform::ANNOTATION_FONT),
+                font: font(crate::platform::annotation_font_family()),
                 color: rgb(
                     if mark.color[..3].iter().map(|c| *c as u32).sum::<u32>() > 600 {
                         0x20222a
@@ -216,7 +216,7 @@ pub fn paint(mark: &Mark, layout: Layout, window: &mut Window, cx: &mut App) {
             let font_size = px((mark.width * 7.).max(1.) * layout.scale);
             let run = TextRun {
                 len: mark.text.len(),
-                font: font(crate::platform::ANNOTATION_FONT),
+                font: font(crate::platform::annotation_font_family()),
                 color: color.into(),
                 background_color: None,
                 underline: None,

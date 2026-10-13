@@ -39,11 +39,13 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run tests
         run: cargo test --locked
-      - name: Build video helpers and test encode/decode
+      - name: Build native helpers and test video and OCR
         run: |
           /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/video_encoder.swift -o target/glance-video-encoder
           /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/video_frame.swift -o target/glance-video-frame
+          /usr/bin/swiftc -target "$(uname -m)-apple-macosx12.0" -O native/ocr.swift -o target/glance-ocr
           cargo test --locked native_mcp_video_roundtrip -- --ignored
+          cargo test --locked native_ocr_recognizes_synthetic_text_and_regions -- --ignored
 
   omarchy:
     name: Check (Omarchy x86_64)

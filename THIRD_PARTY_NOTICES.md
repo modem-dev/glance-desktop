@@ -12,7 +12,10 @@ assets retain their own licenses; the project license does not replace them.
   [complete icon license notices](assets/lucide/LICENSE).
 - **The Glance app mark** comes from Modem's `agentpaste` project. Its source
   and revision are recorded in [the icon design notes](assets/icons/DESIGN.md).
+- **Roboto Regular**, by Google, is embedded as an offline annotation fallback
+  font under Apache-2.0. See [source attribution](assets/fonts/SOURCE) and the
+  [font license](assets/fonts/LICENSE).
 
-The app bundle includes this notice, Glance's license, and the GPUI and Lucide
+The app bundle includes this notice, Glance's license, and the GPUI, Lucide and Roboto
 license files. Other Rust dependencies are recorded in `Cargo.lock`; their
 upstream license terms apply to distributions that include them.
