@@ -6,6 +6,10 @@ Notable user-visible changes are recorded here.
 
 ### Added
 
+- Terminal commands for the running, opt-in editor: inspect, import, crop,
+  resize, annotate, change settings and export using shared UI/MCP validation.
+  Commands return JSON, expose help and schemas, and preserve native undo,
+  revision checks and safe exports. Plain `glance` still opens the editor.
 - The editor interface follows the system’s light or dark appearance, including
   changes while Glance is running. Image content and exported media keep their colors.
 

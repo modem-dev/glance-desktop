@@ -1798,6 +1798,107 @@ fn select_all_menu_and_shortcut_use_full_event_dispatch(cx: &mut TestAppContext)
     );
 }
 
+// Adapted from the native CLI bridge coverage in douglance's PR #7.
+#[gpui::test]
+fn terminal_commands_use_native_state_undo_and_revision_guards(cx: &mut TestAppContext) {
+    use serde_json::{Value, json};
+    let view = editor(cx);
+    let (sender, receiver) = async_channel::unbounded();
+    let worker = std::thread::spawn(move || {
+        let call = |name: &str, args: Value| {
+            let mut argv = vec![name.replace('_', "-")];
+            for (key, value) in args.as_object().unwrap() {
+                argv.push(format!(
+                    "--{}={}",
+                    key.replace('_', "-"),
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned)
+                ));
+            }
+            crate::cli::execute(&argv, |name, args| {
+                crate::automation::dispatch(&sender, name, args)
+            })
+            .map(|text| serde_json::from_str::<Value>(&text).unwrap())
+        };
+        let initial = call("get_document", json!({})).unwrap();
+        let revision = initial["revision"].as_u64().unwrap();
+        assert_eq!(
+            (initial["width"].as_u64(), initial["height"].as_u64()),
+            (Some(100), Some(100))
+        );
+        let added = call(
+            "add_annotation",
+            json!({"mark":{
+            "tool":"rectangle","points":[[10,10],[60,40]],"color":[255,0,0,255],"width":3,"text":""
+        },"expected_revision":revision}),
+        )
+        .unwrap();
+        assert_eq!(added["objects"].as_array().unwrap().len(), 1);
+        assert!(
+            call(
+                "dispatch_action",
+                json!({"action":{"type":"rotate"},"expected_revision":revision})
+            )
+            .unwrap_err()
+            .contains("Stale")
+        );
+        let state = call("get_document", json!({})).unwrap();
+        assert_eq!(state["objects"].as_array().unwrap().len(), 1);
+        call("undo", json!({})).unwrap();
+        assert!(
+            call("get_document", json!({})).unwrap()["objects"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        call("redo", json!({})).unwrap();
+        assert_eq!(
+            call("get_document", json!({})).unwrap()["objects"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        call(
+            "dispatch_action",
+            json!({"action":{"type":"set_color","color":[17,34,51,128]}}),
+        )
+        .unwrap();
+        assert_eq!(
+            call("get_editor_state", json!({})).unwrap()["tool_options"]["color"],
+            json!([17, 34, 51, 128])
+        );
+        call(
+            "dispatch_action",
+            json!({"action":{"type":"set_ask_glance_prompt","prompt":"terminal draft"}}),
+        )
+        .unwrap();
+        assert_eq!(
+            call("get_editor_state", json!({})).unwrap()["ask_glance"]["prompt"],
+            "terminal draft"
+        );
+        call("resize_image", json!({"scale":0.5,"smart":false})).unwrap();
+        let resized = call("get_document", json!({})).unwrap();
+        assert_eq!(
+            (resized["width"].as_u64(), resized["height"].as_u64()),
+            (Some(50), Some(50))
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("terminal.png");
+        call("export_png", json!({"path":path})).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        assert_eq!(image::load_from_memory(&before).unwrap().width(), 50);
+        assert!(call("export_png", json!({"path":path})).is_err());
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    });
+    while let Ok(Message::Automation(request)) = receiver.recv_blocking() {
+        view.update(cx, |e, _, cx| e.automation(request, cx))
+            .unwrap();
+    }
+    worker.join().unwrap();
+}
+
 #[gpui::test]
 fn appearance_switch_preserves_document_selection_revision_and_undo(cx: &mut TestAppContext) {
     use crate::theme::Theme;

@@ -4,6 +4,7 @@ mod arrow;
 mod automation;
 mod backdrop;
 mod chatgpt;
+mod cli;
 mod color_picker;
 mod document;
 mod drawing;
@@ -36,14 +37,24 @@ use editor::Editor;
 pub(crate) use editor::{Layout, Message};
 use gpui::*;
 fn main() {
-    if std::env::args().any(|arg| arg == "--mcp") {
-        if let Err(error) = mcp::run() {
-            eprintln!("Glance MCP: {error}");
-            std::process::exit(1);
+    let args = match cli::mode(std::env::args().skip(1).collect()) {
+        cli::Mode::Desktop(args) => args,
+        cli::Mode::Mcp => {
+            if let Err(error) = mcp::run() {
+                eprintln!("Glance MCP: {error}");
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
-    }
-    let initial = match platform::startup_image(std::env::args().skip(1)) {
+        cli::Mode::Cli(args) => {
+            if let Err(error) = cli::run(&args) {
+                eprintln!("{}", serde_json::json!({"error": error}));
+                std::process::exit(1);
+            }
+            return;
+        }
+    };
+    let initial = match platform::startup_image(args.into_iter()) {
         Ok(platform::Startup::Image(image)) => Some(image),
         Ok(platform::Startup::Demo) => None,
         Ok(platform::Startup::Exit) => return,

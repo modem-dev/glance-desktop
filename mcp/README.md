@@ -2,6 +2,10 @@
 
 An MCP client can read, annotate, and export the image in Glance's native window.
 Start the editor with `--automation`, then connect its stdio companion with `--mcp`.
+The same published tools are also available as [terminal commands](../docs/cli.md)
+with hyphenated names and flags; for example `glance get-document` and
+`glance dispatch-action --action '{"type":"fit"}'`. CLI help, schemas and validation
+use this contract directly. The `--mcp` protocol and tool inventory are unchanged.
 
 ## Setup
 

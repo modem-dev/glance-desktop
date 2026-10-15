@@ -4,6 +4,9 @@
 
 Shortcuts below use macOS notation. On Omarchy, use **Ctrl** in place of **⌘**;
 [Hyprland bindings](linux.md#capture-from-hyprland) provide global capture.
+For shell automation, see [Terminal commands](cli.md); plain `glance` still opens
+the editor, while commands such as `glance resize-image --scale 0.5` use a running
+editor started with `--automation`.
 
 Glance’s interface follows the system’s light or dark appearance and updates when
 it changes while the app is running. Image content, annotation colors, backdrops,

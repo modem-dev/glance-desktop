@@ -70,7 +70,7 @@ If access is already enabled, remove Glance's entry and add the installed app ag
 
 ## More
 
-- [Usage](docs/usage.md) · [Omarchy](docs/linux.md) · [MCP setup](mcp/README.md)
+- [Usage](docs/usage.md) · [Terminal commands](docs/cli.md) · [Omarchy](docs/linux.md) · [MCP setup](mcp/README.md)
 - [Build from source](BUILD.md) · [Contribute](CONTRIBUTING.md) · [Architecture](docs/architecture.md)
 - [Report a bug](https://github.com/modem-dev/glance-desktop/issues) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 

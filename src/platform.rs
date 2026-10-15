@@ -319,7 +319,7 @@ pub fn startup_image(args: impl Iterator<Item = String>) -> Result<Startup, Stri
             "--automation" => {}
             "--help" | "-h" => {
                 println!(
-                    "Glance {}\nUsage: glance [--open PATH | --capture-area | --capture-screen] [--automation]\n       glance --mcp",
+                    "Glance {}\nUsage: glance [desktop] [--open PATH | --capture-area | --capture-screen] [--automation]\n       glance COMMAND [--flag VALUE]\n       glance --mcp\nRun glance --help for terminal commands.",
                     env!("CARGO_PKG_VERSION")
                 );
                 return Ok(Startup::Exit);
