@@ -29,3 +29,10 @@ Use case: precise-object-edit / logo-brand. Edit the supplied Pachiri macOS app 
 ### Original design
 
 Use case: logo-brand. Asset type: production macOS application icon for Pachiri, a fast screenshot capture and annotation app. Generate one single finished square icon, straight-on, centered, on a genuinely transparent canvas. Design: a warm coral-red macOS rounded-square tile with generous continuous rounded corners, subtle crafted depth, a softly luminous upper edge and very restrained shadow. Within it, a bold ivory capture-frame symbol formed by four thick rounded viewfinder corner brackets, combined with one beautiful simple diagonal ivory annotation pencil, integrated into the frame as a single memorable emblem. Keep the silhouette bold, balanced and instantly legible at 32px in the Dock and app switcher. Premium friendly native Mac utility aesthetic; smooth enamel-like surface, mostly flat with modest tactile shading, clean geometry and ample internal breathing room. Tile occupies about 82% of square canvas width and height, standard macOS icon optical sizing, centered with transparent margins on all four sides. Coral palette echoes Pachiri's existing warm red/orange accent. No text, no letters, no watermark, no mockup, no device, no scene, no extra decorative sparkles, no multiple variants. Output the actual icon artwork with real alpha transparency outside the rounded tile, not a checkerboard painted into the image.
+
+## Attn Lens cat with a magnifying glass
+
+`lens-cat-magnifier.png` was Attn Lens's icon before the quiet redesign: attn's
+cat on a streaky magenta, violet and cyan aurora, holding a magnifying glass to
+one eye. Its prompts and the rounds it was chosen from are attached to attn's
+seed `s-7eyt9h` (make-new-attn-logo).
