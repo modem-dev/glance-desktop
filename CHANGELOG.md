@@ -6,6 +6,9 @@ Notable user-visible changes are recorded here.
 
 ### Added
 
+- **Attn Lens** has a Settings window: **Settings…** (⌘,) in the app menu or the
+  Dock menu. Its first setting, Dictation › Use words on screen, is on by default
+  and is saved at once in `~/Library/Application Support/dev.attn.lens/prefs.json`.
 - **Attn Lens**: drag the capture bar by its background to move it off what you
   want to see or click. It stays whole on the capture's display, leaves the
   keyboard where it was, and keeps its place until the capture ends.

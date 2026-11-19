@@ -13,6 +13,8 @@ use crate::{
         tile::{self, Tile},
     },
     platform_port,
+    settings::APP_ID,
+    settings_window::{self, SettingsWindow},
 };
 use rune::{
     AnyWindowSpec, App, AppHandle, AppSpec, Cx, DisplayTarget, El, KeyEvent, KeyPolicy,
@@ -160,6 +162,7 @@ struct Shown {
     bar_key_requests: u64,
     tile: Option<(u32, [f32; 4])>,
     pill: Option<(u32, [f32; 4])>,
+    settings_requests: u64,
 }
 
 impl Shown {
@@ -193,6 +196,7 @@ impl Shown {
                 .as_ref()
                 .and(summary.dictation_display)
                 .map(|display| (display.id, pill::placement(display))),
+            settings_requests: summary.settings_requests,
         }
     }
 }
@@ -209,6 +213,7 @@ struct Surfaces {
     bar: AppHandle<Bar>,
     tile: Surface<Tile>,
     pill: Surface<Pill>,
+    settings: AppHandle<SettingsWindow>,
 }
 
 impl Surfaces {
@@ -339,6 +344,9 @@ impl Surfaces {
             lens.port().hold_front();
             self.bar.open();
         }
+        if was.settings_requests != now.settings_requests {
+            self.settings.open();
+        }
     }
 
     fn refresh(&self) {
@@ -352,12 +360,13 @@ impl Surfaces {
             handle.refresh();
         }
         self.bar.wake();
+        self.settings.update(|_, _| {});
     }
 }
 
 /// Runs the app until it quits. Returns an error only if it cannot start.
 pub fn run() -> Result<(), String> {
-    let lens = Lens::new(platform_port::select()?);
+    let lens = Lens::new(platform_port::select()?, rune::prefs::Prefs::open(APP_ID));
     if std::env::args().any(|arg| arg == "--automation") {
         automation::listen(lens.clone(), &automation::socket_path()?)?;
     }
@@ -576,6 +585,29 @@ pub fn run() -> Result<(), String> {
             Pill { lens: lens.clone() },
         );
 
+        // Hidden until "Settings…" opens it; closing it only hides it again.
+        let settings = App::new(AppSpec::new(
+            "Settings",
+            (settings_window::WIDTH, 144.),
+            || unreachable!(),
+            settings_window::view,
+        ))
+        // A standard titled window, as macOS's Settings windows are.
+        .chrome(rune::Chrome {
+            full_size_content: false,
+            ..rune::Chrome::DEFAULT
+        })
+        .fit_content_height()
+        .windowless();
+        let settings_handle = settings.handle();
+        let visible = settings_handle.clone();
+        lens.report_window("settings", move || visible.is_visible());
+        let closing = settings_handle.clone();
+        lens.port()
+            .script_button("settings", Arc::new(move |()| closing.close()));
+        let state = lens.clone();
+        let settings = settings.init(move || SettingsWindow { lens: state });
+
         let surfaces = Surfaces {
             pickers,
             ink,
@@ -583,6 +615,7 @@ pub fn run() -> Result<(), String> {
             bar: handle.clone(),
             tile,
             pill,
+            settings: settings_handle,
         };
         let shown = Mutex::new(Shown::default());
         let reader = lens.clone();
@@ -614,6 +647,12 @@ pub fn run() -> Result<(), String> {
             AnyWindowSpec::from(WindowSpec::from_app("editor", editor)),
             WindowSpec::from_app("bar", bar)
                 .configured_options(WindowOptions::launcher_panel())
+                .into(),
+            WindowSpec::from_app("settings", settings)
+                .options(WindowOptions {
+                    resizable: false,
+                    ..Default::default()
+                })
                 .into(),
         ];
         specs.extend(windows);

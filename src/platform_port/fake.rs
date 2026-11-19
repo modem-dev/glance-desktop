@@ -31,6 +31,9 @@
 //! voice:finish-fails:reason  finishing voice fails with this instead
 //! clipboard:PATH             the system clipboard now holds the image at PATH
 //! ocr:the words              text recognition finds these words from now on
+//! screen-text:the words      the front window reads as these words from now on;
+//!                            until then it reads as no words
+//! screen-text:fail           reading the front window fails from now on
 //! pick:#RRGGBB  pick:cancel  answers a Pick from screen that is waiting
 //! still:fail                 the next still fails
 //! close:editor               presses the window's close button
@@ -98,6 +101,9 @@ struct Script {
     keys: Option<Sink<KeyEvent>>,
     clipboard: Option<RgbaImage>,
     ocr: String,
+    /// What `screen_text` reads, unless a `screen-text:fail` mark made it fail.
+    screen_text: String,
+    screen_text_fails: bool,
     fail_still: bool,
     pick: Option<PickSink>,
     /// After a `jobs:hold` mark, jobs wait here until a `jobs:next` mark runs the oldest,
@@ -256,6 +262,11 @@ impl FakePort {
         } else if let Some(path) = mark.strip_prefix("clipboard:") {
             let image = image::open(path).expect("clipboard: mark names a readable image");
             self.script.lock().unwrap().clipboard = Some(image.to_rgba8());
+        } else if mark == "screen-text:fail" {
+            self.script.lock().unwrap().screen_text_fails = true;
+        } else if let Some(text) = mark.strip_prefix("screen-text:") {
+            let mut script = self.script.lock().unwrap();
+            (script.screen_text, script.screen_text_fails) = (text.to_string(), false);
         } else if let Some(text) = mark.strip_prefix("ocr:") {
             self.script.lock().unwrap().ocr = text.to_string();
         } else if mark == "still:fail" {
@@ -489,6 +500,13 @@ impl PlatformPort for FakePort {
         Ok(RgbaImage::from_fn(width, height, |x, y| {
             Rgba([(x % 256) as u8, (y % 256) as u8, 128, 255])
         }))
+    }
+    fn screen_text(&self) -> Result<String, String> {
+        let script = self.script.lock().unwrap();
+        match script.screen_text_fails {
+            true => Err("The fake screen read failed.".into()),
+            false => Ok(script.screen_text.clone()),
+        }
     }
     fn watch(&self, _area: Area, sink: Sink<WatchEvent>) -> Watch {
         self.sinks.lock().unwrap().watch = Some(sink);

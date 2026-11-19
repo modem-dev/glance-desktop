@@ -12,6 +12,7 @@ pub mod dictation;
 pub mod ink;
 pub mod pill;
 pub(crate) mod scenes;
+pub mod screen_words;
 pub mod select;
 pub mod session;
 pub mod strip;
@@ -26,9 +27,11 @@ use crate::{
         Chord, KeyEvent, PlatformPort, Press, Sink, Voice, VoiceEvent, VoiceSource, VoiceStatus,
         Watch, WatchEvent,
     },
+    settings::Settings,
 };
 use dictation::{Dictation, DictationSummary};
 use ink::InkTool;
+use rune::prefs::Prefs;
 use serde_json::{Value, json};
 use session::{
     Area, Capture, CaptureVoice, Cause, DisplayFrame, HostTime, InkMark, RunningVoice, Segment,
@@ -203,6 +206,12 @@ struct State {
     /// A settled dictation's text, pasted once the state lock is let go.
     paste: Option<(u64, String)>,
     watch: Option<Watch>,
+    /// Loaded once at launch; changed only through `Lens::set_settings`.
+    settings: Settings,
+    /// Why the last change to the settings could not be saved. It still holds for this run.
+    settings_error: Option<String>,
+    /// Counts requests to open the Settings window.
+    settings_requests: u64,
 }
 
 type WindowVisible = Box<dyn Fn() -> bool + Send>;
@@ -210,6 +219,8 @@ type WindowVisible = Box<dyn Fn() -> bool + Send>;
 pub struct Lens {
     port: Arc<dyn PlatformPort>,
     state: Mutex<State>,
+    /// Where `State.settings` is saved.
+    prefs: Mutex<Prefs>,
     /// The capture of each still being taken. A send waits for its capture's
     /// stills so none is left out; another capture's stills are not its concern.
     /// Stills on their way, as (capture id, still id).
@@ -223,10 +234,15 @@ pub struct Lens {
 }
 
 impl Lens {
-    pub fn new(port: Arc<dyn PlatformPort>) -> Arc<Self> {
+    /// A Lens whose settings are kept in `prefs`.
+    pub fn new(port: Arc<dyn PlatformPort>, prefs: Prefs) -> Arc<Self> {
         Arc::new(Self {
             port,
-            state: Default::default(),
+            state: Mutex::new(State {
+                settings: Settings::load(&prefs),
+                ..Default::default()
+            }),
+            prefs: Mutex::new(prefs),
             pending_stills: Default::default(),
             generation: Default::default(),
             wakers: Default::default(),
@@ -286,6 +302,27 @@ impl Lens {
         for wake in self.wakers.lock().unwrap().iter() {
             wake();
         }
+    }
+
+    /// Saves `settings` and applies them from now on. A save that fails keeps them
+    /// for this run, and the Settings window shows why.
+    pub fn set_settings(&self, settings: Settings) {
+        {
+            let mut state = self.state.lock().unwrap();
+            if state.settings == settings {
+                return;
+            }
+            let saved = settings.save(&state.settings, &mut self.prefs.lock().unwrap());
+            state.settings_error = saved.err();
+            state.settings = settings;
+        }
+        self.changed();
+    }
+
+    /// Opens the Settings window, or brings it to the front.
+    pub fn open_settings(&self) {
+        self.state.lock().unwrap().settings_requests += 1;
+        self.changed();
     }
 
     /// Starts listening for keys. Without Screen Recording or Accessibility, it
@@ -1744,6 +1781,9 @@ impl Lens {
             error: state.error.clone(),
             dictation: state.dictation.as_ref().map(Dictation::summary),
             dictation_display: state.dictation_display,
+            settings: state.settings.clone(),
+            settings_error: state.settings_error.clone(),
+            settings_requests: state.settings_requests,
         }
     }
 
@@ -1788,6 +1828,8 @@ impl Lens {
             "error": summary.error,
             "dictation": summary.dictation.as_ref().map(dictation_json),
             "last_dictation": self.state.lock().unwrap().last_dictation,
+            "settings": summary.settings,
+            "settings_error": summary.settings_error,
             "capture": summary.capture.map(|c| json!({
                 "id": c.id,
                 "area": c.area,
@@ -1926,4 +1968,7 @@ pub struct Summary {
     pub dictation: Option<DictationSummary>,
     /// The display the pill shows on: the pointer's when the dictation started.
     pub dictation_display: Option<DisplayFrame>,
+    pub settings: Settings,
+    pub settings_error: Option<String>,
+    pub settings_requests: u64,
 }

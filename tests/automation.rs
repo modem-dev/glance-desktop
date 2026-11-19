@@ -3,6 +3,7 @@ use attn_lens::{
     lens::{Lens, automation},
     platform_port::fake::FakePort,
 };
+use rune::prefs::Prefs;
 use serde_json::Value;
 use std::{
     path::{Path, PathBuf},
@@ -15,7 +16,7 @@ struct Harness {
 
 impl Harness {
     fn new(dir: &Path, token: Option<&str>) -> Self {
-        let lens = Lens::new(Arc::new(FakePort::new(vec![], token)));
+        let lens = Lens::new(Arc::new(FakePort::new(vec![], token)), Prefs::memory());
         let socket = dir.join(format!("lens-{}.sock", token.unwrap_or("unpaired")));
         automation::listen(lens, &socket).unwrap();
         Self { socket }
@@ -190,7 +191,7 @@ fn bind_a_socket_and_exit() {
 fn a_live_socket_is_kept_and_a_stale_one_is_replaced() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("lens.sock");
-    let lens = || Lens::new(Arc::new(FakePort::new(vec![], None)));
+    let lens = || Lens::new(Arc::new(FakePort::new(vec![], None)), Prefs::memory());
 
     // A socket whose process is gone. Bound in a process of its own: another test
     // forking here could keep a listener of this process alive past its drop.
@@ -300,4 +301,37 @@ fn voice_wav_takes_only_a_regular_file_by_its_absolute_path() {
     ));
     assert_eq!(taken["ok"], true, "{taken}");
     assert_eq!(lens.ask(r#"{"cmd":"voice-wav"}"#)["ok"], true);
+}
+
+#[test]
+fn screen_text_replies_with_the_front_windows_text_or_the_reads_error() {
+    use attn_lens::platform_port::PlatformPort;
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("lens-screen.sock");
+    let port = Arc::new(FakePort::new(
+        vec![
+            ("screen-text:open src/lens/capture.rs".into(), 1.),
+            ("screen-text:fail".into(), 2.),
+        ],
+        None,
+    ));
+    automation::listen(Lens::new(port.clone(), Prefs::memory()), &socket).unwrap();
+    let ask = || -> Value {
+        serde_json::from_str(&automation::request(&socket, r#"{"cmd":"screen_text"}"#).unwrap())
+            .unwrap()
+    };
+
+    let empty = ask();
+    assert_eq!(
+        (&empty["ok"], &empty["text"]),
+        (&Value::Bool(true), &"".into())
+    );
+    port.tick(1.);
+    let read = ask();
+    assert_eq!(read["text"], "open src/lens/capture.rs", "{read}");
+    assert!(read["ms"].is_u64(), "{read}");
+    port.tick(2.);
+    let failed = ask();
+    assert_eq!(failed["ok"], false, "{failed}");
+    assert_eq!(failed["error"], "The fake screen read failed.");
 }

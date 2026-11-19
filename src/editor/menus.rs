@@ -52,10 +52,17 @@ pub fn install(mut app: App<Editor>) -> App<Editor> {
         item!("Zoom", "Zoom In", Action::Zoom(1.25), "cmd+="),
         item!("Zoom", "Zoom Out", Action::Zoom(0.8), "cmd+-"),
         item!("Help", "Attn Lens Help", Action::Help),
+        // A custom item that names no menu goes in the app menu.
+        MenuItem::new("Settings…", |s: &mut Editor, _| s.capture.open_settings())
+            .id("settings")
+            .key_equivalent("cmd+,".parse().expect("menu shortcut")),
         MenuItem::new("Copy Last Dictation", |s: &mut Editor, _| {
             s.capture.copy_last_dictation()
         })
         .dock(),
+        MenuItem::new("Settings…", |s: &mut Editor, _| s.capture.open_settings())
+            .id("dock-settings")
+            .dock(),
     ];
     for item in items {
         app = app.menu_item(item);

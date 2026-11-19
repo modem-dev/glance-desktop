@@ -23,6 +23,10 @@
 #                                        and in chords with TextEdit, and the Accessibility guide
 #   scripts/lens-vm.sh dictation OUT     run lens-dictation.sh in the VM: dictation into TextEdit,
 #                                        focus and clipboard kept, and its timings
+#   scripts/lens-vm.sh settings OUT      run lens-settings.sh in the VM: ⌘, and the Dock menu open
+#                                        Settings, the switch saves, ⌘W closes, a relaunch keeps it
+#   scripts/lens-vm.sh screen-text OUT   run lens-screen-text.sh in the VM: the front window's
+#                                        text, and no guide without Screen Recording
 #   scripts/lens-vm.sh sh COMMAND       run a shell command in the VM's GUI session
 #   scripts/lens-vm.sh pull PATH DEST    copy a file or folder out of the VM
 #   scripts/lens-vm.sh destroy           stop and delete the VM
@@ -78,7 +82,7 @@ push() {
     GLANCE_CODESIGN_IDENTITY=- GLANCE_BUNDLE_DEST="$PWD/target/vm/Attn Lens.app" ./scripts/bundle.sh release
     start
     in_vm /bin/sh -c "rm -rf '$GUEST_ROOT' '$GUEST_HOME/Applications/Attn Lens.app'; mkdir -p '$GUEST_ROOT' '$GUEST_HOME/Applications' '$GUEST_HOME/.local/bin'"
-    tar cf - scripts/lens-mac-check.sh scripts/lens-live.sh scripts/lens-editor-check.sh scripts/lens-voice.sh scripts/lens-tile.sh scripts/lens-c16.sh scripts/lens-switch.sh scripts/lens-focus.sh scripts/lens-keys.sh scripts/lens-dictation.sh speech/tests/fixtures tools/driver tools/vm |
+    tar cf - scripts/lens-mac-check.sh scripts/lens-live.sh scripts/lens-editor-check.sh scripts/lens-voice.sh scripts/lens-tile.sh scripts/lens-c16.sh scripts/lens-switch.sh scripts/lens-focus.sh scripts/lens-keys.sh scripts/lens-dictation.sh scripts/lens-settings.sh scripts/lens-screen-text.sh speech/tests/fixtures tools/driver tools/vm |
         in_vm_stdin tar xf - -C "$GUEST_ROOT"
     tar cf - -C target/vm 'Attn Lens.app' | in_vm_stdin tar xf - -C "$GUEST_HOME/Applications"
     in_vm /bin/sh -c "cd '$GUEST_ROOT' && /usr/bin/swiftc -O tools/driver/driver.swift -o driver && cp tools/vm/attn '$GUEST_HOME/.local/bin/attn'"
@@ -191,6 +195,24 @@ dictation)
     in_vm /usr/bin/env LENS_DRIVER_WINDOW=vm /bin/sh -c "cd '$GUEST_ROOT' && rm -rf dictation-out && scripts/lens-dictation.sh '$GUEST_ROOT/dictation-out'" || status=$?
     mkdir -p "$2"
     in_vm /usr/bin/tar cf - -C "$GUEST_ROOT/dictation-out" . | tar xf - -C "$2"
+    exit "$status"
+    ;;
+settings)
+    [ $# -eq 2 ] || die "usage: lens-vm.sh settings OUT"
+    start
+    status=0
+    in_vm /usr/bin/env LENS_DRIVER_WINDOW=vm /bin/sh -c "cd '$GUEST_ROOT' && rm -rf settings-out && scripts/lens-settings.sh '$GUEST_ROOT/settings-out'" || status=$?
+    mkdir -p "$2"
+    in_vm /usr/bin/tar cf - -C "$GUEST_ROOT/settings-out" . | tar xf - -C "$2"
+    exit "$status"
+    ;;
+screen-text)
+    [ $# -eq 2 ] || die "usage: lens-vm.sh screen-text OUT"
+    start
+    status=0
+    in_vm /bin/sh -c "cd '$GUEST_ROOT' && rm -rf screen-text-out && scripts/lens-screen-text.sh '$GUEST_ROOT/screen-text-out'" || status=$?
+    mkdir -p "$2"
+    in_vm /usr/bin/tar cf - -C "$GUEST_ROOT/screen-text-out" . | tar xf - -C "$2"
     exit "$status"
     ;;
 sh)

@@ -23,6 +23,17 @@ launch, so save or copy your work first.
 An image wider or taller than 8192 pixels shows downscaled on screen, and still
 copies, saves and edits at full size.
 
+## Settings
+
+**Settings…** (**⌘,**) in the Attn Lens menu, or **Settings…** in the Dock menu,
+opens the Settings window. A change saves at once and lasts across launches; **⌘W**
+or the close button closes the window. If a change cannot be saved, it holds until
+Lens quits and the window says why.
+
+| Section | Setting | What it does |
+| --- | --- | --- |
+| Dictation | Use words on screen (on) | When you dictate, Lens reads the window in front and sends the names and identifiers on it with your words to attn's refiner, so they come out spelled right. |
+
 ## Annotate and select
 
 | Tool | Key | How to use it |
