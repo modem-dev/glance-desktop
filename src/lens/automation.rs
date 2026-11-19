@@ -25,6 +25,8 @@
 //! {"cmd":"discard"}                                 the tile
 //! {"cmd":"voice-wav","path":"/abs/16k-mono.wav"}    the next voice plays it, not the microphone
 //! {"cmd":"voice-wav"}                               back to the microphone
+//! {"cmd":"screen_text"}                             reads the front window on a worker; replies
+//!                                                   with its "text" and "ms", or the read's error
 //! ```
 //! A reply is `{"ok":true,...}` or `{"ok":false,"error":"..."}`. The state includes
 //! `settings` (each setting by its field name, such as `screen_words`), and
@@ -207,8 +209,19 @@ fn handle(lens: &Arc<Lens>, request: &Value) -> Result<Value, String> {
             lens.set_voice_wav(text("path").map(voice_wav).transpose()?);
             Ok(json!({}))
         }
+        "screen_text" => {
+            let port = lens.port().clone();
+            let (reply, read) = std::sync::mpsc::channel();
+            lens.port().run(Box::new(move || {
+                let started = std::time::Instant::now();
+                let text = port.screen_text();
+                let _ = reply.send((text, started.elapsed()));
+            }));
+            let (text, took) = read.recv().map_err(|_| "The screen read stopped.")?;
+            Ok(json!({"text": text?, "ms": took.as_millis() as u64}))
+        }
         other => Err(format!(
-            "Unknown cmd \"{other}\". Expected state, key, pick, pick-last, cancel, still, stroke, sessions, send, end or voice-wav."
+            "Unknown cmd \"{other}\". Expected state, key, pick, pick-last, cancel, still, stroke, sessions, send, end, voice-wav or screen_text."
         )),
     }
 }

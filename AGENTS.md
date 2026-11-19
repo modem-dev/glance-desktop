@@ -54,7 +54,15 @@ This file's Glance rules still apply to the code that remains.
   menu and in the Dock menu (`src/editor/menus.rs`) call `Lens::open_settings`.
 - `src/lens/deliver.rs`: what Send delivers: the timeline message, the contact
   sheets and the frames, written only from `Document::export()`.
-- `src/lens/capture.rs`: stills through Hex's capture-core (ScreenCaptureKit).
+- `src/lens/capture.rs`: stills through Hex's capture-core (ScreenCaptureKit), and
+  `front_window()`, the topmost window that is not Lens's, by z-order. Watch and
+  `PlatformPort::screen_text` (that window's still, then OCR) share it; the automation
+  socket's `screen_text` request runs the read.
+- `src/lens/screen_words.rs`: screen words for dictation refinement, pure: `pick` keeps
+  the screen read's words worth spelling, `matching` the ones the transcript could mean,
+  `sound_pairs` the screen words that sound like transcript words. The rules are the
+  Design tables of `s-0ww1ak`; each rule and the prototype's corpus
+  (`tests/fixtures/screen-words/`) is a table row. Nothing in a dictation calls them yet.
 - `src/lens/watch.rs`: macOS's `PlatformPort::watch`. `LENS_WATCH_LOG=1` prints each
   event, and `--ink-in-capture` lets a recording of a driven check show the ink.
 - `src/lens/voice.rs`: voice. It runs `speech/` (attn's speech helper, protocol 3)

@@ -179,6 +179,10 @@ pub trait PlatformPort: Send + Sync {
     /// draw key need Accessibility. Otherwise shows the user how to allow it.
     fn accessibility(&self) -> bool;
     fn still(&self, area: Area) -> Result<RgbaImage, String>;
+    /// The text of the front window: a still and OCR. Slow; call it from [`Self::run`].
+    /// Err when Screen Recording is not granted, there is no front window, or OCR
+    /// fails. Never shows the permission guide (D10 on s-0ww1ak).
+    fn screen_text(&self) -> Result<String, String>;
     fn watch(&self, area: Area, sink: Sink<WatchEvent>) -> Watch;
     /// Starts voice. It reports its progress, then segments, to `sink` from
     /// other threads, and returns at once.
