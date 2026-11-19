@@ -482,6 +482,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "pollster 0.4.0",
  "rune",
+ "rune-kit",
  "security-framework",
  "serde",
  "serde_json",
@@ -3495,6 +3496,16 @@ dependencies = [
  "xkbcommon",
  "zbus 6.2.1",
  "zeroize",
+]
+
+[[package]]
+name = "rune-kit"
+version = "0.0.1"
+source = "git+https://github.com/SolenesInc/rune.git?rev=f80f6d03b6a5c6004798d7828345cb004047113b#f80f6d03b6a5c6004798d7828345cb004047113b"
+dependencies = [
+ "rune",
+ "rune-motion",
+ "unicode-segmentation",
 ]
 
 [[package]]

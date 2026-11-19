@@ -5,6 +5,7 @@
 //                                value, frame in global points, depth
 //   ax menus APP                 every menu bar item: "Menu > Item"
 //   ax menu APP MENU ITEM        presses that menu item (AXPress)
+//   ax dock-menu APP ITEM        opens APP's Dock menu (AXShowMenu) and presses ITEM in it
 import AppKit
 import ApplicationServices
 
@@ -41,7 +42,7 @@ func frame(_ element: AXUIElement) -> [Double]? {
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-guard arguments.count >= 2 else { fail("usage: ax tree|menus|menu APP [MENU ITEM]") }
+guard arguments.count >= 2 else { fail("usage: ax tree|menus|menu|dock-menu APP [MENU] [ITEM]") }
 guard AXIsProcessTrusted() else { fail("refusing: this process has no Accessibility permission") }
 guard
     let pid = NSWorkspace.shared.runningApplications.first(where: {
@@ -90,6 +91,40 @@ case "menu":
     else { fail("no menu item \(arguments[2]) > \(arguments[3])") }
     let result = AXUIElementPerformAction(item, kAXPressAction as CFString)
     guard result == .success else { fail("pressing \(arguments[3]) gave \(result.rawValue)") }
+case "dock-menu":
+    guard arguments.count == 3 else { fail("usage: ax dock-menu APP ITEM") }
+    guard
+        let dockPid = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.dock"
+        ).first?.processIdentifier
+    else { fail("the Dock is not running") }
+    let dock = AXUIElementCreateApplication(dockPid)
+    guard
+        let icon = children(dock).flatMap(children).first(where: {
+            string($0, kAXTitleAttribute) == arguments[1]
+        })
+    else { fail("no Dock icon named \(arguments[1])") }
+    let shown = AXUIElementPerformAction(icon, kAXShowMenuAction as CFString)
+    guard shown == .success else { fail("showing the Dock menu gave \(shown.rawValue)") }
+    // The menu is the icon's child once it shows; 50 × 0.1 s is far past any open seen.
+    func find(_ element: AXUIElement) -> AXUIElement? {
+        if string(element, kAXRoleAttribute) == kAXMenuItemRole,
+            string(element, kAXTitleAttribute) == arguments[2]
+        {
+            return element
+        }
+        return children(element).lazy.compactMap(find).first
+    }
+    for _ in 0..<50 {
+        if let item = find(icon) {
+            let result = AXUIElementPerformAction(item, kAXPressAction as CFString)
+            guard result == .success else { fail("pressing \(arguments[2]) gave \(result.rawValue)") }
+            exit(0)
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+    AXUIElementPerformAction(icon, kAXCancelAction as CFString)
+    fail("no item \(arguments[2]) in \(arguments[1])'s Dock menu")
 default:
     fail("unknown command \(arguments[0])")
 }
