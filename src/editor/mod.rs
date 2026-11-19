@@ -15,6 +15,7 @@ mod live;
 pub mod menus;
 mod panels;
 mod preview;
+pub mod scenes;
 mod stage;
 mod view;
 

@@ -77,6 +77,30 @@ This file's Glance rules still apply to the code that remains.
   stay on the real Mac; VM numbers do not count for them.
 - `headless/`: Rune scripts, asserted by `tests/headless.rs`. Assert on trees, read with
   `--window KEY --tree out.json --at mark:NAME`, not only on snapshots.
+- `src/editor/scenes.rs`, `src/lens/scenes.rs`: each window's scenes, one per screen and
+  hard state (`--window KEY --list-scenes`). A scene builds its state through the actions,
+  gestures and script marks the app and its scripts use, never by setting fields.
+  Capture scenes list sessions through the stand-in `tools/scenes/attn`. A state that
+  needs a job held in flight stays a script mark. A new screen or state adds its scene
+  beside its code.
+- `scripts/snap.sh OUT [WINDOW...]` renders every scene of the named windows (all by
+  default) in dark and light, into `OUT/WINDOW--SCENE--THEME.png` and the contact sheets
+  `OUT/dark.png` and `OUT/light.png`. `SIZE=900x560` renders the editor at its smallest.
+
+## Look at the render before you report UI work done
+
+A change to how a window looks or lays out is not done until you have seen it. Run
+`scripts/snap.sh OUT WINDOW...` for each window the change touches, then again with
+`SIZE=900x560` when it touches the editor. Open the sheets and the PNGs of the scenes
+you changed, in both themes, and compare them with the same scenes on `main`. Attach the
+sheets to the seed or the pull request. To check a colour or a rect rather than eyeball
+it, read the tree: `attn-lens --window KEY --scene NAME --at 1 --tree out.json`, with the
+flags `snap.sh` passes for that window. Each element's entry, found by its `path`
+(`bar/#1/send`), has its `fill` and `rect`.
+If no scene shows what you changed, add one.
+
+## More entry points
+
 - `src/permission_guide.rs`, `native/permission_guide.m`: from Hex (MIT).
 - Sign dev bundles with a stable identity (`GLANCE_CODESIGN_IDENTITY`): an
   ad-hoc rebuild silently invalidates the Screen Recording grant.

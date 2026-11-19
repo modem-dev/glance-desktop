@@ -164,7 +164,7 @@ impl Editor {
         }
     }
 
-    fn begin(&mut self, x: f32, y: f32, shift: bool, tx: &mut Tx) {
+    pub(super) fn begin(&mut self, x: f32, y: f32, shift: bool, tx: &mut Tx) {
         if self.is_busy() || self.doc.is_none() {
             self.gesture = Gesture::Ignored;
             return;
@@ -276,7 +276,7 @@ impl Editor {
         }
     }
 
-    fn motion(&mut self, x: f32, y: f32, shift: bool) {
+    pub(super) fn motion(&mut self, x: f32, y: f32, shift: bool) {
         if matches!(self.gesture, Gesture::Panning { .. }) {
             self.pan_to(x, y);
             return;
@@ -334,7 +334,7 @@ impl Editor {
         self.refresh_lens();
     }
 
-    fn finish(&mut self, x: f32, y: f32, shift: bool, tx: &mut Tx) {
+    pub(super) fn finish(&mut self, x: f32, y: f32, shift: bool, tx: &mut Tx) {
         let gesture = std::mem::take(&mut self.gesture);
         let (mut drag, handle) = match gesture {
             Gesture::Moving { drag, handle } => (drag, handle),

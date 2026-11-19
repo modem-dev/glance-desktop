@@ -230,6 +230,12 @@ pub trait PlatformPort: Send + Sync {
     /// a window's close button, or the bar's controls. On the Mac these are real, so
     /// this does nothing; the fake presses one on a `close:NAME` or `press:NAME` mark.
     fn script_button(&self, _name: &'static str, _press: Sink<()>) {}
+    /// Plays one script mark (`platform_port/fake.rs` lists them), so a scene can stand
+    /// in for the world outside Lens as a script does: a key, the speech helper, a
+    /// failing still. Only the fake can; scenes render headless.
+    fn scene_mark(&self, mark: &str) -> Result<(), String> {
+        Err(format!("{mark}: scenes run headless, on the fake port"))
+    }
 }
 
 type Job = Box<dyn FnOnce() + Send>;
