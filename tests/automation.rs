@@ -3,6 +3,7 @@ use attn_lens::{
     lens::{Lens, automation},
     platform_port::fake::FakePort,
 };
+use rune::prefs::Prefs;
 use serde_json::Value;
 use std::{
     path::{Path, PathBuf},
@@ -15,7 +16,7 @@ struct Harness {
 
 impl Harness {
     fn new(dir: &Path, token: Option<&str>) -> Self {
-        let lens = Lens::new(Arc::new(FakePort::new(vec![], token)));
+        let lens = Lens::new(Arc::new(FakePort::new(vec![], token)), Prefs::memory());
         let socket = dir.join(format!("lens-{}.sock", token.unwrap_or("unpaired")));
         automation::listen(lens, &socket).unwrap();
         Self { socket }
@@ -190,7 +191,7 @@ fn bind_a_socket_and_exit() {
 fn a_live_socket_is_kept_and_a_stale_one_is_replaced() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("lens.sock");
-    let lens = || Lens::new(Arc::new(FakePort::new(vec![], None)));
+    let lens = || Lens::new(Arc::new(FakePort::new(vec![], None)), Prefs::memory());
 
     // A socket whose process is gone. Bound in a process of its own: another test
     // forking here could keep a listener of this process alive past its drop.

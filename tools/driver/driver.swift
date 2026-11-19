@@ -87,6 +87,7 @@ let modifiers: [String: (CGKeyCode, CGEventFlags)] = [
 let keys: [String: CGKeyCode] = [
     "x": 7, "c": 8, "a": 0, "b": 11, "h": 4, "s": 1, "i": 34, "v": 9, "2": 19, "0": 29, "1": 18,
     "e": 14, "right": 124, "return": 36, "esc": 53, "tab": 48, "space": 49, "backtick": 50,
+    "w": 13, "comma": 43,
 ]
 var held: CGEventFlags = []
 var heldNames = Set<String>()
