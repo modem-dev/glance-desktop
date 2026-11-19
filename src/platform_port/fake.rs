@@ -607,6 +607,10 @@ impl PlatformPort for FakePort {
             None => crate::video::encoder_path(),
         }
     }
+    fn scene_mark(&self, mark: &str) -> Result<(), String> {
+        self.fire(mark);
+        Ok(())
+    }
     fn script_button(&self, name: &'static str, press: Sink<()>) {
         self.script.lock().unwrap().buttons.push((name, press));
     }

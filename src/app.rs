@@ -7,6 +7,7 @@ use crate::{
         bar::{self, Bar},
         ink::{Corner, Handle, Ink, handle_view, ink_view},
         pill::{self, Pill},
+        scenes,
         select::{self, PICKER_SLOTS, Picker},
         session::{Area, DisplayFrame},
         tile::{self, Tile},
@@ -81,19 +82,35 @@ impl<T: 'static> Surface<T> {
 
 type KeyHandler<T> = fn(&mut T, &KeyEvent, &mut Tx) -> bool;
 
+/// A window's scenes, for `--scene NAME`: each builds a screen or hard state on the
+/// state `init` made. `scripts/snap.sh` renders them all.
+pub(crate) type Scenes<S> = &'static [(&'static str, fn(&mut S))];
+
+/// What `host` shows: a view of its own state, the keys it takes and its scenes.
+struct Layer<T: 'static> {
+    view: fn(&T, &mut Cx<T>) -> El,
+    on_key: Option<KeyHandler<T>>,
+    scenes: Scenes<T>,
+}
+
 /// Adds `view` to the app `owner` as a surface over the screen, left out of stills.
 fn host<O: 'static, T: 'static>(
     owner: &mut App<O>,
     windows: &mut Vec<AnyWindowSpec>,
     key: String,
-    view: fn(&T, &mut Cx<T>) -> El,
-    on_key: Option<KeyHandler<T>>,
+    layer: Layer<T>,
     options: OverlayOptions,
     state: T,
 ) -> Surface<T> {
+    let Layer {
+        view,
+        on_key,
+        scenes,
+    } = layer;
     if rune::tooling::is_headless() {
         let app = App::new(AppSpec {
             on_key,
+            scenes,
             ..AppSpec::new("Attn Lens Layer", (64., 64.), || unreachable!(), view)
         })
         .windowless();
@@ -378,6 +395,7 @@ pub fn run() -> Result<(), String> {
             poll: Some(|s: &mut Editor, now, tx: &mut Tx| s.poll(now, tx)),
             on_key: Some(|s: &mut Editor, event, tx: &mut Tx| s.on_key(event, tx)),
             min_size: Some(EDITOR_MIN_SIZE),
+            scenes: editor::scenes::SCENES,
             ..AppSpec::new("Attn Lens", EDITOR_SIZE, || unreachable!(), editor::view)
         })
         .windowless();
@@ -425,6 +443,7 @@ pub fn run() -> Result<(), String> {
 
         let mut bar = App::new(AppSpec {
             on_key: Some(bar::bar_key),
+            scenes: scenes::BAR_SCENES,
             poll: Some(|s: &mut Bar, now, tx: &mut Tx| {
                 let lens = s.lens.clone();
                 if let Some(next) = lens.port().tick(now) {
@@ -464,8 +483,15 @@ pub fn run() -> Result<(), String> {
                     &mut bar,
                     &mut windows,
                     format!("picker-{slot}"),
-                    select::picker_view,
-                    Some(select::picker_key),
+                    Layer {
+                        view: select::picker_view,
+                        on_key: Some(select::picker_key),
+                        scenes: if slot == 0 {
+                            scenes::PICKER_SCENES
+                        } else {
+                            &[]
+                        },
+                    },
                     OverlayOptions {
                         placement: Some(OverlayPlacement::FullScreen),
                         exclude_from_capture: true,
@@ -486,8 +512,11 @@ pub fn run() -> Result<(), String> {
             &mut bar,
             &mut windows,
             "ink".into(),
-            ink_view,
-            None,
+            Layer {
+                view: ink_view,
+                on_key: None,
+                scenes: scenes::INK_SCENES,
+            },
             OverlayOptions {
                 // Only so a recording of a driven check can show the ink.
                 exclude_from_capture: !std::env::args().any(|arg| arg == "--ink-in-capture"),
@@ -504,8 +533,11 @@ pub fn run() -> Result<(), String> {
                     &mut bar,
                     &mut windows,
                     corner.key().into(),
-                    handle_view,
-                    None,
+                    Layer {
+                        view: handle_view,
+                        on_key: None,
+                        scenes: &[],
+                    },
                     OverlayOptions {
                         exclude_from_capture: true,
                         input: OverlayInput::All,
@@ -520,8 +552,11 @@ pub fn run() -> Result<(), String> {
             &mut bar,
             &mut windows,
             "tile".into(),
-            tile::tile_view,
-            None,
+            Layer {
+                view: tile::tile_view,
+                on_key: None,
+                scenes: scenes::TILE_SCENES,
+            },
             OverlayOptions {
                 exclude_from_capture: true,
                 input: OverlayInput::Regions,
@@ -535,8 +570,11 @@ pub fn run() -> Result<(), String> {
             &mut bar,
             &mut windows,
             "pill".into(),
-            pill::pill_view,
-            None,
+            Layer {
+                view: pill::pill_view,
+                on_key: None,
+                scenes: scenes::PILL_SCENES,
+            },
             OverlayOptions {
                 // Only so a recording of a driven check can show the pill.
                 exclude_from_capture: !std::env::args().any(|arg| arg == "--pill-in-capture"),

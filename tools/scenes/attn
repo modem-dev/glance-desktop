@@ -1,0 +1,22 @@
+#!/bin/sh
+# A stand-in for attn in scenes (src/lens/scenes.rs), named in ATTN_BIN by
+# scripts/snap.sh: eight sessions, every state, one with a long label and four on
+# another host. It answers as cmd/attn/send_stack_test.go in attn pins, and keeps nothing.
+if [ "$1" = refine ]; then
+    raw="$(tail -n +2)"
+    printf '{"profile_id":"default","success":true,"refined_text":"Refined: %s"}\n' "$raw"
+    exit 0
+fi
+cat >/dev/null
+case "$2" in
+sessions)
+    echo '[{"id":"s1","label":"Lens walkthrough with the user","agent":"claude","state":"waiting_input","last_focused_at":"2026-11-13T10:00:00Z"},{"id":"s2","label":"Review main","agent":"codex","state":"idle"},{"id":"s3","label":"Bar polish","agent":"claude","state":"working"},{"id":"s4","label":"Notebook sync","agent":"claude","state":"pending_approval"},{"id":"s5","label":"Outpost build","agent":"claude","state":"working","host":"7a35fcaf-012f-4a33-8239-1da4d324514f"},{"id":"s6","label":"Speech helper models","agent":"codex","state":"idle","host":"7a35fcaf-012f-4a33-8239-1da4d324514f"},{"id":"s7","label":"Test history service token for the sandbox","agent":"claude","state":"waiting_input","host":"7a35fcaf-012f-4a33-8239-1da4d324514f"},{"id":"s8","label":"Tart VM","agent":"claude","state":"launching","host":"7a35fcaf-012f-4a33-8239-1da4d324514f","host_label":"ai-sandbox"}]'
+    ;;
+pair)
+    echo '{"id":"p1","name":"Attn Lens","code":"0420","requested_at":"2026-11-07T00:00:00Z"}'
+    echo '{"sender":{"id":"x","name":"Attn Lens","created_at":"2026-11-07T00:00:00Z"},"token":"scene-token"}'
+    ;;
+*)
+    echo '{"id":"cap","attachments":[]}'
+    ;;
+esac
