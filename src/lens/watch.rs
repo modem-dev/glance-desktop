@@ -45,11 +45,6 @@ const PIXEL_TOLERANCE: u8 = 16;
 const CLICK_MASK: u64 = (1 << 1) | (1 << 3) | (1 << 25);
 const SCROLL_MASK: u64 = 1 << 22;
 
-/// `kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements`.
-const ON_SCREEN_WINDOWS: u32 = 1 | (1 << 4);
-/// `kCFNumberSInt64Type`.
-const CF_NUMBER_I64: i32 = 4;
-
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct CGPoint {
@@ -59,56 +54,12 @@ struct CGPoint {
 
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
-    static kCGWindowLayer: *const c_void;
-    static kCGWindowNumber: *const c_void;
-    static kCGWindowOwnerPID: *const c_void;
     fn CGEventGetLocation(event: *const c_void) -> CGPoint;
-    fn CGWindowListCopyWindowInfo(option: u32, relative_to: u32) -> *const c_void;
-}
-
-#[link(name = "CoreFoundation", kind = "framework")]
-unsafe extern "C" {
-    fn CFArrayGetCount(array: *const c_void) -> isize;
-    fn CFArrayGetValueAtIndex(array: *const c_void, index: isize) -> *const c_void;
-    fn CFDictionaryGetValue(dictionary: *const c_void, key: *const c_void) -> *const c_void;
-    fn CFNumberGetValue(number: *const c_void, kind: i32, value: *mut i64) -> bool;
-    fn CFRelease(cf: *const c_void);
 }
 
 #[link(name = "AppKit", kind = "framework")]
 unsafe extern "C" {
     static NSWorkspaceDidActivateApplicationNotification: *const AnyObject;
-}
-
-/// The window number of the frontmost normal window that is not Lens's.
-fn front_window() -> Option<i64> {
-    fn field(window: *const c_void, key: *const c_void) -> Option<i64> {
-        let mut value = 0;
-        // SAFETY: `window` is a live dictionary from the list below; these keys hold numbers.
-        unsafe {
-            let number = CFDictionaryGetValue(window, key);
-            (!number.is_null() && CFNumberGetValue(number, CF_NUMBER_I64, &mut value))
-                .then_some(value)
-        }
-    }
-    let own = i64::from(std::process::id());
-    // SAFETY: the list is released below, and its windows are read only before that.
-    unsafe {
-        let list = CGWindowListCopyWindowInfo(ON_SCREEN_WINDOWS, 0);
-        if list.is_null() {
-            return None;
-        }
-        // The list runs front to back. Layer 0 holds normal windows.
-        let front = (0..CFArrayGetCount(list))
-            .map(|index| CFArrayGetValueAtIndex(list, index))
-            .find(|&window| {
-                field(window, kCGWindowLayer) == Some(0)
-                    && field(window, kCGWindowOwnerPID) != Some(own)
-            })
-            .and_then(|window| field(window, kCGWindowNumber));
-        CFRelease(list);
-        front
-    }
 }
 
 /// Reports a new front window once, whichever signal notices it first.
@@ -119,7 +70,9 @@ struct WindowSwitches {
 
 impl WindowSwitches {
     fn look(&self) {
-        let Some(now) = front_window() else { return };
+        let Some(now) = capture::front_window() else {
+            return;
+        };
         if self.front.lock().unwrap().replace(now) != Some(now) {
             (self.sink)(WatchEvent::WindowSwitch);
         }
@@ -285,7 +238,7 @@ pub fn start(area: Area, sink: Sink<WatchEvent>) -> Watch {
         sink
     };
     let switches = Arc::new(WindowSwitches {
-        front: Mutex::new(front_window()),
+        front: Mutex::new(capture::front_window()),
         sink,
     });
     let bounds = capture::global_bounds(area);

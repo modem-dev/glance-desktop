@@ -3,6 +3,7 @@
 //! top of Screen Recording; this path does not.
 use super::session::{Area, DisplayFrame};
 use image::RgbaImage;
+use std::ffi::c_void;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -22,7 +23,57 @@ unsafe extern "C" {
 
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
+    fn CFArrayGetCount(array: *const c_void) -> isize;
+    fn CFArrayGetValueAtIndex(array: *const c_void, index: isize) -> *const c_void;
+    fn CFDictionaryGetValue(dictionary: *const c_void, key: *const c_void) -> *const c_void;
+    fn CFNumberGetValue(number: *const c_void, kind: i32, value: *mut i64) -> bool;
     fn CFRelease(cf: *const std::ffi::c_void);
+}
+
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    static kCGWindowLayer: *const c_void;
+    static kCGWindowNumber: *const c_void;
+    static kCGWindowOwnerPID: *const c_void;
+    fn CGWindowListCopyWindowInfo(option: u32, relative_to: u32) -> *const c_void;
+}
+
+/// `kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements`.
+const ON_SCREEN_WINDOWS: u32 = 1 | (1 << 4);
+/// `kCFNumberSInt64Type`.
+const CF_NUMBER_I64: i32 = 4;
+
+/// The window number of the frontmost normal window that is not Lens's. It comes
+/// from z-order, not the frontmost app: ScreenCaptureKit captures a window even
+/// when another covers it (F9 on s-0ww1ak).
+pub fn front_window() -> Option<i64> {
+    fn field(window: *const c_void, key: *const c_void) -> Option<i64> {
+        let mut value = 0;
+        // SAFETY: `window` is a live dictionary from the list below; these keys hold numbers.
+        unsafe {
+            let number = CFDictionaryGetValue(window, key);
+            (!number.is_null() && CFNumberGetValue(number, CF_NUMBER_I64, &mut value))
+                .then_some(value)
+        }
+    }
+    let own = i64::from(std::process::id());
+    // SAFETY: the list is released below, and its windows are read only before that.
+    unsafe {
+        let list = CGWindowListCopyWindowInfo(ON_SCREEN_WINDOWS, 0);
+        if list.is_null() {
+            return None;
+        }
+        // The list runs front to back. Layer 0 holds normal windows.
+        let front = (0..CFArrayGetCount(list))
+            .map(|index| CFArrayGetValueAtIndex(list, index))
+            .find(|&window| {
+                field(window, kCGWindowLayer) == Some(0)
+                    && field(window, kCGWindowOwnerPID) != Some(own)
+            })
+            .and_then(|window| field(window, kCGWindowNumber));
+        CFRelease(list);
+        front
+    }
 }
 
 /// Where the pointer is, in global points with the origin at the main display's
@@ -148,7 +199,26 @@ pub fn frame(area: Area, long_edge: Option<u32>) -> Result<RgbaImage, String> {
             height: area.rect[3],
         },
     };
-    let shot = capture_core::screenshot(&source, &exclude, long_edge)
+    shoot(&source, &exclude, long_edge)
+}
+
+/// One still of the window numbered `window` at its native pixels. A window's
+/// capture holds that window alone, so Lens's windows are never in it.
+pub fn window_still(window: i64) -> Result<RgbaImage, String> {
+    let window = u32::try_from(window).map_err(|_| format!("No window numbered {window}"))?;
+    shoot(
+        &capture_core::Source::Window(window),
+        &capture_core::Exclusions::default(),
+        None,
+    )
+}
+
+fn shoot(
+    source: &capture_core::Source,
+    exclude: &capture_core::Exclusions,
+    long_edge: Option<u32>,
+) -> Result<RgbaImage, String> {
+    let shot = capture_core::screenshot(source, exclude, long_edge)
         .map_err(|e| format!("Screen capture failed: {e}"))?;
     RgbaImage::from_raw(shot.width, shot.height, shot.rgba)
         .ok_or_else(|| "Screen capture returned a buffer that does not match its size".into())

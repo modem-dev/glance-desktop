@@ -1,0 +1,12 @@
+Garden  Sessions  Notebook  Settings
+s-0ww1ak  screen-words-dictation-refinement  growing  checks 0 of 8
+Load the attn-workflow skill before planning. The skill names the processes: Discuss, Planning, Review.
+I read the delegation skill and the garden reference. Next I will plant a seed under the plot and tend it.
+Builder finished the first child. The review found two issues in the cache layer: the session cache keeps
+stale entries after a restart, and the pane does not redraw when the seed changes state.
+Running cargo test --locked in the rune fork. 214 passed, 0 failed. The rune-kit switch now has a label.
+Open the pane on the right to see the diff. Split the pane, then focus the terminal.
+Waiting for the user to answer the ask about the skill and the settings window default.
+Read docs/internal/rune-fork.md and FORK.md. Picks come from dev by cherry-pick.
+Tokens 141.9k  Cost $3.20  Model opus  Effort high  Desktop 3  Branch lens-ocr-vocab
+The user wants a generic protocol for LLM calls. Plan the migration of attn refine onto it.

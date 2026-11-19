@@ -11,6 +11,7 @@ pub mod deliver;
 pub mod dictation;
 pub mod ink;
 pub mod pill;
+pub mod screen_words;
 pub mod select;
 pub mod session;
 pub mod strip;

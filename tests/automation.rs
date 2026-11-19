@@ -302,3 +302,36 @@ fn voice_wav_takes_only_a_regular_file_by_its_absolute_path() {
     assert_eq!(taken["ok"], true, "{taken}");
     assert_eq!(lens.ask(r#"{"cmd":"voice-wav"}"#)["ok"], true);
 }
+
+#[test]
+fn screen_text_replies_with_the_front_windows_text_or_the_reads_error() {
+    use attn_lens::platform_port::PlatformPort;
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("lens-screen.sock");
+    let port = Arc::new(FakePort::new(
+        vec![
+            ("screen-text:open src/lens/capture.rs".into(), 1.),
+            ("screen-text:fail".into(), 2.),
+        ],
+        None,
+    ));
+    automation::listen(Lens::new(port.clone(), Prefs::memory()), &socket).unwrap();
+    let ask = || -> Value {
+        serde_json::from_str(&automation::request(&socket, r#"{"cmd":"screen_text"}"#).unwrap())
+            .unwrap()
+    };
+
+    let empty = ask();
+    assert_eq!(
+        (&empty["ok"], &empty["text"]),
+        (&Value::Bool(true), &"".into())
+    );
+    port.tick(1.);
+    let read = ask();
+    assert_eq!(read["text"], "open src/lens/capture.rs", "{read}");
+    assert!(read["ms"].is_u64(), "{read}");
+    port.tick(2.);
+    let failed = ask();
+    assert_eq!(failed["ok"], false, "{failed}");
+    assert_eq!(failed["error"], "The fake screen read failed.");
+}
