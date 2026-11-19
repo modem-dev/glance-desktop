@@ -82,8 +82,10 @@ pub fn view(s: &SettingsWindow, cx: &mut Cx<SettingsWindow>) -> El {
 }
 
 fn section(section: Section, k: &Kit) -> El {
+    // Darker than the window, as macOS draws grouped rows; the kit's off switch is
+    // white in light mode and needs that ground to show.
     let mut group = col()
-        .fill(k.c.surface_raised_base)
+        .fill(k.c.page)
         .radius(k.radius.md)
         .border(1., k.c.border_weak);
     for (index, row) in section.rows.into_iter().enumerate() {
