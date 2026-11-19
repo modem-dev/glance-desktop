@@ -26,7 +26,9 @@
 //! {"cmd":"voice-wav","path":"/abs/16k-mono.wav"}    the next voice plays it, not the microphone
 //! {"cmd":"voice-wav"}                               back to the microphone
 //! ```
-//! A reply is `{"ok":true,...}` or `{"ok":false,"error":"..."}`.
+//! A reply is `{"ok":true,...}` or `{"ok":false,"error":"..."}`. The state includes
+//! `settings` (each setting by its field name, such as `screen_words`), and
+//! `settings_error`, why the last change could not be saved, or null.
 use super::{Lens, session::Cause};
 use crate::platform_port::{Chord, KeyEvent, Press};
 use serde_json::{Value, json};

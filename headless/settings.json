@@ -1,0 +1,12 @@
+{"displays":[{"id":1,"frame":[0,0,1280,800],"scale":2,"primary":true}],
+ "events":[
+ {"t":0.05,"type":"mark","name":"launched"},
+ {"t":0.1,"menu":"settings"},
+ {"t":0.3,"type":"mark","name":"opened"},
+ {"t":0.4,"type":"tap","key":"screen-words-control"},
+ {"t":0.6,"type":"mark","name":"flipped"},
+ {"t":0.7,"type":"mark","name":"close:settings"},
+ {"t":0.9,"type":"mark","name":"closed"},
+ {"t":1.0,"menu":"dock-settings"},
+ {"t":1.2,"type":"mark","name":"reopened"}
+]}

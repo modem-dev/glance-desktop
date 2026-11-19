@@ -69,6 +69,8 @@ echo '{{"id":"cap"}}'
         command
             .env("ATTN_BIN", self.path("attn"))
             .env("ATTN_LENS_FAKE_CLIPBOARD", clipboard)
+            // Settings live here, apart from the real prefs.json and every other run's.
+            .env("RUNE_PREFS_DIR", self.path("prefs"))
             .arg("--desktop")
             .arg(self.path("backdrop.png"))
             .arg("--script")
@@ -1701,4 +1703,95 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     assert_eq!(frame(&resized, "bar")[1], 300.);
     assert!(visible(&resized, "handle-bottom-left"));
     has_area_frame(&run.tree("ink", "resize-uncovered"));
+}
+
+/// The states the accessibility tree gives the element `key`, such as "checked".
+fn states(tree: &Value, key: &str) -> Vec<String> {
+    fn find<'a>(node: &'a Value, key: &str) -> Option<&'a Value> {
+        if node["key"] == key {
+            return Some(node);
+        }
+        node["children"]
+            .as_array()?
+            .iter()
+            .find_map(|child| find(child, key))
+    }
+    let node = find(&tree["accessibility"], key).unwrap_or_else(|| panic!("no {key}"));
+    node["states"]
+        .as_array()
+        .map(|s| s.iter().map(|v| v.as_str().unwrap().to_string()).collect())
+        .unwrap_or_default()
+}
+
+fn screen_words_on(run: &Run, mark: &str) -> bool {
+    let states = states(&run.tree("settings", mark), "screen-words-control");
+    assert!(
+        states.iter().any(|s| s == "checked" || s == "unchecked"),
+        "{states:?}"
+    );
+    states.iter().any(|s| s == "checked")
+}
+
+fn saved_screen_words(run: &Run) -> Value {
+    let prefs = run.path("prefs/dev.attn.lens/prefs.json");
+    serde_json::from_slice::<Value>(&std::fs::read(prefs).unwrap()).unwrap()["dictation.screen_words"]
+        .clone()
+}
+
+#[test]
+fn the_settings_window_saves_use_words_on_screen_across_a_relaunch() {
+    // Each read runs the script again on this run's prefs.json, so each is a relaunch,
+    // and each that reaches "flipped" has clicked the switch once more.
+    let run = Run::new("settings.json", ONE_SESSION);
+
+    // Hidden until Settings… opens it, with the switch on when nothing is saved.
+    assert!(!visible(&run.tree("settings", "launched"), "settings"));
+    let opened = run.tree("settings", "opened");
+    assert!(visible(&opened, "settings"));
+    assert_eq!(text(&opened, "dictation-title"), Some("Dictation"));
+    assert_eq!(
+        text(&opened, "screen-words-label"),
+        Some("Use words on screen")
+    );
+    assert!(screen_words_on(&run, "opened"));
+    assert_eq!(state(&run, "opened")["settings"]["screen_words"], true);
+
+    // A click turns it off and saves at once.
+    assert!(!screen_words_on(&run, "flipped"));
+    assert_eq!(saved_screen_words(&run), false);
+
+    // Relaunched, Lens reads it off, and the window shows it.
+    assert_eq!(state(&run, "opened")["settings"]["screen_words"], false);
+    assert!(!screen_words_on(&run, "opened"));
+
+    // A click turns it back on, which Lens reports and saves.
+    let flipped = state(&run, "flipped");
+    assert_eq!(flipped["settings"]["screen_words"], true);
+    assert_eq!(flipped["settings_error"], Value::Null);
+    assert_eq!(saved_screen_words(&run), true);
+    assert!(screen_words_on(&run, "opened"));
+}
+
+#[test]
+fn closing_the_settings_window_hides_it_and_the_dock_menu_shows_it_again() {
+    let run = Run::new("settings.json", ONE_SESSION);
+    // The click before the close turned it off; reopened, the window still shows that.
+    let reopened = run.tree("settings", "reopened");
+    assert!(visible(&reopened, "settings"));
+    assert!(states(&reopened, "screen-words-control").contains(&"unchecked".to_string()));
+    assert!(!visible(&run.tree("settings", "closed"), "settings"));
+}
+
+#[test]
+fn a_setting_that_cannot_be_saved_holds_for_the_run_and_the_window_says_why() {
+    let run = Run::new("settings.json", ONE_SESSION);
+    // A file where the settings folder should be, so the save cannot make it.
+    std::fs::write(run.path("prefs"), "").unwrap();
+    let flipped = run.tree("settings", "flipped");
+    assert!(states(&flipped, "screen-words-control").contains(&"unchecked".to_string()));
+    let error = text(&flipped, "settings-error").expect("no error shown");
+    assert!(error.starts_with("Not saved: "), "{error}");
+    let state = state(&run, "flipped");
+    assert_eq!(state["settings"]["screen_words"], false);
+    assert!(state["settings_error"].is_string());
 }

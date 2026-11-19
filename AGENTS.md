@@ -45,6 +45,13 @@ This file's Glance rules still apply to the code that remains.
   `attn refine`, the one paste (`src/paste.rs`, from Hex, behind `PlatformPort::paste`)
   and the hand-over to a capture. See `docs/dictation.md`. `LENS_DICTATION_LOG=1`
   prints each step's time; `--pill-in-capture` lets a recording show the pill.
+- `src/settings.rs`: `Settings`, Lens's settings, in `prefs.json` under `dev.attn.lens`
+  through `rune::prefs`. A new setting is one line in its `settings!`: field, key and
+  default. Lens holds them in `State.settings`; only `Lens::set_settings` changes them.
+  Headless runs set `RUNE_PREFS_DIR` (`tests/headless.rs` gives each run its own).
+- `src/settings_window.rs`: the Settings window, built from rune-kit: sections of rows,
+  each a label, one line on what it does, and its control. "Settings…" (⌘,) in the app
+  menu and in the Dock menu (`src/editor/menus.rs`) call `Lens::open_settings`.
 - `src/lens/deliver.rs`: what Send delivers: the timeline message, the contact
   sheets and the frames, written only from `Document::export()`.
 - `src/lens/capture.rs`: stills through Hex's capture-core (ScreenCaptureKit).
