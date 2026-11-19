@@ -550,10 +550,15 @@ pub fn run() -> Result<(), String> {
         // Hidden until "Settings…" opens it; closing it only hides it again.
         let settings = App::new(AppSpec::new(
             "Settings",
-            (settings_window::WIDTH, 160.),
+            (settings_window::WIDTH, 144.),
             || unreachable!(),
             settings_window::view,
         ))
+        // A standard titled window, as macOS's Settings windows are.
+        .chrome(rune::Chrome {
+            full_size_content: false,
+            ..rune::Chrome::DEFAULT
+        })
         .fit_content_height()
         .windowless();
         let settings_handle = settings.handle();

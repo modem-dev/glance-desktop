@@ -37,6 +37,15 @@ for line in sys.stdin:
         print(" ".join(map(str, value)) if isinstance(value, list) else value)
         break' "$1" "$2"
 }
+# Accessibility starts when a client first asks, so the first reads can come back empty.
+# 100 × 0.1 s is far past the one empty read the editor check saw.
+wait_for() { # IDENTIFIER KEY EXPECTED
+    for _ in $(seq 1 100); do
+        [ "$(field "$1" "$2")" = "$3" ] && return
+        sleep 0.1
+    done
+    fail "$1 $2 is '$(field "$1" "$2")', expected '$3'"
+}
 center() { field "$1" frame | awk '{ printf "%d %d", $1 + $3 / 2, $2 + $4 / 2 }'; }
 state() { "$LENS" lens '{"cmd":"state"}'; }
 # PYTHON-EXPRESSION over the automation state `s`, polled until true. 100 × 0.1 s is far
@@ -62,7 +71,11 @@ launch() {
     done
     fail "no Settings… in the app menu: $("$OUT/ax" menus "Attn Lens" | head -20)"
 }
-shot() { screencapture -x "$OUT/$1.png"; }
+# After the switch's motion settles, which a freshly shown window was caught in.
+shot() {
+    sleep 0.5
+    screencapture -x "$OUT/$1.png"
+}
 
 quit_lens
 rm -f "$PREFS"
@@ -72,27 +85,28 @@ wait_state 's["windows"]["settings"] is False and s["settings"]["screen_words"] 
 say "launched: settings window hidden, screen_words on, no prefs.json"
 
 say "--- ⌘, with Lens in front"
+# The driver posts keys only while a Lens window is in front, so the editor comes first.
+drive <<<'dock Attn Lens'
+wait_state 's["windows"]["editor"] is True'
 drive <<<'chord cmd comma 40'
 wait_state 's["windows"]["settings"] is True'
-switch="$(field screen-words-control value)"
-say "⌘, opened Settings; switch value $switch ($(field screen-words-control role))"
-[ "$switch" = 1 ] || fail "switch value $switch, expected 1 (on)"
+wait_for screen-words-control value 1
+say "⌘, opened Settings; switch value 1 ($(field screen-words-control role))"
 shot opened
 
 say "--- click the switch"
 read -r x y <<<"$(center screen-words-control)"
 drive <<<"click $x $y"
 wait_state 's["settings"]["screen_words"] is False and s["settings_error"] is None'
-switch="$(field screen-words-control value)"
-[ "$switch" = 0 ] || fail "switch value $switch after the click, expected 0 (off)"
-say "click at $x $y: screen_words off, switch value $switch; prefs.json: $(tr -d '\n ' <"$PREFS")"
+wait_for screen-words-control value 0
+say "click at $x $y: screen_words off, switch value 0; prefs.json: $(tr -d '\n ' <"$PREFS")"
 grep -q '"dictation.screen_words": false' "$PREFS" || fail "prefs.json does not hold false"
 shot flipped
 
 say "--- ⌘W"
 drive <<<'chord cmd w 40'
-wait_state 's["windows"]["settings"] is False'
-say "⌘W closed Settings"
+wait_state 's["windows"]["settings"] is False and s["windows"]["editor"] is True'
+say "⌘W closed Settings; the editor behind it stays open"
 
 say "--- quit and reopen"
 quit_lens
@@ -103,9 +117,8 @@ say "relaunched: screen_words off, window hidden"
 say "--- the Dock menu's Settings…"
 "$OUT/ax" dock-menu "Attn Lens" "Settings…"
 wait_state 's["windows"]["settings"] is True'
-switch="$(field screen-words-control value)"
-[ "$switch" = 0 ] || fail "switch value $switch after the relaunch, expected 0 (off)"
-say "Dock menu opened Settings; switch value $switch"
+wait_for screen-words-control value 0
+say "Dock menu opened Settings; switch value 0"
 shot reopened
 
 # Leave the VM as it was found.
