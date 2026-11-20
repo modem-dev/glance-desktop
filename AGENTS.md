@@ -39,11 +39,14 @@ This file's Glance rules still apply to the code that remains.
   holds a still (`State::editing`), the live surfaces hide and the watch stops;
   `EditorCall` is how Lens reaches the editor, and `Editor::leave_still` gives it back.
 - `src/lens/attn.rs`: the only contract with attn: `attn send sessions`, `attn
-  send pair`, `attn send <session>` and `attn refine` JSON, plus the Keychain token. Its tests
-  use a stand-in `attn`; attn's `cmd/attn/send_stack_test.go` pins the real JSON.
+  send pair`, `attn send <session>` and `attn model call` JSON, plus the Keychain token. Its
+  tests use a stand-in `attn`; attn's `cmd/attn/send_stack_test.go` and
+  `cmd/attnd/model_call_stack_test.go` pin the real JSON.
 - `src/lens/dictation.rs`, `pill.rs`: the voice key with no capture open: the pill,
-  `attn refine`, the one paste (`src/paste.rs`, from Hex, behind `PlatformPort::paste`)
-  and the hand-over to a capture. See `docs/dictation.md`. `LENS_DICTATION_LOG=1`
+  the refinement (`attn model call` with `src/lens/refiner.rs`'s request; its corpus
+  is `probes/refine`, `cargo run --example refine-probe`), the one paste
+  (`src/paste.rs`, from Hex, behind `PlatformPort::paste`) and the hand-over to a
+  capture. See `docs/dictation.md`. `LENS_DICTATION_LOG=1`
   prints each step's time; `--pill-in-capture` lets a recording show the pill.
 - `src/settings.rs`: `Settings`, Lens's settings, in `prefs.json` under `dev.attn.lens`
   through `rune::prefs`. A new setting is one line in its `settings!`: field, key and

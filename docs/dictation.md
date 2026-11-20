@@ -10,8 +10,8 @@ A pill sits at the bottom of the display with the pointer, above the Dock. It
 never takes the keyboard or a click, so the app in front keeps its cursor.
 
 1. While you talk, the pill shows the words as each phrase is transcribed.
-2. When you stop, attn tidies the text (filler words, punctuation, casing) under
-   your profile. The pill shows the raw text and **Refining… · ↩ paste as is ·
+2. When you stop, a model tidies the text (filler words, punctuation, casing)
+   through attn. The pill shows the raw text and **Refining… · ↩ paste as is ·
    esc cancel**.
 3. The text pastes once at the cursor, and the pill says how it went for 3 s.
 
@@ -24,14 +24,37 @@ Lens takes ↩ and Esc from the app in front only then; at any other time they
 reach the app as usual. While the area picker shows, ↩ and Esc are the picker's
 (the last area, and cancel); a cancelled pick gives them back to the pill.
 
+## How the text is refined
+
+Lens runs `attn model call` with its paired token, its own instructions
+(`src/lens/refiner.md`) and the transcript as JSON (`{"transcript": ...}`). It
+asks for attn's standard tier and names no harness, so the harness is the one
+attn's `model_calls.agent` setting names, or the harness for new sessions. The
+limit is 15 s plus a quarter of the recording. attn keeps one model process
+started ahead while senders are in use, so a call waits for the model alone.
+attn's `attn model log` lists each call, with no text.
+
+A change to the instructions is judged by the refinement corpus, synthetic
+dictations each with the phrases that must survive, run against the real model
+through a non-production attn:
+
+```sh
+eval "$(attn instance-env <name>)"
+cargo run --example refine-probe -- --rounds 3 --out refine.jsonl
+```
+
+`LENS_PROBE_TOKEN` gives it a paired token; without one it pairs as "Attn Lens
+refine probe" and prints the token. It exits 1 when a refinement lost or changed
+what was said.
+
 ## When the text is not refined
 
 The raw text pastes, and the pill says why, when:
 
-- attn's refinement fails, or attn refuses Lens's token. A refused token also
+- the model call fails, or attn refuses it or Lens's token. A refused token also
   unpairs Lens, as a send does; pair again from the bar.
 - attn is not installed, or cannot be run.
-- attn does not answer within its own limit (15 s plus a quarter of the
+- attn does not answer within the call's limit (15 s plus a quarter of the
   recording) and 2 s more. Lens then stops it.
 
 If nothing was heard, nothing pastes and the pill says **Didn't catch anything**.
@@ -63,4 +86,6 @@ capture. Cancel the pick and the dictation carries on.
 ## Checking it
 
 `LENS_DICTATION_LOG=1` prints each step with the time since launch: the voice key,
-the pill showing, voice reporting, attn asked and answering, the paste.
+the pill showing, voice reporting, attn asked and answering, the paste. The
+answer's line gives the time from the end of voice to the refined text, attn's
+part of it, and the harness, model and model time.

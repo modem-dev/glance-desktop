@@ -13,9 +13,9 @@ Notable user-visible changes are recorded here.
   want to see or click. It stays whole on the capture's display, leaves the
   keyboard where it was, and keeps its place until the capture ends.
 - **Attn Lens** dictation: with no capture open, right ⌥ (tap, or hold) dictates
-  into the app in front. A pill above the Dock shows the words, attn refines them
-  through `attn refine`, and the text pastes once at the cursor with the clipboard
-  put back. ↩ pastes the raw text at once, Esc cancels; a failed, late or
+  into the app in front. A pill above the Dock shows the words, a model on attn's
+  standard tier refines them through `attn model call` with Lens's own
+  instructions, and the text pastes once at the cursor with the clipboard put back. ↩ pastes the raw text at once, Esc cancels; a failed, late or
   unreachable refinement pastes the raw text and says why. Right ⌘ during a
   dictation turns it into a capture's voice. The Dock menu has Copy Last Dictation.
 

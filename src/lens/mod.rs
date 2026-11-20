@@ -11,6 +11,7 @@ pub mod deliver;
 pub mod dictation;
 pub mod ink;
 pub mod pill;
+pub mod refiner;
 pub(crate) mod scenes;
 pub mod screen_words;
 pub mod select;
