@@ -1625,7 +1625,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // bottom edge, over the area.
     // The handles stand above the bar, so the corners it covers hide.
     let open = run.tree("bar", "open");
-    assert_eq!(frame(&open, "bar"), [100., 700., 760., 92.]);
+    assert_eq!(frame(&open, "bar"), [100., 708., 760., 84.]);
     assert!(!visible(&open, "handle-bottom-left"));
     assert!(!visible(&open, "handle-bottom-right"));
     assert!(visible(&open, "handle-top-left"));
@@ -1633,7 +1633,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // A drag on its background moves it with the pointer. Nothing is drawn, no still
     // is taken, and the field keeps the keys.
     let dragged = run.tree("bar", "dragged");
-    assert_eq!(frame(&dragged, "bar"), [100., 400., 760., 92.]);
+    assert_eq!(frame(&dragged, "bar"), [100., 400., 760., 84.]);
     assert!(visible(&dragged, "handle-bottom-left"));
     assert_eq!(text(&dragged, "keys"), Some("Typing here"));
     let capture = capture_state(&run, "dragged");
@@ -1647,7 +1647,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // Ink lands where the bar was (fn+2 picked Arrow), and the bar stays where it was dragged.
     let drawn = run.tree("ink", "drawn-under");
     assert_eq!(label(&drawn, "mark-0"), Some("arrow"));
-    assert_eq!(frame(&drawn, "bar"), [100., 400., 760., 92.]);
+    assert_eq!(frame(&drawn, "bar"), [100., 400., 760., 84.]);
 
     // Dragged past the display's corner, it stops whole on the display. The press
     // took the keys from the page, and the drag gives them back.
@@ -1657,7 +1657,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     );
     assert_eq!(run.focus_returned("at-edge"), ["released"]);
     let edge = run.tree("bar", "at-edge");
-    assert_eq!(frame(&edge, "bar"), [512., 700., 760., 92.]);
+    assert_eq!(frame(&edge, "bar"), [512., 708., 760., 84.]);
     assert_eq!(text(&edge, "keys"), Some("Typing on the page"));
 
     // A click into the field gives the bar the keys on purpose: a drag after it keeps
@@ -1674,7 +1674,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     assert_eq!(run.focus_returned("field-padding"), ["released"]);
     let padding = run.tree("bar", "field-padding");
     assert_eq!(text(&padding, "keys"), Some("Typing here"));
-    assert_eq!(frame(&padding, "bar"), [512., 700., 760., 92.]);
+    assert_eq!(frame(&padding, "bar"), [512., 708., 760., 84.]);
 
     // The palette grows the bar, which rises to stay on the display.
     let palette = run.tree("bar", "palette-at-edge");
@@ -1686,21 +1686,21 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
 
     // The next capture, on the second display, starts at the default place, and a
     // drag toward the first display stops at the second's edge.
-    assert_eq!(bar("display-2-open"), [1300., 668., 760., 92.]);
+    assert_eq!(bar("display-2-open"), [1300., 676., 760., 84.]);
     assert_eq!(capture_state(&run, "display-2-open")["bar_at"], Value::Null);
-    assert_eq!(bar("display-2-dragged"), [1288., 368., 760., 92.]);
+    assert_eq!(bar("display-2-dragged"), [1288., 368., 760., 84.]);
 
     // Voice shows its words in the bar, which stays where it was dragged.
     let voice = run.tree("bar", "voice-dragged");
     assert!(text(&voice, "segment-0").is_some_and(|words| words.starts_with("move this")));
-    assert_eq!(frame(&voice, "bar"), [1288., 368., 760., 92.]);
+    assert_eq!(frame(&voice, "bar"), [1288., 368., 760., 84.]);
 
     // A whole display puts the bar over the bottom-left corner, whose handle hides. A
     // resize that moves the bar above the area shows it again as the resize lands.
     let whole = run.tree("bar", "whole-display-1");
     assert!(!visible(&whole, "handle-bottom-left"));
     let resized = run.tree("bar", "resize-uncovered");
-    assert_eq!(frame(&resized, "bar")[1], 300.);
+    assert_eq!(frame(&resized, "bar")[1], 308.);
     assert!(visible(&resized, "handle-bottom-left"));
     has_area_frame(&run.tree("ink", "resize-uncovered"));
 }
