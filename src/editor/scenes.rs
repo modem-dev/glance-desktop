@@ -41,6 +41,7 @@ pub(crate) const SCENES: Scenes<Editor> = &[
     ("hex-invalid", hex_invalid),
     ("copied", copied),
     ("wide-image", wide_image),
+    ("still", still),
 ];
 
 /// The image the editor's scripts open, `headless/editor/fixture.png`, 320 by 200.
@@ -306,4 +307,15 @@ fn wide_image(e: &mut Editor) {
     act(e, Action::SelectTool(Tool::Rectangle));
     style(e, |s| s.fill = Fill::Filled);
     drag(e, (20., 10.), (60., 50.));
+}
+
+/// A capture's still, as Lens hands it over: Back and Send join the toolbar.
+fn still(e: &mut Editor) {
+    let image = image::load_from_memory(FIXTURE).expect("the fixture decodes");
+    e.open_still(
+        1,
+        crate::document::Document::new(image.to_rgba8()),
+        &mut Tx::default(),
+    );
+    settle(e);
 }

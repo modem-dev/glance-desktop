@@ -62,7 +62,7 @@ impl Editor {
             .w(WIDTH)
             .h_full()
             .fill(k.c.bg_base)
-            .border(1., k.c.border_muted)
+            .border_sides([0., 0., 0., 1.], k.c.border_muted)
             .scroll(rune::ScrollSpec {
                 stick_bottom: false,
             })
