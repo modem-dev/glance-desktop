@@ -2,8 +2,8 @@
 use super::super::{Editor, actions::Action};
 use rune::{Cursor, Cx, El, Icon, Key, TextStyle, Tx, col, el, icon, row, text, text_input};
 use rune_kit::{
-    Button, ButtonVariant, Field, Kit, NumberStepper, SegmentedControl, Select, SelectAppearance,
-    Slider,
+    Button, ButtonVariant, Checkbox, Field, Kit, NumberStepper, SegmentedControl, Select,
+    SelectAppearance, Slider, Switch,
 };
 
 /// The width of a control in the sidebar: the sidebar inside its padding.
@@ -93,9 +93,79 @@ pub(crate) fn icon_button(
     button
 }
 
+/// A panel's title, with the button that closes it at the right.
+pub(crate) fn heading(cx: &Cx<Editor>, title: &str, close: El) -> El {
+    let k = kit(cx);
+    row()
+        .justify_between()
+        .center_y()
+        .child(
+            text(title.to_string())
+                .font(k.ty.body_medium)
+                .color(k.c.text_base),
+        )
+        .child(close)
+}
+
+/// A line that explains the controls around it.
+pub(crate) fn note(cx: &Cx<Editor>, content: impl Into<String>) -> El {
+    let k = kit(cx);
+    text(content.into())
+        .wrap()
+        .font(k.ty.ui)
+        .color(k.c.text_muted)
+}
+
+/// A setting that is on or off, as a switch at the end of its labelled row, keyed `key`.
+pub(crate) fn switch(
+    cx: &Cx<Editor>,
+    key: &str,
+    label: &str,
+    on: bool,
+    toggle: impl Fn(&mut Editor, &mut Tx) + 'static,
+) -> El {
+    let k = kit(cx);
+    row()
+        .w_full()
+        .justify_between()
+        .center_y()
+        .child(
+            text(label.to_string())
+                .font(label_font(k))
+                .color(k.c.text_base)
+                .a11y_hidden(),
+        )
+        .child(
+            Switch::new(on)
+                .label(label)
+                .hide_label()
+                .on_toggle_tx(toggle)
+                .build(k)
+                .key(key.to_string()),
+        )
+}
+
+/// An option that is on or off, keyed `key`. The kit's checkbox sets its description on
+/// one line, so a screen reader reads `description` and the panel shows it as a note.
+pub(crate) fn checkbox(
+    cx: &Cx<Editor>,
+    key: &str,
+    label: &str,
+    description: &str,
+    on: bool,
+    toggle: impl Fn(&mut Editor, &mut Tx) + 'static,
+) -> El {
+    Checkbox::new(on)
+        .label(label)
+        .on_toggle_tx(toggle)
+        .build(kit(cx))
+        .description(description.to_string())
+        .key(key.to_string())
+}
+
 /// One choice among several, named `label`. Three or fewer short options are a
 /// segmented control, keyed `{group}-choices` with its segments `segment{i}`; more are
-/// a Select, its trigger `{group}-trigger` and its options `{group}-content/…/option{i}`.
+/// a Select, as [`select`] keys it.
 pub(crate) fn choices<T>(
     s: &Editor,
     cx: &Cx<Editor>,
@@ -107,7 +177,37 @@ pub(crate) fn choices<T>(
 where
     T: Into<String>,
 {
-    let k = kit(cx);
+    let options: Vec<(String, Action, bool)> = options
+        .into_iter()
+        .map(|(label, action, on)| (label.into(), action, on))
+        .collect();
+    if options.len() > 3 {
+        return select(s, cx, layer, group, label, options);
+    }
+    let labels: Vec<&str> = options.iter().map(|(l, ..)| l.as_str()).collect();
+    let current = options.iter().position(|(.., on)| *on);
+    let actions: Vec<Action> = options.iter().map(|(_, a, _)| a.clone()).collect();
+    SegmentedControl::new(&labels, current)
+        .label(label)
+        .width(None)
+        .on_pick(move |s: &mut Editor, i, tx| s.dispatch_ui(actions[i].clone(), tx))
+        .build(kit(cx))
+        .key(format!("{group}-choices"))
+}
+
+/// One choice among several in a list that opens under the field: its trigger
+/// `{group}-trigger` and its options `{group}-content/…/option{i}`.
+pub(crate) fn select<T>(
+    s: &Editor,
+    cx: &Cx<Editor>,
+    layer: &mut Layer,
+    group: &'static str,
+    label: &str,
+    options: impl IntoIterator<Item = (T, Action, bool)>,
+) -> El
+where
+    T: Into<String>,
+{
     let options: Vec<(String, Action, bool)> = options
         .into_iter()
         .map(|(label, action, on)| (label.into(), action, on))
@@ -115,14 +215,6 @@ where
     let labels: Vec<&str> = options.iter().map(|(l, ..)| l.as_str()).collect();
     let current = options.iter().position(|(.., on)| *on);
     let actions: Vec<Action> = options.iter().map(|(_, a, _)| a.clone()).collect();
-    if options.len() <= 3 {
-        return SegmentedControl::new(&labels, current)
-            .label(label)
-            .width(None)
-            .on_pick(move |s: &mut Editor, i, tx| s.dispatch_ui(actions[i].clone(), tx))
-            .build(k)
-            .key(format!("{group}-choices"));
-    }
     let names: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
     Select::new(group, &labels)
         .label(label)
@@ -138,7 +230,7 @@ where
                 s.dispatch_ui(actions[i].clone(), tx);
             }
         })
-        .build(k, layer)
+        .build(kit(cx), layer)
 }
 
 impl Editor {

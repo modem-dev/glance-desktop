@@ -4,7 +4,7 @@ use super::{
     controls,
 };
 use crate::animation::{AnimationControl, Entrance};
-use rune::{Cx, El, col, row, text, tok};
+use rune::{Cx, El, col, row};
 
 fn control_slider(cx: &Cx<Editor>, control: AnimationControl, editor: &Editor) -> El {
     let a = editor
@@ -51,7 +51,6 @@ impl Editor {
         cx: &mut Cx<Editor>,
         layer: &mut controls::Layer,
     ) -> El {
-        let t = tok::theme(cx.system_dark());
         let a = self
             .doc
             .as_ref()
@@ -62,19 +61,13 @@ impl Editor {
         let mut panel = col()
             .key("animation-panel")
             .gap(14.)
-            .child(
-                row()
-                    .justify_between()
-                    .center_y()
-                    .child(text("Animation").font(tok::type_::SECTION).color(t.text))
-                    .child(controls::button(
-                        cx,
-                        "animation-done",
-                        "Done",
-                        true,
-                        |s: &mut Editor, tx| s.dispatch_ui(Action::ClosePanel, tx),
-                    )),
-            )
+            .child(controls::heading(
+                cx,
+                "Animation",
+                controls::button(cx, "animation-done", "Done", true, |s: &mut Editor, tx| {
+                    s.dispatch_ui(Action::ClosePanel, tx)
+                }),
+            ))
             .child(controls::field(
                 cx,
                 "Image entrance",
@@ -107,26 +100,25 @@ impl Editor {
             )
             .child(control_slider(cx, AnimationControl::Time, self))
             .child(
-                text(format!(
-                    "{} / {} s",
-                    AnimationControl::Time
-                        .display(
-                            AnimationControl::Time
-                                .value(a, self.playback.position.min(self.clip_seconds()))
-                        )
-                        .trim_end_matches(" s"),
-                    self.clip_seconds()
-                ))
-                .key("clip-time")
-                .font(tok::type_::LABEL)
-                .color(t.text_secondary),
+                controls::note(
+                    cx,
+                    format!(
+                        "{} / {} s",
+                        AnimationControl::Time
+                            .display(
+                                AnimationControl::Time
+                                    .value(a, self.playback.position.min(self.clip_seconds()))
+                            )
+                            .trim_end_matches(" s"),
+                        self.clip_seconds()
+                    ),
+                )
+                .key("clip-time"),
             );
         if self.preparing() {
             panel = panel.child(
-                text("Preparing preview…")
+                controls::note(cx, "Preparing preview…")
                     .key("preparing")
-                    .font(tok::type_::LABEL)
-                    .color(t.text_secondary)
                     .live_region(rune::LiveRegion::Polite),
             );
         }
@@ -149,11 +141,9 @@ impl Editor {
                     ],
                 ),
             ))
-            .child(
-                text("Configure the moving background in Backdrop.")
-                    .wrap()
-                    .font(tok::type_::LABEL)
-                    .color(t.text_secondary),
-            )
+            .child(controls::note(
+                cx,
+                "Configure the moving background in Backdrop.",
+            ))
     }
 }

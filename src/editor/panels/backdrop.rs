@@ -8,7 +8,8 @@ use crate::{
     animation::Motion,
     backdrop::{Control, Format, PRESETS},
 };
-use rune::{Cursor, Cx, El, PopupMenu, col, el, row, text, tok};
+use rune::{Cursor, Cx, El, PopupMenu, col, el, row};
+use rune_kit::{Select, SelectAppearance};
 
 /// A stable id for a format in a pop-up menu.
 fn format_id(format: Format) -> String {
@@ -60,23 +61,21 @@ fn control_slider(cx: &Cx<Editor>, control: Control, value: u32) -> El {
 
 impl Editor {
     pub(super) fn backdrop_controls(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
-        let t = tok::theme(cx.system_dark());
+        let k = controls::kit(cx);
         let enabled = self.doc.as_ref().is_some_and(|d| d.backdrop.is_some());
         let b = self.current_backdrop();
         let moving = b.motion != Motion::Still;
-        let format = row()
-            .key("backdrop-format")
-            .role("combobox")
+        // Format keeps the native pop-up menu: the kit's field is its trigger.
+        let labels = Format::ALL.map(|f| f.short_label());
+        let format = Select::new("backdrop-format", &labels)
             .label("Format")
+            .appearance(SelectAppearance::Field)
+            .width(controls::INNER)
+            .current(Some(b.format.short_label()))
+            .trigger(k)
+            .key("backdrop-format")
             .a11y_value(b.format.label())
-            .h(30.)
-            .px(10.)
-            .radius(7.)
-            .center_y()
-            .justify_between()
-            .fill(t.control_track)
             .cursor(Cursor::Pointer)
-            .hover(t.hover)
             .on_press_tx(move |_: &mut Editor, tx| {
                 let menu = PopupMenu::picker(
                     Format::ALL.map(|f| (format_id(f), f.label())),
@@ -90,34 +89,17 @@ impl Editor {
                         s.dispatch_ui(Action::SetBackdropFormat(format), tx);
                     }
                 });
-            })
-            .child(
-                text(b.format.short_label())
-                    .font(tok::type_::LABEL)
-                    .color(t.text)
-                    .inert(),
-            )
-            .child(
-                rune::icon(&super::super::icons::CHEVRON_DOWN, 14.)
-                    .color(t.text_secondary)
-                    .inert(),
-            );
+            });
         let mut panel = col()
             .key("backdrop-panel")
             .gap(14.)
-            .child(
-                row()
-                    .justify_between()
-                    .center_y()
-                    .child(text("Backdrop").font(tok::type_::SECTION).color(t.text))
-                    .child(controls::button(
-                        cx,
-                        "backdrop-done",
-                        "Done",
-                        true,
-                        |s: &mut Editor, tx| s.dispatch_ui(Action::ClosePanel, tx),
-                    )),
-            )
+            .child(controls::heading(
+                cx,
+                "Backdrop",
+                controls::button(cx, "backdrop-done", "Done", true, |s: &mut Editor, tx| {
+                    s.dispatch_ui(Action::ClosePanel, tx)
+                }),
+            ))
             .child(controls::field(cx, "Format", format))
             .child(control_slider(cx, Control::Padding, b.padding))
             .child(control_slider(cx, Control::InsidePadding, b.inside_padding))
@@ -160,9 +142,9 @@ impl Editor {
                             .justify_between()
                             .center_y()
                             .child(
-                                text("Effect")
-                                    .font(tok::type_::LABEL)
-                                    .color(t.text_secondary),
+                                rune::text("Effect")
+                                    .font(controls::label_font(k))
+                                    .color(k.c.text_base),
                             )
                             .child(
                                 controls::button(
@@ -188,12 +170,14 @@ impl Editor {
                     )),
             );
         }
-        let mut palettes = row().key("palettes").gap(6.).flex_wrap();
+        // Eight presets of two 9-point halves, each inside a 2-point border and padding, are
+        // 208 points: one row across the sidebar's 244.
+        let mut palettes = row().key("palettes").w_full().gap(4.).justify_between();
         for (preset, (name, from, to)) in PRESETS.into_iter().enumerate() {
             let current = b.colors.is_none() && b.preset == preset;
             let swatch = |hex: u32| {
-                el().w(11.)
-                    .h(22.)
+                el().w(9.)
+                    .h(20.)
                     .fill(rgba([(hex >> 16) as u8, (hex >> 8) as u8, hex as u8, 255]))
                     .inert()
             };
@@ -205,8 +189,15 @@ impl Editor {
                     .help(name)
                     .checked(current)
                     .padding(2.)
-                    .radius(6.)
-                    .border(2., if current { t.indicator } else { t.card_border })
+                    .radius(k.radius.md)
+                    .border(
+                        2.,
+                        if current {
+                            k.c.border_focus
+                        } else {
+                            k.c.border_muted
+                        },
+                    )
                     .cursor(Cursor::Pointer)
                     .on_press_tx(move |s: &mut Editor, tx| {
                         s.dispatch_ui(Action::SetBackdropPreset(preset), tx)
@@ -232,9 +223,16 @@ impl Editor {
                     .a11y_value(format!("#{r:02X}{g:02X}{bl:02X}"))
                     .checked(editing)
                     .size(28., 28.)
-                    .radius(6.)
+                    .radius(k.radius.md)
                     .fill(rgba([r, g, bl, 255]))
-                    .border(2., if editing { t.indicator } else { t.card_border })
+                    .border(
+                        2.,
+                        if editing {
+                            k.c.border_focus
+                        } else {
+                            k.c.border_strong
+                        },
+                    )
                     .cursor(Cursor::Pointer)
                     .on_press_tx(move |s: &mut Editor, tx| {
                         s.dispatch_ui(Action::EditBackdropColor(stop), tx)
@@ -274,33 +272,12 @@ impl Editor {
                     |s: &mut Editor, tx| s.dispatch_ui(Action::TogglePlayback, tx),
                 ));
         }
-        panel.child(
-            row()
-                .key("backdrop-enabled")
-                .role("checkbox")
-                .label("Enable backdrop")
-                .checked(enabled)
-                .gap(8.)
-                .center_y()
-                .cursor(Cursor::Pointer)
-                .on_press_tx(|s: &mut Editor, tx| s.dispatch_ui(Action::ToggleBackdropEnabled, tx))
-                .child(
-                    el().size(16., 16.)
-                        .radius(4.)
-                        .border(1., t.card_border)
-                        .fill(if enabled {
-                            rgba(super::super::live::ACCENT)
-                        } else {
-                            t.control_off
-                        })
-                        .inert(),
-                )
-                .child(
-                    text("Enable backdrop")
-                        .font(tok::type_::LABEL)
-                        .color(t.text)
-                        .inert(),
-                ),
-        )
+        panel.child(controls::switch(
+            cx,
+            "backdrop-enabled",
+            "Enable backdrop",
+            enabled,
+            |s: &mut Editor, tx| s.dispatch_ui(Action::ToggleBackdropEnabled, tx),
+        ))
     }
 }
