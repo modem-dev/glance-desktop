@@ -12,8 +12,9 @@ use std::{
 /// call` keeps its arguments in `model-args` and its stdin in `model-stdin`, then
 /// prints `model-out`, and `model-err` on stderr, and exits with `model-code` when
 /// a test wrote them; otherwise it answers "Refined: " and the request's transcript.
-/// With `model-hang` it waits 20 s instead, then notes in `model-survived` that
-/// nothing stopped it.
+/// With `model-hang` it waits 600 s instead, then notes in `model-survived` that
+/// nothing stopped it. 600 s outlasts any run: one takes 4 s on a Mac and about
+/// 65 s on Linux CI, where 20 s let a call outlive the wait before its deadline.
 struct Run {
     dir: tempfile::TempDir,
     script: &'static str,
@@ -30,7 +31,7 @@ impl Run {
 if [ "$1" = "model" ]; then
   cat > "{dir}/model-stdin"; echo "$@" > "{dir}/model-args"
   if [ -f "{dir}/model-hang" ]; then
-    sleep 20 < /dev/null > /dev/null 2>&1; echo "$$" >> "{dir}/model-survived"; exit 1
+    sleep 600 < /dev/null > /dev/null 2>&1; echo "$$" >> "{dir}/model-survived"; exit 1
   fi
   if [ -f "{dir}/model-code" ]; then
     cat "{dir}/model-out" 2>/dev/null; cat "{dir}/model-err" >&2 2>/dev/null
