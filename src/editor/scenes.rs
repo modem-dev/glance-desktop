@@ -33,11 +33,15 @@ pub(crate) const SCENES: Scenes<Editor> = &[
     ("backdrop", backdrop),
     ("backdrop-gradient", backdrop_gradient),
     ("backdrop-color", backdrop_color),
+    ("backdrop-motion", backdrop_motion),
     ("animation", animation),
+    ("animation-entrance", animation_entrance),
     ("image-tools", image_tools),
     ("color-picker", color_picker),
+    ("hex-invalid", hex_invalid),
     ("copied", copied),
     ("wide-image", wide_image),
+    ("still", still),
 ];
 
 /// The image the editor's scripts open, `headless/editor/fixture.png`, 320 by 200.
@@ -247,9 +251,21 @@ fn backdrop_color(e: &mut Editor) {
     act(e, Action::EditBackdropColor(1));
 }
 
+/// The background on Motion, its effect's list closed.
+fn backdrop_motion(e: &mut Editor) {
+    backdrop(e);
+    act(e, Action::SelectMotion(crate::animation::Motion::Flow));
+}
+
 fn animation(e: &mut Editor) {
     open(e);
     act(e, Action::ToggleAnimationPanel);
+}
+
+/// Image entrance's list open, as its trigger opens it.
+fn animation_entrance(e: &mut Editor) {
+    animation(e);
+    e.toggle_choices("entrance");
 }
 
 fn image_tools(e: &mut Editor) {
@@ -263,6 +279,14 @@ fn color_picker(e: &mut Editor) {
     open(e);
     act(e, Action::SelectTool(Tool::Pen));
     act(e, Action::ToggleColorPicker);
+}
+
+/// A hex colour that does not parse, applied: the field marked and its error shown.
+fn hex_invalid(e: &mut Editor) {
+    color_picker(e);
+    e.picker.hex = TextEdit::new("#12");
+    e.apply_hex(&mut Tx::default());
+    settle(e);
 }
 
 /// The toolbar's confirmation after ⌘C.
@@ -283,4 +307,15 @@ fn wide_image(e: &mut Editor) {
     act(e, Action::SelectTool(Tool::Rectangle));
     style(e, |s| s.fill = Fill::Filled);
     drag(e, (20., 10.), (60., 50.));
+}
+
+/// A capture's still, as Lens hands it over: Back and Send join the toolbar.
+fn still(e: &mut Editor) {
+    let image = image::load_from_memory(FIXTURE).expect("the fixture decodes");
+    e.open_still(
+        1,
+        crate::document::Document::new(image.to_rgba8()),
+        &mut Tx::default(),
+    );
+    settle(e);
 }

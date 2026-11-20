@@ -1,9 +1,9 @@
 //! The sidebar's controls, on rune-kit components painted by `crate::kit`.
 use super::super::{Editor, actions::Action};
-use rune::{Cursor, Cx, El, Icon, Key, TextStyle, Tx, col, el, icon, row, text, text_input};
+use rune::{Cursor, Cx, El, Key, TextStyle, Tx, col, el, row, text, text_input};
 use rune_kit::{
-    Button, ButtonVariant, Field, Kit, NumberStepper, SegmentedControl, Select, SelectAppearance,
-    Slider,
+    Button, ButtonVariant, Checkbox, Field, Kit, NumberStepper, SegmentedControl, Select,
+    SelectAppearance, Slider, Switch,
 };
 
 /// The width of a control in the sidebar: the sidebar inside its padding.
@@ -55,47 +55,79 @@ pub(crate) fn button(
     button.build(kit(cx)).key(key.to_string())
 }
 
-/// An icon button in the toolbar; `active` marks the tool in use.
-pub(crate) fn icon_button(
+/// A panel's title, with the button that closes it at the right.
+pub(crate) fn heading(cx: &Cx<Editor>, title: &str, close: El) -> El {
+    let k = kit(cx);
+    row()
+        .justify_between()
+        .center_y()
+        .child(
+            text(title.to_string())
+                .font(k.ty.body_medium)
+                .color(k.c.text_base),
+        )
+        .child(close)
+}
+
+/// A line that explains the controls around it.
+pub(crate) fn note(cx: &Cx<Editor>, content: impl Into<String>) -> El {
+    let k = kit(cx);
+    text(content.into())
+        .wrap()
+        .font(k.ty.ui)
+        .color(k.c.text_muted)
+}
+
+/// A setting that is on or off, as a switch at the end of its labelled row, keyed `key`.
+pub(crate) fn switch(
     cx: &Cx<Editor>,
     key: &str,
-    label: String,
-    glyph: &'static Icon,
-    toggle: Option<bool>,
-    action: Action,
+    label: &str,
+    on: bool,
+    toggle: impl Fn(&mut Editor, &mut Tx) + 'static,
 ) -> El {
-    let c = &kit(cx).c;
-    let active = toggle == Some(true);
-    let mut button = el()
-        .key(key.to_string())
-        .role("button")
-        .label(label.clone())
-        .help(label)
-        .size(32., 32.)
-        .radius(7.)
-        .center()
-        .cursor(Cursor::Pointer)
-        .hover(c.hover)
-        .press(c.pressed)
-        .on_press_tx(move |s: &mut Editor, tx| s.dispatch_ui(action.clone(), tx))
+    let k = kit(cx);
+    row()
+        .w_full()
+        .justify_between()
+        .center_y()
         .child(
-            icon(glyph, 18.)
-                .color(if active { c.text_accent } else { c.icon_base })
-                .inert(),
-        );
-    // Only a toggle has a checked state; an action button reads as a plain button.
-    if let Some(checked) = toggle {
-        button = button.checked(checked);
-    }
-    if active {
-        button = button.fill(c.bg_accent.alpha(0.16));
-    }
-    button
+            text(label.to_string())
+                .font(label_font(k))
+                .color(k.c.text_base)
+                .a11y_hidden(),
+        )
+        .child(
+            Switch::new(on)
+                .label(label)
+                .hide_label()
+                .on_toggle_tx(toggle)
+                .build(k)
+                .key(key.to_string()),
+        )
+}
+
+/// An option that is on or off, keyed `key`. The kit's checkbox sets its description on
+/// one line, so a screen reader reads `description` and the panel shows it as a note.
+pub(crate) fn checkbox(
+    cx: &Cx<Editor>,
+    key: &str,
+    label: &str,
+    description: &str,
+    on: bool,
+    toggle: impl Fn(&mut Editor, &mut Tx) + 'static,
+) -> El {
+    Checkbox::new(on)
+        .label(label)
+        .on_toggle_tx(toggle)
+        .build(kit(cx))
+        .description(description.to_string())
+        .key(key.to_string())
 }
 
 /// One choice among several, named `label`. Three or fewer short options are a
 /// segmented control, keyed `{group}-choices` with its segments `segment{i}`; more are
-/// a Select, its trigger `{group}-trigger` and its options `{group}-content/…/option{i}`.
+/// a Select, as [`select`] keys it.
 pub(crate) fn choices<T>(
     s: &Editor,
     cx: &Cx<Editor>,
@@ -107,7 +139,37 @@ pub(crate) fn choices<T>(
 where
     T: Into<String>,
 {
-    let k = kit(cx);
+    let options: Vec<(String, Action, bool)> = options
+        .into_iter()
+        .map(|(label, action, on)| (label.into(), action, on))
+        .collect();
+    if options.len() > 3 {
+        return select(s, cx, layer, group, label, options);
+    }
+    let labels: Vec<&str> = options.iter().map(|(l, ..)| l.as_str()).collect();
+    let current = options.iter().position(|(.., on)| *on);
+    let actions: Vec<Action> = options.iter().map(|(_, a, _)| a.clone()).collect();
+    SegmentedControl::new(&labels, current)
+        .label(label)
+        .width(None)
+        .on_pick(move |s: &mut Editor, i, tx| s.dispatch_ui(actions[i].clone(), tx))
+        .build(kit(cx))
+        .key(format!("{group}-choices"))
+}
+
+/// One choice among several in a list that opens under the field: its trigger
+/// `{group}-trigger` and its options `{group}-content/…/option{i}`.
+pub(crate) fn select<T>(
+    s: &Editor,
+    cx: &Cx<Editor>,
+    layer: &mut Layer,
+    group: &'static str,
+    label: &str,
+    options: impl IntoIterator<Item = (T, Action, bool)>,
+) -> El
+where
+    T: Into<String>,
+{
     let options: Vec<(String, Action, bool)> = options
         .into_iter()
         .map(|(label, action, on)| (label.into(), action, on))
@@ -115,14 +177,6 @@ where
     let labels: Vec<&str> = options.iter().map(|(l, ..)| l.as_str()).collect();
     let current = options.iter().position(|(.., on)| *on);
     let actions: Vec<Action> = options.iter().map(|(_, a, _)| a.clone()).collect();
-    if options.len() <= 3 {
-        return SegmentedControl::new(&labels, current)
-            .label(label)
-            .width(None)
-            .on_pick(move |s: &mut Editor, i, tx| s.dispatch_ui(actions[i].clone(), tx))
-            .build(k)
-            .key(format!("{group}-choices"));
-    }
     let names: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
     Select::new(group, &labels)
         .label(label)
@@ -138,7 +192,7 @@ where
                 s.dispatch_ui(actions[i].clone(), tx);
             }
         })
-        .build(k, layer)
+        .build(kit(cx), layer)
 }
 
 impl Editor {

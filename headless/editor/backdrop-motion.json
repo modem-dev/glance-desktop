@@ -334,7 +334,8 @@
     }
    },
    "checked": [
-    "background-choices/segment2"
+    "background-choices/segment2",
+    "backdrop-button"
    ],
    "present": [
     "randomize",

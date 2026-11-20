@@ -35,15 +35,25 @@
   {
    "t": 0.88,
    "type": "tap",
-   "key": "start-choices/segment1"
+   "key": "start-trigger"
   },
   {
-   "t": 1.08,
+   "t": 1.03,
    "type": "tap",
-   "key": "end-choices/segment2"
+   "key": "start-scroll-area/scroll/rows/option1"
   },
   {
-   "t": 1.28,
+   "t": 1.23,
+   "type": "tap",
+   "key": "end-trigger"
+  },
+  {
+   "t": 1.38,
+   "type": "tap",
+   "key": "end-scroll-area/scroll/rows/option2"
+  },
+  {
+   "t": 1.58,
    "type": "drag",
    "dx": 200,
    "dy": 0,
@@ -52,42 +62,52 @@
    "y": 361
   },
   {
-   "t": 1.58,
+   "t": 1.88,
    "type": "mark",
    "name": "drawn"
   },
   {
-   "t": 1.7,
+   "t": 2.0,
    "type": "tap",
-   "key": "start-choices/segment0"
+   "key": "start-trigger"
   },
   {
-   "t": 1.9,
+   "t": 2.15,
    "type": "tap",
-   "key": "end-choices/segment0"
+   "key": "start-scroll-area/scroll/rows/option0"
   },
   {
-   "t": 2.2,
+   "t": 2.35,
+   "type": "tap",
+   "key": "end-trigger"
+  },
+  {
+   "t": 2.5,
+   "type": "tap",
+   "key": "end-scroll-area/scroll/rows/option0"
+  },
+  {
+   "t": 2.65,
    "type": "mark",
    "name": "plain-line"
   },
   {
-   "t": 2.32,
+   "t": 2.77,
    "type": "tap",
    "key": "add-point"
   },
   {
-   "t": 2.62,
+   "t": 3.07,
    "type": "mark",
    "name": "point-added"
   },
   {
-   "t": 2.74,
+   "t": 3.19,
    "type": "tap",
    "key": "straighten"
   },
   {
-   "t": 3.04,
+   "t": 3.49,
    "type": "mark",
    "name": "straightened"
   }

@@ -1,7 +1,8 @@
 //! A hue and saturation wheel, a value slider and a hex field. Opacity belongs to the
 //! tool and stays as it is.
 use super::{Editor, actions::Action, live::rgba};
-use rune::{Cx, Drag, El, Key, Phase, Pixels, TextEdit, Tx, col, el, row, text, text_input, tok};
+use rune::{Cx, Drag, El, Key, Phase, Pixels, TextEdit, Tx, col, el, row, text};
+use rune_kit::TextInput;
 
 const WHEEL: f32 = 148.;
 const WHEEL_PIXELS: u32 = 296;
@@ -174,7 +175,7 @@ impl Editor {
         self.apply_picked(drag, tx);
     }
 
-    fn apply_hex(&mut self, tx: &mut Tx) {
+    pub(super) fn apply_hex(&mut self, tx: &mut Tx) {
         match parse_hex(&self.picker.hex.text) {
             Some(rgb) => {
                 let action = self.picked(rgb, true);
@@ -185,33 +186,29 @@ impl Editor {
     }
 
     pub(crate) fn color_picker_view(&self, cx: &Cx<Editor>) -> El {
-        let t = tok::theme(cx.system_dark());
+        let k = super::panels::controls::kit(cx);
         let [h, s, v] = self.picker.hsv;
         let half = WHEEL / 2.;
         let angle = h * std::f32::consts::TAU;
         let bright = from_hsv([h, s, 1.]);
-        let mut hex_field = text_input(&self.picker.hex, tok::type_::LABEL)
+        // The field takes what Apply leaves of the row.
+        let hex_field = TextInput::new(&self.picker.hex)
             .key("hex-field")
             .label("Hex color")
-            .single_line()
-            .grow(1.)
-            .px(8.)
-            .py(5.)
-            .radius(6.)
-            .fill(t.control_track)
+            .invalid(self.picker.hex_invalid)
             .on_edit(|s: &mut Editor| &mut s.picker.hex)
             .on_submit(|s: &mut Editor, tx| s.apply_hex(tx))
-            .on_input_key(|s: &mut Editor, key, tx| {
+            .on_key(|s: &mut Editor, key, tx| {
                 if key.key == Key::Escape {
                     s.picker.open = false;
                     tx.blur();
                     return true;
                 }
                 false
-            });
-        if self.picker.hex_invalid {
-            hex_field = hex_field.border(1., rgba([0xe5, 0x48, 0x4d, 255]));
-        }
+            })
+            .build(k)
+            .shrink()
+            .min_w(0.);
         let mut picker = col()
             .key("color-picker")
             .gap(8.)
@@ -252,21 +249,26 @@ impl Editor {
                             .inert(),
                     ),
             )
-            .child(row().gap(6.).center_y().child(hex_field).child(
-                super::panels::controls::button(
-                    cx,
-                    "hex-apply",
-                    "Apply",
-                    true,
-                    |s: &mut Editor, tx| s.apply_hex(tx),
-                ),
-            ));
+            .child(
+                row()
+                    .w(super::panels::controls::INNER)
+                    .gap(6.)
+                    .center_y()
+                    .child(hex_field)
+                    .child(super::panels::controls::button(
+                        cx,
+                        "hex-apply",
+                        "Apply",
+                        true,
+                        |s: &mut Editor, tx| s.apply_hex(tx),
+                    )),
+            );
         if self.picker.hex_invalid {
             picker = picker.child(
                 text("Use #RGB or #RRGGBB.")
                     .key("hex-error")
-                    .font(tok::type_::LABEL)
-                    .color(rgba([0xe5, 0x48, 0x4d, 255])),
+                    .font(k.ty.ui)
+                    .color(k.c.danger.fg),
             );
         }
         picker

@@ -71,12 +71,23 @@ Notable user-visible changes are recorded here.
   bar's one highlighted button and reads in light appearance, the session chip no
   longer runs under the message field, voice's progress no longer covers Edit, and
   an error reads in red.
+- The editor's toolbar and window frame are rune-kit's: the window buttons sit in the
+  middle of the toolbar, the tools and actions are kit icon buttons whose tooltips
+  name their shortcuts, and the active tool and open panel read as pressed to a
+  screen reader. Backdrop and Image tools have their own icons. Zoom moved to the
+  status line, and "Copied!" floats under the copy buttons, so the toolbar fits the
+  smallest window with Back and Send.
+
 - **Attn Lens**'s editor sidebar and Settings window use attn's colours, and their
   controls come from rune-kit: number steppers, sliders, colour swatches, segmented
   choices and buttons. A choice of more than three options (aspect ratio, image entrance,
   backdrop effect, resize) is a pop-up menu. The sidebar and the editor's default
   window are 12 points wider, so a three-way choice reads whole. A number still
   opens for typing when you click it.
+- **Attn Lens**'s Backdrop, Animation and Image tools panels and the colour picker
+  follow: Enable backdrop is a switch, Smart upscale a checkbox, the Start and End
+  arrowheads pop-up menus, and the hex field reads in light mode and turns red when
+  the colour does not parse.
 - Attn Lens has a new app icon: attn's cat holding a magnifying glass, in place
   of Glance's pixel eye.
 

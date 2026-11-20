@@ -4,7 +4,7 @@ use super::{
     controls,
 };
 use crate::enhance;
-use rune::{Cx, El, col, row, text, tok};
+use rune::{Cx, El, col, row};
 
 const SCALES: [(f32, &str); 6] = [
     (0.5, "50%"),
@@ -17,14 +17,7 @@ const SCALES: [(f32, &str); 6] = [
 
 impl Editor {
     pub(super) fn image_controls(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
-        let t = tok::theme(cx.system_dark());
-        let note = |content: String, key: &str| {
-            text(content)
-                .key(key.to_string())
-                .wrap()
-                .font(tok::type_::LABEL)
-                .color(t.text_secondary)
-        };
+        let note = |content: String, key: &str| controls::note(cx, content).key(key.to_string());
         let source = self.doc.as_ref().map(|doc| doc.base.dimensions());
         let target = source.map(|source| enhance::dimensions(source, self.resize_scale));
         let can_apply = !self.is_busy() && matches!(target, Some(Ok(_))) && self.resize_scale != 1.;
@@ -51,39 +44,14 @@ impl Editor {
                     }),
                 ),
             ))
-            .child(
-                row()
-                    .key("smart-upscale")
-                    .role("checkbox")
-                    .label("Smart upscale")
-                    .description("Local adaptive sharpening; no AI model or uploads")
-                    .checked(self.resize_smart)
-                    .gap(8.)
-                    .center_y()
-                    .cursor(rune::Cursor::Pointer)
-                    .on_press_tx(|s: &mut Editor, tx| s.dispatch_ui(Action::ToggleSmartResize, tx))
-                    .child(
-                        rune::el()
-                            .size(16., 16.)
-                            .radius(4.)
-                            .center()
-                            .fill(if self.resize_smart {
-                                super::super::live::rgba(super::super::live::ACCENT)
-                            } else {
-                                t.control_off
-                            })
-                            .inert()
-                            .children(self.resize_smart.then(|| {
-                                rune::icon(&super::super::icons::CHECK, 12.).color(t.knob)
-                            })),
-                    )
-                    .child(
-                        text("Smart upscale")
-                            .font(tok::type_::LABEL)
-                            .color(t.text)
-                            .inert(),
-                    ),
-            )
+            .child(controls::checkbox(
+                cx,
+                "smart-upscale",
+                "Smart upscale",
+                "Local adaptive sharpening; no AI model or uploads",
+                self.resize_smart,
+                |s: &mut Editor, tx| s.dispatch_ui(Action::ToggleSmartResize, tx),
+            ))
             .child(note(
                 "Local adaptive sharpening; no AI model or uploads".into(),
                 "smart-note",
