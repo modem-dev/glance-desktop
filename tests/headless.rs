@@ -1795,3 +1795,95 @@ fn a_setting_that_cannot_be_saved_holds_for_the_run_and_the_window_says_why() {
     assert_eq!(state["settings"]["screen_words"], false);
     assert!(state["settings_error"].is_string());
 }
+
+/// A scene's tree, rendered as `scripts/snap.sh` does: the stand-in `attn` of
+/// `tools/scenes`, on a 1440×900 desktop.
+fn scene_tree(window: &str, scene: &str, theme: &str) -> Value {
+    let dir = tempfile::tempdir().unwrap();
+    let root = env!("CARGO_MANIFEST_DIR");
+    let out = dir.path().join("tree.json");
+    let run = Command::new(env!("CARGO_BIN_EXE_attn-lens"))
+        .env("ATTN_BIN", format!("{root}/tools/scenes/attn"))
+        .env("RUNE_PREFS_DIR", dir.path())
+        .args(["--window", window, "--scene", scene, "--theme", theme])
+        .args([
+            "--desktop",
+            &format!("{root}/tools/scenes/desktop-light.png"),
+        ])
+        .args(["--size", "1440x900", "--at", "1", "--tree"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap()
+}
+
+/// WCAG's contrast ratio between two `#rrggbbaa` colours, both opaque.
+fn contrast(a: &Value, b: &Value) -> f64 {
+    let luminance = |hex: &Value| {
+        let hex = hex.as_str().unwrap().trim_start_matches('#');
+        let channel = |i: usize| {
+            let c = f64::from(u8::from_str_radix(&hex[i..i + 2], 16).unwrap()) / 255.;
+            if c <= 0.03928 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+    };
+    let (a, b) = (luminance(a), luminance(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+#[test]
+fn the_capture_hud_is_dark_in_every_appearance_and_its_parts_stay_apart() {
+    let paint = |key: &str, tree: &Value| element(tree, key).unwrap()["fill"].clone();
+    let fill = |tree: &Value| paint("bar", tree);
+
+    // The HUD paints the same whatever the system appearance (D8).
+    let (light, dark) = (
+        scene_tree("bar", "open", "light"),
+        scene_tree("bar", "open", "dark"),
+    );
+    for key in ["bar", "chip", "field", "edit", "send"] {
+        assert_eq!(paint(key, &light), paint(key, &dark), "{key}");
+    }
+    assert_eq!(
+        paint("tile", &scene_tree("tile", "sent", "light")),
+        paint("tile", &scene_tree("tile", "sent", "dark"))
+    );
+    assert_eq!(
+        paint("pill", &scene_tree("pill", "recording", "light")),
+        paint("pill", &scene_tree("pill", "recording", "dark"))
+    );
+
+    // Send stands out from the bar, and the chip ends before the field starts.
+    assert!(contrast(&paint("send", &light), &fill(&light)) >= 3.);
+    let long = scene_tree("bar", "long-label", "light");
+    for tree in [&light, &long] {
+        assert!(rect(tree, "chip")[0] + rect(tree, "chip")[2] <= rect(tree, "field")[0]);
+        inside(tree, "chip-target", "chip");
+        inside(tree, "chip-host", "chip");
+    }
+
+    // Every palette row stays inside the bar.
+    let palette = scene_tree("bar", "palette", "light");
+    for index in 0..8 {
+        inside(&palette, &format!("palette-row-{index}"), "bar");
+    }
+
+    // Voice's progress ends before Edit starts.
+    let downloading = scene_tree("bar", "voice-downloading", "light");
+    let voice = rect(&downloading, "voice");
+    assert!(voice[0] + voice[2] <= rect(&downloading, "edit")[0]);
+
+    // An error reads against the bar.
+    let failed = scene_tree("bar", "voice-failed", "light");
+    let error = element(&failed, "error").expect("the failure shows");
+    assert!(contrast(&error["color"], &fill(&failed)) >= 4.5);
+}

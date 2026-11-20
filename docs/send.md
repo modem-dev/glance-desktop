@@ -5,6 +5,10 @@ sends it to an agent running in [attn](https://github.com/victorarias/attn), on
 this Mac or on an outpost. The screen stays live for the whole capture: clicks,
 scrolls and typing keep reaching your apps.
 
+The capture bar, its session list, the corner tile, the dictation pill and the tool
+strip are always dark, whatever the system appearance, so they look the same over
+every app.
+
 ## Capture and send
 
 1. Tap **right ⌘** alone. Drag for an area, click for the whole display, press **↩** for

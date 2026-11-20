@@ -49,7 +49,8 @@ This file's Glance rules still apply to the code that remains.
   (values copied from attn, with the file and commit named above them). Views take
   colours, type, radii and shadows from it; `src/editor/panels/controls.rs` wraps the
   kit components the sidebar uses, and a Select's list mounts through `rune_kit::root`
-  in `editor::view`.
+  in `editor::view`. The capture surfaces (bar, palette, tile, pill, the strip's chips)
+  paint with `kit::hud()`, the dark kit in every appearance, edged with `hud_edge()`.
 - `src/settings.rs`: `Settings`, Lens's settings, in `prefs.json` under `dev.attn.lens`
   through `rune::prefs`. A new setting is one line in its `settings!`: field, key and
   default. Lens holds them in `State.settings`; only `Lens::set_settings` changes them.
@@ -101,11 +102,13 @@ This file's Glance rules still apply to the code that remains.
   hard state (`--window KEY --list-scenes`). A scene builds its state through the actions,
   gestures and script marks the app and its scripts use, never by setting fields.
   Capture scenes list sessions through the stand-in `tools/scenes/attn`. A state that
-  needs a job held in flight stays a script mark. A new screen or state adds its scene
-  beside its code.
+  needs a job held in flight (sending, refining) plays the fake port's `jobs:hold` mark
+  first. A new screen or state adds its scene beside its code.
 - `scripts/snap.sh OUT [WINDOW...]` renders every scene of the named windows (all by
   default) in dark and light, into `OUT/WINDOW--SCENE--THEME.png` and the contact sheets
   `OUT/dark.png` and `OUT/light.png`. `SIZE=900x560` renders the editor at its smallest.
+  `DESKTOP=tools/scenes/desktop-light.png` (or `-dark.png`) puts the capture surfaces
+  over a light or a dark screen in place of the editor's fixture.
 
 ## Look at the render before you report UI work done
 

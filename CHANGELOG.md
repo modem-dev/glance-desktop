@@ -65,6 +65,12 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- **Attn Lens**'s capture bar, session palette, corner tile, dictation pill and tool
+  strip are a dark heads-up display in attn's colours, in light and dark appearance
+  alike, with a brighter edge so they stand apart from dark windows too. Send is the
+  bar's one highlighted button and reads in light appearance, the session chip no
+  longer runs under the message field, voice's progress no longer covers Edit, and
+  an error reads in red.
 - **Attn Lens**'s editor sidebar and Settings window use attn's colours, and their
   controls come from rune-kit: number steppers, sliders, colour swatches, segmented
   choices and buttons. A choice of more than three options (aspect ratio, image entrance,

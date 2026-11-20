@@ -9,8 +9,8 @@
 //!
 //! Lens lists sessions and sends through the attn CLI. A scene runs the stand-in
 //! `tools/scenes/attn`, which `scripts/snap.sh` names in `ATTN_BIN`: eight sessions,
-//! one with a long label. A state that needs a job held in flight, such as a refining
-//! pill, stays a mark in the `headless` scripts.
+//! one with a long label. A state that needs a job held in flight, such as a send or a
+//! refine, plays the fake port's `jobs:hold` before the step that starts the job.
 use super::{Lens, bar::Bar, ink::Ink, pill::Pill, select::Picker, tile::Tile};
 use crate::app::Scenes;
 use std::sync::Arc;
@@ -22,6 +22,7 @@ pub(crate) const BAR_SCENES: Scenes<Bar> = &[
     ("palette", |s| palette(&s.lens)),
     ("long-label", |s| long_label(&s.lens)),
     ("unpaired", |s| unpaired(&s.lens)),
+    ("sending", |s| sending(&s.lens)),
     ("voice-downloading", |s| {
         voice(&s.lens, "voice:downloading:182839392:731357568")
     }),
@@ -40,6 +41,7 @@ pub(crate) const TILE_SCENES: Scenes<Tile> = &[("sent", |s| sent(&s.lens))];
 pub(crate) const PILL_SCENES: Scenes<Pill> = &[
     ("starting", |s| play(&s.lens, &["key:voice"])),
     ("recording", |s| dictating(&s.lens)),
+    ("refining", |s| refining(&s.lens)),
 ];
 
 pub(crate) const PICKER_SCENES: Scenes<Picker> =
@@ -107,6 +109,14 @@ fn long_label(lens: &Arc<Lens>) {
     lens.choose_session(Some(6));
 }
 
+/// A send to the chosen session, held in flight.
+fn sending(lens: &Arc<Lens>) {
+    capture(lens);
+    lens.choose_session(Some(0));
+    lens.set_message("This button should be blue");
+    play(lens, &["jobs:hold", "key:send"]);
+}
+
 /// No token in the Keychain, so the bar offers to pair.
 fn unpaired(lens: &Arc<Lens>) {
     lens.port().forget_token();
@@ -149,6 +159,12 @@ fn sent(lens: &Arc<Lens>) {
     capture_at(lens, [100., 100., 400., 300.]);
     stroke(lens, "key:1", (150., 150.), (250., 190.));
     play(lens, &["key:send"]);
+}
+
+/// A dictation ended with the voice key, its refine held in flight.
+fn refining(lens: &Arc<Lens>) {
+    dictating(lens);
+    play(lens, &["jobs:hold", "key:voice", "jobs:next"]);
 }
 
 /// Dictation with no capture open: the pill with two phrases heard.
