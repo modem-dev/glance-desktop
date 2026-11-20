@@ -174,7 +174,7 @@ impl Editor {
         self.apply_picked(drag, tx);
     }
 
-    fn apply_hex(&mut self, tx: &mut Tx) {
+    pub(super) fn apply_hex(&mut self, tx: &mut Tx) {
         match parse_hex(&self.picker.hex.text) {
             Some(rgb) => {
                 let action = self.picked(rgb, true);

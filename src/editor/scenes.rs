@@ -33,9 +33,12 @@ pub(crate) const SCENES: Scenes<Editor> = &[
     ("backdrop", backdrop),
     ("backdrop-gradient", backdrop_gradient),
     ("backdrop-color", backdrop_color),
+    ("backdrop-motion", backdrop_motion),
     ("animation", animation),
+    ("animation-entrance", animation_entrance),
     ("image-tools", image_tools),
     ("color-picker", color_picker),
+    ("hex-invalid", hex_invalid),
     ("copied", copied),
     ("wide-image", wide_image),
 ];
@@ -247,9 +250,21 @@ fn backdrop_color(e: &mut Editor) {
     act(e, Action::EditBackdropColor(1));
 }
 
+/// The background on Motion, its effect's list closed.
+fn backdrop_motion(e: &mut Editor) {
+    backdrop(e);
+    act(e, Action::SelectMotion(crate::animation::Motion::Flow));
+}
+
 fn animation(e: &mut Editor) {
     open(e);
     act(e, Action::ToggleAnimationPanel);
+}
+
+/// Image entrance's list open, as its trigger opens it.
+fn animation_entrance(e: &mut Editor) {
+    animation(e);
+    e.toggle_choices("entrance");
 }
 
 fn image_tools(e: &mut Editor) {
@@ -263,6 +278,14 @@ fn color_picker(e: &mut Editor) {
     open(e);
     act(e, Action::SelectTool(Tool::Pen));
     act(e, Action::ToggleColorPicker);
+}
+
+/// A hex colour that does not parse, applied: the field marked and its error shown.
+fn hex_invalid(e: &mut Editor) {
+    color_picker(e);
+    e.picker.hex = TextEdit::new("#12");
+    e.apply_hex(&mut Tx::default());
+    settle(e);
 }
 
 /// The toolbar's confirmation after ⌘C.
