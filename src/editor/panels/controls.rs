@@ -29,8 +29,14 @@ pub(crate) fn slug(label: &str) -> String {
     label.to_lowercase().replace(' ', "-")
 }
 
+/// A labelled control across the sidebar's width. The kit's Field starts its control at
+/// the left at its own width, so a row that wraps or fills, such as the palettes or
+/// Backdrop's Format, takes the row's width here.
 pub(crate) fn field(cx: &Cx<Editor>, label: &str, control: El) -> El {
-    Field::new().label(label).control(control).build(kit(cx))
+    Field::new()
+        .label(label)
+        .control(control.w_full())
+        .build(kit(cx))
 }
 
 pub(crate) fn button(
