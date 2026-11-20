@@ -54,77 +54,82 @@
   {
    "t": 1.5,
    "type": "tap",
-   "key": "scale-150%"
+   "key": "scale-trigger"
   },
   {
-   "t": 1.8,
+   "t": 1.65,
+   "type": "tap",
+   "key": "scale-scroll-area/scroll/rows/option2"
+  },
+  {
+   "t": 1.95,
    "type": "mark",
    "name": "options"
   },
   {
-   "t": 1.92,
+   "t": 2.07,
    "type": "tap",
    "key": "apply-resize"
   },
   {
-   "t": 2.22,
+   "t": 2.37,
    "type": "mark",
    "name": "resized"
   },
   {
-   "t": 2.34,
+   "t": 2.49,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 2.56,
+   "t": 2.71,
    "type": "mark",
    "name": "resize-undone"
   },
   {
-   "t": 2.68,
+   "t": 2.83,
    "type": "tap",
    "key": "rotate"
   },
   {
-   "t": 2.98,
+   "t": 3.13,
    "type": "mark",
    "name": "rotated"
   },
   {
-   "t": 3.1,
+   "t": 3.25,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 3.32,
+   "t": 3.47,
    "type": "mark",
    "name": "rotate-undone"
   },
   {
-   "t": 3.44,
+   "t": 3.59,
    "type": "mark",
    "name": "clipboard:$WIDE_SMALL"
   },
   {
-   "t": 3.56,
+   "t": 3.71,
    "type": "tap",
    "key": "paste-image"
   },
   {
-   "t": 3.86,
+   "t": 4.01,
    "type": "mark",
    "name": "pasted"
   },
   {
-   "t": 3.98,
+   "t": 4.13,
    "type": "tap",
    "key": "image-done"
   },
   {
-   "t": 4.28,
+   "t": 4.43,
    "type": "mark",
    "name": "done"
   }
@@ -139,9 +144,11 @@
     "resize-target": "320×200 → 640×400"
    },
    "checked": [
-    "scale-200%",
     "smart-upscale"
-   ]
+   ],
+   "value": {
+    "scale-trigger": "200%"
+   }
   },
   {
    "at": "options",

@@ -41,7 +41,7 @@
    "t": 1.06,
    "type": "drag",
    "key": "duration-slider",
-   "dx": -116,
+   "dx": -114,
    "dy": 0,
    "dur": 0.1
   },
@@ -236,14 +236,14 @@
     "export-cancel"
    ],
    "text": {
-    "export-percent": "Exporting GIF\u2026 0%",
-    "status": "Exporting GIF\u2026"
+    "export-percent": "Exporting GIF… 0%",
+    "status": "Exporting GIF…"
    }
   },
   {
    "at": "canceling-button",
    "text": {
-    "status": "Canceling export\u2026"
+    "status": "Canceling export…"
    },
    "present": [
     "export-progress"
@@ -267,7 +267,7 @@
   {
    "at": "canceling-escape",
    "text": {
-    "status": "Canceling export\u2026"
+    "status": "Canceling export…"
    },
    "present": [
     "export-progress"
@@ -291,7 +291,7 @@
   {
    "at": "canceling-menu",
    "text": {
-    "status": "Canceling export\u2026"
+    "status": "Canceling export…"
    },
    "present": [
     "export-progress"

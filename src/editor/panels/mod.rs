@@ -7,9 +7,9 @@ mod image;
 mod tools;
 
 use super::{Editor, NumberDraft, Panel};
-use rune::{Cx, El, Tx, col, tok};
+use rune::{Cx, El, Tx, col};
 
-pub(crate) const WIDTH: f32 = 260.;
+pub(crate) const WIDTH: f32 = 272.;
 
 /// Minimum, maximum and step of each numeric field.
 pub(crate) fn number_limits(label: &str) -> (f32, f32, f32) {
@@ -55,14 +55,14 @@ impl Editor {
         self.number_edit.focused = true;
     }
 
-    pub(crate) fn sidebar(&self, cx: &mut Cx<Editor>) -> El {
-        let t = tok::theme(cx.system_dark());
+    pub(crate) fn sidebar(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
+        let k = controls::kit(cx);
         col()
             .key("sidebar")
             .w(WIDTH)
             .h_full()
-            .fill(t.card)
-            .border(1., t.card_border)
+            .fill(k.c.bg_base)
+            .border(1., k.c.border_muted)
             .scroll(rune::ScrollSpec {
                 stick_bottom: false,
             })
@@ -73,10 +73,10 @@ impl Editor {
                     .px(14.)
                     .py(14.)
                     .child(match self.panel {
-                        Panel::Tool => self.tool_controls(cx),
-                        Panel::Image => self.image_controls(cx),
-                        Panel::Backdrop => self.backdrop_controls(cx),
-                        Panel::Animation => self.animation_controls(cx),
+                        Panel::Tool => self.tool_controls(cx, layer),
+                        Panel::Image => self.image_controls(cx, layer),
+                        Panel::Backdrop => self.backdrop_controls(cx, layer),
+                        Panel::Animation => self.animation_controls(cx, layer),
                     }),
             )
     }

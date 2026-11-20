@@ -59,7 +59,7 @@ fn control_slider(cx: &Cx<Editor>, control: Control, value: u32) -> El {
 }
 
 impl Editor {
-    pub(super) fn backdrop_controls(&self, cx: &mut Cx<Editor>) -> El {
+    pub(super) fn backdrop_controls(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
         let t = tok::theme(cx.system_dark());
         let enabled = self.doc.as_ref().is_some_and(|d| d.backdrop.is_some());
         let b = self.current_backdrop();
@@ -127,8 +127,11 @@ impl Editor {
                 cx,
                 "Background",
                 controls::choices(
+                    self,
                     cx,
+                    layer,
                     "background",
+                    "Background",
                     [
                         (
                             "Solid",
@@ -175,8 +178,11 @@ impl Editor {
                             ),
                     )
                     .child(controls::choices(
+                        self,
                         cx,
+                        layer,
                         "motion",
+                        "Effect",
                         Motion::EFFECTS
                             .map(|m| (m.label(), Action::SelectMotion(m), b.motion == m)),
                     )),

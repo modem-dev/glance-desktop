@@ -65,6 +65,12 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- **Attn Lens**'s editor sidebar and Settings window use attn's colours, and their
+  controls come from rune-kit: number steppers, sliders, colour swatches, segmented
+  choices and buttons. A choice of more than three options (aspect ratio, image entrance,
+  backdrop effect, resize) is a pop-up menu. The sidebar and the editor's default
+  window are 12 points wider, so a three-way choice reads whole. A number still
+  opens for typing when you click it.
 - Attn Lens has a new app icon: attn's cat holding a magnifying glass, in place
   of Glance's pixel eye.
 

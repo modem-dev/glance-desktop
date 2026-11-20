@@ -330,6 +330,8 @@ fn export_progress(s: &Editor, cx: &Cx<Editor>) -> Option<El> {
 
 pub fn view(s: &Editor, cx: &mut Cx<Editor>) -> El {
     let t = tok::theme(cx.system_dark());
+    // Overlays the sidebar's controls open, mounted over the whole window.
+    let mut layer = Vec::new();
     let root = col()
         .key("editor")
         .instant_changes()
@@ -354,11 +356,11 @@ pub fn view(s: &Editor, cx: &mut Cx<Editor>) -> El {
                 .grow(1.)
                 .min_h(0.)
                 .child(s.canvas_view(cx))
-                .child(s.sidebar(cx)),
+                .child(s.sidebar(cx, &mut layer)),
         )
         .children(export_progress(s, cx));
     // Always there, so a message never moves the canvas under the pointer.
-    root.child(
+    let root = root.child(
         row()
             .key("status-bar")
             .w_full()
@@ -374,5 +376,6 @@ pub fn view(s: &Editor, cx: &mut Cx<Editor>) -> El {
                     .truncate()
                     .live_region(rune::LiveRegion::Polite),
             ),
-    )
+    );
+    rune_kit::root(root, layer)
 }

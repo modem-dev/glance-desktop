@@ -144,3 +144,9 @@ pub const ZOOM_OUT: Icon = Icon {
     view: 24.,
     body: r#"<circle fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" cx="11" cy="11" r="8" /> <line fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x1="21" x2="16.65" y1="21" y2="16.65" /> <line fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x1="8" x2="14" y1="11" y2="11" />"#,
 };
+
+pub const CIRCLE_QUESTION_MARK: Icon = Icon {
+    name: "circle-question-mark",
+    view: 24.,
+    body: r#"<circle fill="none" stroke="currentColor" stroke-width="2" cx="12" cy="12" r="10" /> <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 17h.01" />"#,
+};

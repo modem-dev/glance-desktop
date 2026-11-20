@@ -35,85 +35,100 @@
   {
    "t": 0.83,
    "type": "tap",
-   "key": "entrance-diagonal-reveal"
+   "key": "entrance-trigger"
   },
   {
-   "t": 1.33,
+   "t": 0.98,
+   "type": "tap",
+   "key": "entrance-scroll-area/scroll/rows/option1"
+  },
+  {
+   "t": 1.48,
    "type": "mark",
    "name": "diagonal"
   },
   {
-   "t": 1.45,
+   "t": 1.6,
    "type": "tap",
-   "key": "entrance-spring-pop"
+   "key": "entrance-trigger"
   },
   {
-   "t": 1.95,
+   "t": 1.75,
+   "type": "tap",
+   "key": "entrance-scroll-area/scroll/rows/option2"
+  },
+  {
+   "t": 2.25,
    "type": "mark",
    "name": "pop"
   },
   {
-   "t": 2.07,
+   "t": 2.37,
    "type": "tap",
-   "key": "entrance-3d-settle"
+   "key": "entrance-trigger"
   },
   {
-   "t": 2.57,
+   "t": 2.52,
+   "type": "tap",
+   "key": "entrance-scroll-area/scroll/rows/option3"
+  },
+  {
+   "t": 3.02,
    "type": "mark",
    "name": "tilt"
   },
   {
-   "t": 2.69,
+   "t": 3.14,
    "type": "tap",
    "key": "playback"
   },
   {
-   "t": 2.84,
+   "t": 3.29,
    "type": "drag",
    "key": "preview-time-slider",
-   "dx": 58,
+   "dx": 57,
    "dy": 0,
    "dur": 0.1
   },
   {
-   "t": 3.09,
+   "t": 3.54,
    "type": "mark",
    "name": "seek"
   },
   {
-   "t": 3.21,
+   "t": 3.66,
    "type": "key",
    "name": "c",
    "cmd": true
   },
   {
-   "t": 3.61,
+   "t": 4.06,
    "type": "mark",
    "name": "copied-frame"
   },
   {
-   "t": 3.73,
+   "t": 4.18,
    "type": "tap",
-   "key": "after-exit"
+   "key": "after-choices/segment1"
   },
   {
-   "t": 3.88,
+   "t": 4.33,
    "type": "mark",
    "name": "exit"
   },
   {
-   "t": 4.0,
+   "t": 4.45,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 4.15,
+   "t": 4.6,
    "type": "mark",
    "name": "exit-undone"
   },
   {
-   "t": 4.3,
+   "t": 4.75,
    "type": "drag",
    "key": "entrance-duration-slider",
    "dx": 0,
@@ -121,133 +136,133 @@
    "dur": 0.1
   },
   {
-   "t": 4.55,
+   "t": 5.0,
    "type": "mark",
    "name": "duration"
   },
   {
-   "t": 4.67,
+   "t": 5.12,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 4.82,
+   "t": 5.27,
    "type": "mark",
    "name": "duration-undone"
   },
   {
-   "t": 4.97,
+   "t": 5.42,
    "type": "drag",
    "key": "delay-slider",
-   "dx": -58,
+   "dx": -57,
    "dy": 0,
    "dur": 0.1
   },
   {
-   "t": 5.22,
+   "t": 5.67,
    "type": "drag",
    "key": "clip-length-slider",
-   "dx": -58,
+   "dx": -57,
    "dy": 0,
    "dur": 0.1
   },
   {
-   "t": 5.47,
+   "t": 5.92,
    "type": "mark",
    "name": "timing"
   },
   {
-   "t": 5.59,
+   "t": 6.04,
    "type": "tap",
    "key": "replay"
   },
   {
-   "t": 5.79,
+   "t": 6.24,
    "type": "mark",
    "name": "replayed"
   },
   {
-   "t": 5.91,
+   "t": 6.36,
    "type": "tap",
    "key": "animation-done"
   },
   {
-   "t": 6.06,
+   "t": 6.51,
    "type": "mark",
    "name": "done"
   },
   {
-   "t": 6.18,
+   "t": 6.63,
    "type": "key",
    "name": "c",
    "cmd": true
   },
   {
-   "t": 6.58,
+   "t": 7.03,
    "type": "mark",
    "name": "copied"
   },
   {
-   "t": 6.7,
+   "t": 7.15,
    "type": "tap",
    "key": "animation-button"
   },
   {
-   "t": 7.0,
+   "t": 7.45,
    "type": "tap",
    "x": 480,
    "y": 440
   },
   {
-   "t": 7.15,
+   "t": 7.6,
    "type": "mark",
    "name": "canvas-press"
   },
   {
-   "t": 7.27,
+   "t": 7.72,
    "type": "tap",
    "key": "backdrop-button"
   },
   {
-   "t": 7.39,
+   "t": 7.84,
    "type": "tap",
-   "key": "background-motion"
+   "key": "background-choices/segment2"
   },
   {
-   "t": 7.69,
+   "t": 8.14,
    "type": "tap",
    "key": "playback"
   },
   {
-   "t": 7.81,
+   "t": 8.26,
    "type": "key",
    "name": "c",
    "cmd": true
   },
   {
-   "t": 8.21,
+   "t": 8.66,
    "type": "mark",
    "name": "copied-early"
   },
   {
-   "t": 8.33,
+   "t": 8.78,
    "type": "tap",
    "key": "playback"
   },
   {
-   "t": 10.33,
+   "t": 10.78,
    "type": "tap",
    "key": "playback"
   },
   {
-   "t": 10.45,
+   "t": 10.9,
    "type": "key",
    "name": "c",
    "cmd": true
   },
   {
-   "t": 10.85,
+   "t": 11.3,
    "type": "mark",
    "name": "copied-later"
   }
@@ -268,9 +283,11 @@
     "animation-panel"
    ],
    "checked": [
-    "entrance-none",
     "animation-button"
-   ]
+   ],
+   "value": {
+    "entrance-trigger": "None"
+   }
   },
   {
    "at": "diagonal",
@@ -296,9 +313,7 @@
      ]
     }
    },
-   "checked": [
-    "entrance-diagonal-reveal"
-   ],
+   "checked": [],
    "present": [
     "stage"
    ],
@@ -315,6 +330,9 @@
    },
    "label": {
     "stage": "Preview, Diagonal reveal entrance"
+   },
+   "value": {
+    "entrance-trigger": "Diagonal reveal"
    }
   },
   {
@@ -341,9 +359,7 @@
      ]
     }
    },
-   "checked": [
-    "entrance-spring-pop"
-   ],
+   "checked": [],
    "present": [
     "stage"
    ],
@@ -360,6 +376,9 @@
    },
    "label": {
     "stage": "Preview, Spring pop entrance"
+   },
+   "value": {
+    "entrance-trigger": "Spring pop"
    }
   },
   {
@@ -386,9 +405,7 @@
      ]
     }
    },
-   "checked": [
-    "entrance-3d-settle"
-   ],
+   "checked": [],
    "present": [
     "stage"
    ],
@@ -405,6 +422,9 @@
    },
    "label": {
     "stage": "Preview, 3D settle entrance"
+   },
+   "value": {
+    "entrance-trigger": "3D settle"
    }
   },
   {
@@ -439,7 +459,7 @@
     }
    },
    "checked": [
-    "after-exit"
+    "after-choices/segment1"
    ]
   },
   {
@@ -450,7 +470,7 @@
     }
    },
    "checked": [
-    "after-hold"
+    "after-choices/segment0"
    ]
   },
   {

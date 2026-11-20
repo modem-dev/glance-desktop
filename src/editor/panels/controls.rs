@@ -1,9 +1,28 @@
-//! The sidebar's small controls.
-use super::super::{Editor, actions::Action, live::rgba};
-use rune::{Cursor, Cx, El, Icon, Key, Tx, col, el, icon, row, text, text_input, tok};
+//! The sidebar's controls, on rune-kit components painted by `crate::kit`.
+use super::super::{Editor, actions::Action};
+use rune::{Cursor, Cx, El, Icon, Key, TextStyle, Tx, col, el, icon, row, text, text_input};
+use rune_kit::{
+    Button, ButtonVariant, Field, Kit, NumberStepper, SegmentedControl, Select, SelectAppearance,
+    Slider,
+};
 
-fn theme(cx: &Cx<Editor>) -> tok::Theme {
-    tok::theme(cx.system_dark())
+/// The width of a control in the sidebar: the sidebar inside its padding.
+pub(crate) const INNER: f32 = super::WIDTH - 28.;
+
+/// Overlays the sidebar's controls open, such as a Select's list, mounted over the
+/// window by `rune_kit::root`.
+pub(crate) type Layer = Vec<El>;
+
+pub(crate) fn kit(cx: &Cx<Editor>) -> &'static Kit {
+    crate::kit::kit(cx.system_dark())
+}
+
+/// A label set as the kit's Field sets its own, for a label Lens draws beside a control.
+pub(crate) fn label_font(k: &Kit) -> TextStyle {
+    TextStyle {
+        line_height: 16.0,
+        ..k.ty.ui_medium
+    }
 }
 
 pub(crate) fn slug(label: &str) -> String {
@@ -11,14 +30,7 @@ pub(crate) fn slug(label: &str) -> String {
 }
 
 pub(crate) fn field(cx: &Cx<Editor>, label: &str, control: El) -> El {
-    col()
-        .gap(6.)
-        .child(
-            text(label.to_string())
-                .font(tok::type_::LABEL)
-                .color(theme(cx).text_secondary),
-        )
-        .child(control)
+    Field::new().label(label).control(control).build(kit(cx))
 }
 
 pub(crate) fn button(
@@ -28,31 +40,13 @@ pub(crate) fn button(
     enabled: bool,
     on_press: impl Fn(&mut Editor, &mut Tx) + 'static,
 ) -> El {
-    let t = theme(cx);
-    let mut button = row()
-        .key(key.to_string())
-        .role("button")
-        .label(label.to_string())
-        .px(10.)
-        .py(6.)
-        .radius(6.)
-        .center()
-        .fill(t.control_off)
-        .disabled(!enabled)
-        .child(
-            text(label.to_string())
-                .font(tok::type_::LABEL)
-                .color(if enabled { t.text } else { t.text_secondary })
-                .inert(),
-        );
+    let mut button = Button::new(label)
+        .variant(ButtonVariant::Neutral)
+        .disabled(!enabled);
     if enabled {
-        button = button
-            .cursor(Cursor::Pointer)
-            .hover(t.hover)
-            .press(t.press)
-            .on_press_tx(on_press);
+        button = button.on_press_tx(on_press);
     }
-    button
+    button.build(kit(cx)).key(key.to_string())
 }
 
 /// An icon button in the toolbar; `active` marks the tool in use.
@@ -64,9 +58,8 @@ pub(crate) fn icon_button(
     toggle: Option<bool>,
     action: Action,
 ) -> El {
-    let t = theme(cx);
+    let c = &kit(cx).c;
     let active = toggle == Some(true);
-    let accent = rgba(super::super::live::ACCENT);
     let mut button = el()
         .key(key.to_string())
         .role("button")
@@ -76,12 +69,12 @@ pub(crate) fn icon_button(
         .radius(7.)
         .center()
         .cursor(Cursor::Pointer)
-        .hover(t.hover)
-        .press(t.press)
+        .hover(c.hover)
+        .press(c.pressed)
         .on_press_tx(move |s: &mut Editor, tx| s.dispatch_ui(action.clone(), tx))
         .child(
             icon(glyph, 18.)
-                .color(if active { accent } else { t.text })
+                .color(if active { c.text_accent } else { c.icon_base })
                 .inert(),
         );
     // Only a toggle has a checked state; an action button reads as a plain button.
@@ -89,57 +82,70 @@ pub(crate) fn icon_button(
         button = button.checked(checked);
     }
     if active {
-        button = button.fill(accent.alpha(0.16));
+        button = button.fill(c.bg_accent.alpha(0.16));
     }
     button
 }
 
-/// One choice among several. The active one reads as checked.
+/// One choice among several, named `label`. Three or fewer short options are a
+/// segmented control, keyed `{group}-choices` with its segments `segment{i}`; more are
+/// a Select, its trigger `{group}-trigger` and its options `{group}-content/…/option{i}`.
 pub(crate) fn choices<T>(
+    s: &Editor,
     cx: &Cx<Editor>,
-    group: &str,
+    layer: &mut Layer,
+    group: &'static str,
+    label: &str,
     options: impl IntoIterator<Item = (T, Action, bool)>,
 ) -> El
 where
     T: Into<String>,
 {
-    let t = theme(cx);
-    let accent = rgba(super::super::live::ACCENT);
-    let mut bar = row()
-        .key(format!("{group}-choices"))
-        .gap(2.)
-        .radius(7.)
-        .fill(t.control_track)
-        .flex_wrap();
-    for (label, action, active) in options {
-        let label: String = label.into();
-        let mut choice = el()
-            .key(format!("{group}-{}", slug(&label)))
-            .role("radio")
-            .label(label.clone())
-            .checked(active)
-            .px(9.)
-            .py(5.)
-            .radius(6.)
-            .center()
-            .cursor(Cursor::Pointer)
-            .hover(t.hover)
-            .on_press_tx(move |s: &mut Editor, tx| s.dispatch_ui(action.clone(), tx))
-            .child(
-                text(label)
-                    .font(tok::type_::LABEL)
-                    .color(if active { t.text } else { t.text_secondary })
-                    .inert(),
-            );
-        if active {
-            choice = choice.fill(accent.alpha(0.22));
-        }
-        bar = bar.child(choice);
+    let k = kit(cx);
+    let options: Vec<(String, Action, bool)> = options
+        .into_iter()
+        .map(|(label, action, on)| (label.into(), action, on))
+        .collect();
+    let labels: Vec<&str> = options.iter().map(|(l, ..)| l.as_str()).collect();
+    let current = options.iter().position(|(.., on)| *on);
+    let actions: Vec<Action> = options.iter().map(|(_, a, _)| a.clone()).collect();
+    if options.len() <= 3 {
+        return SegmentedControl::new(&labels, current)
+            .label(label)
+            .width(None)
+            .on_pick(move |s: &mut Editor, i, tx| s.dispatch_ui(actions[i].clone(), tx))
+            .build(k)
+            .key(format!("{group}-choices"));
     }
-    bar
+    let names: Vec<String> = labels.iter().map(|l| l.to_string()).collect();
+    Select::new(group, &labels)
+        .label(label)
+        .appearance(SelectAppearance::Field)
+        .width(INNER)
+        .current(current.map(|i| labels[i]))
+        .open(s.choices_open == Some(group))
+        .on_toggle(move |s: &mut Editor| s.toggle_choices(group))
+        .on_close(|s: &mut Editor| s.choices_open = None)
+        .on_choose(move |s: &mut Editor, chosen: &str, tx| {
+            s.choices_open = None;
+            if let Some(i) = names.iter().position(|n| n == chosen) {
+                s.dispatch_ui(actions[i].clone(), tx);
+            }
+        })
+        .build(k, layer)
 }
 
-/// A number with step arrows; a press on it opens it for typing.
+impl Editor {
+    /// Opens the list of the choice `group`, or closes it if it is open.
+    pub(crate) fn toggle_choices(&mut self, group: &'static str) {
+        self.choices_open = (self.choices_open != Some(group)).then_some(group);
+    }
+}
+
+/// The kit stepper's height, and the side of each of its step buttons.
+const STEPPER_H: f32 = 24.;
+
+/// A number with step buttons; a press on the number opens it for typing.
 pub(crate) fn number(
     s: &Editor,
     cx: &Cx<Editor>,
@@ -147,18 +153,26 @@ pub(crate) fn number(
     value: f32,
     unit: &'static str,
 ) -> El {
-    let t = theme(cx);
+    let k = kit(cx);
     let (min, max, step) = super::number_limits(label);
     let key = slug(label);
     let shown = super::shown_number(value);
+    let reading = if unit.is_empty() {
+        shown.clone()
+    } else {
+        format!("{shown} {unit}")
+    };
     let editing = s.number.as_ref().is_some_and(|d| d.label == label);
-    let center: El = if editing {
-        text_input(&s.number_edit, tok::type_::LABEL)
+    let control: El = if editing {
+        text_input(&s.number_edit, k.ty.ui)
             .key(format!("{key}-input"))
             .label(label)
             .single_line()
-            .grow(1.)
-            .px(6.)
+            .w(INNER)
+            .h(STEPPER_H)
+            .px(8.)
+            .radius(k.radius.md)
+            .fill(k.c.layer_01)
             .on_edit(|s: &mut Editor| &mut s.number_edit)
             .on_submit(|s: &mut Editor, tx| {
                 s.commit_number(tx);
@@ -173,67 +187,36 @@ pub(crate) fn number(
                 false
             })
     } else {
-        row()
-            .key(format!("{key}-value"))
-            .grow(1.)
-            .center()
-            .cursor(Cursor::Text)
-            .on_press_tx(move |s: &mut Editor, tx| s.begin_number(label, value, tx))
+        // The kit's stepper has no typed entry, so Lens lays a press over its number
+        // that opens the number for typing, between the step buttons.
+        el().key(format!("{key}-number"))
+            .size(INNER, STEPPER_H)
             .child(
-                text(if unit.is_empty() {
-                    shown.clone()
-                } else {
-                    format!("{shown} {unit}")
-                })
-                .font(tok::type_::LABEL)
-                .color(t.text)
-                .inert(),
+                NumberStepper::new(label, value as f64)
+                    .range(min as f64, max as f64)
+                    .step(step as f64)
+                    .reading(reading)
+                    .width(INNER)
+                    .on_change(move |s: &mut Editor, next, tx| {
+                        let action = s.number_action(label, next as f32);
+                        s.number = None;
+                        s.dispatch_ui(action, tx);
+                    })
+                    .build(k)
+                    .key(format!("{key}-field")),
+            )
+            .child(
+                el().key(format!("{key}-value"))
+                    .role("button")
+                    .label(format!("Type {label}"))
+                    .absolute(STEPPER_H, 0.)
+                    .size(INNER - 2. * STEPPER_H, STEPPER_H)
+                    .cursor(Cursor::Text)
+                    .on_press_tx(move |s: &mut Editor, tx| s.begin_number(label, value, tx)),
             )
     };
-    let arrow = |id: String, glyph: &'static str, delta: f32| {
-        el().key(id)
-            .role("button")
-            .label(glyph)
-            .size(26., 26.)
-            .radius(6.)
-            .center()
-            .cursor(Cursor::Pointer)
-            .hover(t.hover)
-            .on_press_tx(move |s: &mut Editor, tx| {
-                let next = (value + delta).clamp(min, max);
-                let action = s.number_action(label, next);
-                s.number = None;
-                s.dispatch_ui(action, tx);
-            })
-            .child(text(glyph).font(tok::type_::BODY).color(t.text).inert())
-    };
-    field(
-        cx,
-        label,
-        row()
-            .key(format!("{key}-field"))
-            .role("slider")
-            .label(label)
-            .range_step(step as f64)
-            .range_value(value as f64, min as f64, max as f64)
-            .a11y_value(shown)
-            .on_step(move |s: &mut Editor, delta, tx| {
-                let next = (value + delta as f32 * step).clamp(min, max);
-                let action = s.number_action(label, next);
-                s.dispatch_ui(action, tx);
-            })
-            .h(30.)
-            .center_y()
-            .radius(7.)
-            .fill(t.control_track)
-            .child(arrow(format!("{key}-dec"), "−", -step))
-            .child(center)
-            .child(arrow(format!("{key}-inc"), "+", step)),
-    )
+    field(cx, label, control)
 }
-
-/// A slider's track: the sidebar's width inside its padding.
-const TRACK: f32 = super::WIDTH - 28.;
 
 /// What a slider asks for: the value, and whether it starts a new undo step.
 pub(crate) type SliderAction = fn(u32, bool) -> Action;
@@ -248,83 +231,36 @@ pub(crate) fn slider(
     shown: String,
     action: SliderAction,
 ) -> El {
-    let t = theme(cx);
-    let accent = rgba(super::super::live::ACCENT);
+    let k = kit(cx);
     let key = slug(label);
-    let fraction = (value.saturating_sub(min) as f32 / (max - min).max(1) as f32).clamp(0., 1.);
-    let at = move |x: f32, width: f32| {
-        let raw = min as f32 + (x / width.max(1.)).clamp(0., 1.) * (max - min) as f32;
-        let stepped = (raw / step as f32).round() as u32 * step;
-        stepped.clamp(min, max)
-    };
-    let track = el()
-        .key(format!("{key}-slider"))
-        .role("slider")
-        .label(label.to_string())
-        .range_step(step as f64)
-        .range_value(value as f64, min as f64, max as f64)
-        .a11y_value(shown.clone())
-        .w(TRACK)
-        .h(20.)
-        .cursor(Cursor::Pointer)
-        .on_drag(move |s: &mut Editor, drag, tx| {
-            if matches!(drag.phase, rune::Phase::Down) {
-                s.continuing = false;
-            }
-            let revision = s.revision;
-            s.dispatch_ui(action(at(drag.x, drag.w), !s.continuing), tx);
-            // The undo step starts with the first move that changes something.
-            let started = s.continuing || s.revision != revision;
-            s.continuing = started && !matches!(drag.phase, rune::Phase::Up);
-        })
-        .on_step(move |s: &mut Editor, delta, tx| {
-            let next = (value as i64 + delta as i64 * step as i64).clamp(min as i64, max as i64);
-            s.dispatch_ui(action(next as u32, true), tx);
-        })
-        .on_step_limit(move |s: &mut Editor, end, tx| {
-            s.dispatch_ui(action(if end { max } else { min }, true), tx);
-        })
-        .child(
-            el().absolute(0., 8.)
-                .w(TRACK)
-                .h(4.)
-                .radius(2.)
-                .fill(t.control_track)
-                .inert(),
-        )
-        .child(
-            el().absolute(0., 8.)
-                .w(TRACK * fraction)
-                .h(4.)
-                .radius(2.)
-                .fill(accent)
-                .inert(),
-        )
-        .child(
-            el().absolute((TRACK - 14.) * fraction, 3.)
-                .size(14., 14.)
-                .radius(7.)
-                .fill(rgba([255, 255, 255, 255]))
-                .border(1., t.card_border)
-                .inert(),
-        );
     col()
         .key(format!("{key}-field"))
-        .gap(4.)
+        .w_full()
+        .gap(8.)
         .child(
             row()
+                .w_full()
                 .justify_between()
                 .child(
                     text(label.to_string())
-                        .font(tok::type_::LABEL)
-                        .color(t.text_secondary),
+                        .font(label_font(k))
+                        .color(k.c.text_base),
                 )
                 .child(
-                    text(shown)
+                    text(shown.clone())
                         .key(format!("{key}-reading"))
-                        .font(tok::type_::LABEL)
-                        .color(t.text),
+                        .font(k.ty.ui)
+                        .color(k.c.text_muted),
                 ),
         )
-        .child(track)
+        .child(
+            Slider::new(label, value as f64, min as f64..=max as f64)
+                .step(step as f64)
+                .reading(shown)
+                .on_change(move |s: &mut Editor, change, tx| {
+                    s.dispatch_ui(action(change.value.round() as u32, !change.continues), tx)
+                })
+                .build(k)
+                .key(format!("{key}-slider")),
+        )
 }

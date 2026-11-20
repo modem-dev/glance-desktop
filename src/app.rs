@@ -26,7 +26,7 @@ use std::sync::{Arc, Mutex};
 /// One frame of a 60 Hz display, the fade's slowest useful step.
 const FADE_FRAME: std::time::Duration = std::time::Duration::from_micros(16_667);
 
-const EDITOR_SIZE: (f32, f32) = (1220., 860.);
+const EDITOR_SIZE: (f32, f32) = (1232., 860.);
 /// Room for the toolbar and the sidebar's longest option list.
 const EDITOR_MIN_SIZE: (f32, f32) = (900., 560.);
 
@@ -586,12 +586,15 @@ pub fn run() -> Result<(), String> {
         );
 
         // Hidden until "Settings…" opens it; closing it only hides it again.
-        let settings = App::new(AppSpec::new(
-            "Settings",
-            (settings_window::WIDTH, 144.),
-            || unreachable!(),
-            settings_window::view,
-        ))
+        let settings = App::new(AppSpec {
+            scenes: settings_window::SCENES,
+            ..AppSpec::new(
+                "Settings",
+                (settings_window::WIDTH, 144.),
+                || unreachable!(),
+                settings_window::view,
+            )
+        })
         // A standard titled window, as macOS's Settings windows are.
         .chrome(rune::Chrome {
             full_size_content: false,

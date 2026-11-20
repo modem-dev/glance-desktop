@@ -30,17 +30,17 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "stroke-dash"
+   "key": "stroke-choices/segment1"
   },
   {
    "t": 0.88,
    "type": "tap",
-   "key": "start-arrow"
+   "key": "start-choices/segment1"
   },
   {
    "t": 1.08,
    "type": "tap",
-   "key": "end-dot"
+   "key": "end-choices/segment2"
   },
   {
    "t": 1.28,
@@ -59,12 +59,12 @@
   {
    "t": 1.7,
    "type": "tap",
-   "key": "start-none"
+   "key": "start-choices/segment0"
   },
   {
    "t": 1.9,
    "type": "tap",
-   "key": "end-none"
+   "key": "end-choices/segment0"
   },
   {
    "t": 2.2,

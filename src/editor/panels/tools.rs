@@ -1,13 +1,14 @@
 //! The options of the selected mark, otherwise of the active tool.
 use super::{
-    super::{Editor, ToolSettings, actions::Action, live::rgba},
-    controls::{self, button, choices, field, number},
+    super::{Editor, ToolSettings, actions::Action, icons::CIRCLE_QUESTION_MARK, live::rgba},
+    controls::{self, Layer, button, choices, field, number},
 };
 use crate::{
     document::{Mark, Tool},
     style::{Cleanup, Dash, End, Fill, Style},
 };
-use rune::{Cursor, Cx, El, col, el, row, text, tok};
+use rune::{Cursor, Cx, El, col, el, row, text};
+use rune_kit::{IconButton, IconButtonVariant, Swatches};
 
 const PRESETS: [([u8; 3], &str); 6] = [
     ([255, 56, 100], "Coral"),
@@ -93,44 +94,41 @@ fn help(tool: Tool) -> (&'static str, &'static str, &'static str) {
 
 impl Editor {
     fn color_section(&self, cx: &Cx<Editor>, tool: Tool, settings: ToolSettings) -> El {
-        let t = tok::theme(cx.system_dark());
+        let k = controls::kit(cx);
         let label = if matches!(tool, Tool::Magnifier | Tool::Spotlight) {
             "Border color"
         } else {
             "Color"
         };
-        let mut swatches = row().key("color-presets").gap(6.).center_y();
-        for ([r, g, b], name) in PRESETS {
-            let current = settings.color[..3] == [r, g, b];
-            swatches = swatches.child(
-                el().key(format!("color-{}", controls::slug(name)))
-                    .role("radio")
-                    .label(format!("Color {name}"))
-                    .help(name)
-                    .checked(current)
-                    .size(23., 23.)
-                    .radius(11.5)
-                    .fill(rgba([r, g, b, 255]))
-                    .border(2., if current { t.indicator } else { t.card_border })
-                    .cursor(Cursor::Pointer)
-                    .on_press_tx(move |s: &mut Editor, tx| {
-                        s.dispatch_ui(Action::SetRgb([r, g, b]), tx)
-                    }),
-            );
-        }
+        let presets = PRESETS.map(|([r, g, b], name)| (rgba([r, g, b, 255]), name));
+        let current = PRESETS
+            .iter()
+            .position(|(rgb, _)| settings.color[..3] == *rgb);
         let [r, g, b, _] = settings.color;
-        swatches = swatches.child(
-            el().key("custom-color")
-                .role("button")
-                .label("Custom color")
-                .a11y_value(format!("#{r:02X}{g:02X}{b:02X}"))
-                .size(23., 23.)
-                .radius(6.)
-                .fill(rgba([r, g, b, 255]))
-                .border(1., t.card_border)
-                .cursor(Cursor::Pointer)
-                .on_press_tx(|s: &mut Editor, tx| s.dispatch_ui(Action::ToggleColorPicker, tx)),
-        );
+        let swatches = row()
+            .gap(8.)
+            .center_y()
+            .child(
+                Swatches::new(label, &presets)
+                    .selected(current)
+                    .on_pick(|s: &mut Editor, i, tx| {
+                        s.dispatch_ui(Action::SetRgb(PRESETS[i].0), tx)
+                    })
+                    .build(k)
+                    .key("color-presets"),
+            )
+            .child(
+                el().key("custom-color")
+                    .role("button")
+                    .label("Custom color")
+                    .a11y_value(format!("#{r:02X}{g:02X}{b:02X}"))
+                    .size(22., 22.)
+                    .radius(k.radius.md)
+                    .fill(rgba([r, g, b, 255]))
+                    .border(0.5, k.c.border_strong)
+                    .cursor(Cursor::Pointer)
+                    .on_press_tx(|s: &mut Editor, tx| s.dispatch_ui(Action::ToggleColorPicker, tx)),
+            );
         let mut section = col().gap(8.).child(field(cx, label, swatches));
         if self.picker.open && self.picker.stop.is_none() {
             section = section.child(self.color_picker_view(cx));
@@ -144,8 +142,8 @@ impl Editor {
         ))
     }
 
-    pub(super) fn tool_controls(&self, cx: &mut Cx<Editor>) -> El {
-        let t = tok::theme(cx.system_dark());
+    pub(super) fn tool_controls(&self, cx: &mut Cx<Editor>, layer: &mut Layer) -> El {
+        let k = controls::kit(cx);
         let tool = self.options_tool();
         let settings = self.tool_settings();
         let style = settings.style;
@@ -160,24 +158,16 @@ impl Editor {
                 .child(
                     text(if selected { "Selected" } else { name })
                         .key("tool-name")
-                        .font(tok::type_::SECTION)
-                        .color(t.text),
+                        .font(k.ty.body_medium)
+                        .color(k.c.text_base),
                 )
                 .child(
-                    el().key("tool-help")
-                        .role("button")
+                    IconButton::new(&CIRCLE_QUESTION_MARK)
+                        .variant(IconButtonVariant::GhostMuted)
                         .label(format!("{name} help"))
                         .help(format!("{name} ({shortcut}): {description}"))
-                        .size(20., 20.)
-                        .radius(10.)
-                        .center()
-                        .fill(t.control_off)
-                        .child(
-                            text("?")
-                                .font(tok::type_::LABEL)
-                                .color(t.text_secondary)
-                                .inert(),
-                        ),
+                        .build(k)
+                        .key("tool-help"),
                 ),
         );
         if !matches!(tool, Tool::Select | Tool::Crop | Tool::Pixelate) {
@@ -189,8 +179,8 @@ impl Editor {
                     text("Select an annotation to edit its properties.")
                         .key("select-hint")
                         .wrap()
-                        .font(tok::type_::LABEL)
-                        .color(t.text_secondary),
+                        .font(k.ty.ui)
+                        .color(k.c.text_muted),
                 );
             }
             Tool::Pen | Tool::Arrow => {
@@ -260,8 +250,11 @@ impl Editor {
                 cx,
                 "Cleanup",
                 choices(
+                    self,
                     cx,
+                    layer,
                     "cleanup",
+                    "Cleanup",
                     [
                         (Cleanup::Raw, "Raw"),
                         (Cleanup::Smooth, "Smooth"),
@@ -283,8 +276,11 @@ impl Editor {
                     cx,
                     "Stroke",
                     choices(
+                        self,
                         cx,
+                        layer,
                         "stroke",
+                        "Stroke",
                         DASHES.map(|(dash, label)| {
                             (
                                 label,
@@ -298,8 +294,11 @@ impl Editor {
                     cx,
                     "Start",
                     choices(
+                        self,
                         cx,
+                        layer,
                         "start",
+                        "Start",
                         ENDS.map(|(start, label)| {
                             (
                                 label,
@@ -313,8 +312,11 @@ impl Editor {
                     cx,
                     "End",
                     choices(
+                        self,
                         cx,
+                        layer,
                         "end",
+                        "End",
                         ENDS.map(|(end, label)| {
                             (label, appearance(Style { end, ..style }), style.end == end)
                         }),
@@ -347,8 +349,11 @@ impl Editor {
                     cx,
                     "Fill",
                     choices(
+                        self,
                         cx,
+                        layer,
                         "fill",
+                        "Fill",
                         [(Fill::Outline, "Outline"), (Fill::Filled, "Filled")].map(
                             |(fill, label)| {
                                 (
@@ -366,8 +371,11 @@ impl Editor {
                     cx,
                     "Stroke",
                     choices(
+                        self,
                         cx,
+                        layer,
                         "stroke",
+                        "Stroke",
                         DASHES.map(|(dash, label)| {
                             (
                                 label,
@@ -384,8 +392,11 @@ impl Editor {
                 cx,
                 "Aspect ratio",
                 choices(
+                    self,
                     cx,
+                    layer,
                     "aspect",
+                    "Aspect ratio",
                     CROP_RATIOS.map(|(ratio, label)| {
                         (label, Action::SetCropRatio(ratio), self.crop_ratio == ratio)
                     }),
@@ -406,8 +417,11 @@ impl Editor {
                 cx,
                 "Zoom",
                 choices(
+                    self,
                     cx,
+                    layer,
                     "zoom",
+                    "Zoom",
                     [2f32, 3., 4.].map(|zoom| {
                         (
                             format!("{zoom:.0}×"),

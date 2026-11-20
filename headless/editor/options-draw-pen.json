@@ -30,7 +30,7 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "color-mint"
+   "key": "color-presets/swatch2"
   },
   {
    "t": 0.88,
@@ -51,12 +51,12 @@
   {
    "t": 1.27,
    "type": "tap",
-   "key": "opacity-dec"
+   "key": "opacity-field/down"
   },
   {
    "t": 1.47,
    "type": "tap",
-   "key": "cleanup-smooth"
+   "key": "cleanup-choices/segment1"
   },
   {
    "t": 1.67,
@@ -75,7 +75,7 @@
   {
    "t": 2.09,
    "type": "tap",
-   "key": "cleanup-adaptive"
+   "key": "cleanup-choices/segment2"
   },
   {
    "t": 2.39,
@@ -129,12 +129,12 @@
     }
    ],
    "checked": [
-    "cleanup-smooth",
-    "color-mint"
+    "cleanup-choices/segment1",
+    "color-presets/swatch2"
    ],
    "value": {
-    "thickness-field": "12",
-    "opacity-field": "90"
+    "thickness-field": "12 px",
+    "opacity-field": "90 %"
    }
   },
   {
@@ -148,10 +148,10 @@
     }
    ],
    "checked": [
-    "cleanup-adaptive"
+    "cleanup-choices/segment2"
    ],
    "unchecked": [
-    "cleanup-smooth"
+    "cleanup-choices/segment1"
    ]
   },
   {
@@ -168,10 +168,10 @@
   {
    "at": "defaults-kept",
    "value": {
-    "thickness-field": "12"
+    "thickness-field": "12 px"
    },
    "checked": [
-    "cleanup-adaptive"
+    "cleanup-choices/segment2"
    ]
   }
  ]

@@ -30,12 +30,12 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "color-amber"
+   "key": "color-presets/swatch1"
   },
   {
    "t": 0.88,
    "type": "tap",
-   "key": "intensity-dec"
+   "key": "intensity-field/down"
   },
   {
    "t": 1.08,
@@ -120,7 +120,7 @@
     }
    ],
    "value": {
-    "intensity-field": "90"
+    "intensity-field": "90 %"
    },
    "absent": [
     "thickness-field"
