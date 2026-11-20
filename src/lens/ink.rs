@@ -369,7 +369,7 @@ fn capture_state(s: &Ink) -> El {
         .size(1., 1.)
 }
 
-pub fn ink_view(s: &Ink, cx: &mut Cx<Ink>) -> El {
+pub fn ink_view(s: &Ink, _: &mut Cx<Ink>) -> El {
     let area = s
         .lens
         .read(|summary| summary.capture.as_ref().map(|c| c.area));
@@ -419,7 +419,7 @@ pub fn ink_view(s: &Ink, cx: &mut Cx<Ink>) -> El {
             (at.0 - origin.0, at.1 - origin.1),
             (width, height),
             s.stroke.is_some(),
-            &rune::tok::theme(cx.system_dark()),
+            crate::kit::hud(),
         ));
     }
     if let Some(mark) = &draft {

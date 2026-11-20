@@ -6,7 +6,8 @@
 //! anywhere else on the layer draws at once, and no chip covers the pointer.
 use super::ink::{self, Ink, InkTool};
 use crate::document::{Mark, Tool};
-use rune::{Color, El, Shape, Transition, canvas, el, text, tok};
+use rune::{Color, El, Shape, TextStyle, Transition, canvas, el, text};
+use rune_kit::Kit;
 
 const GLYPH: f32 = 20.;
 const GLYPH_WIDTH: f32 = 2.2;
@@ -89,7 +90,7 @@ fn glyph(tool: InkTool, color: [u8; 4], counter_text: Color) -> El {
     match tool {
         InkTool::Label => base.center().child(
             text("Aa")
-                .font(tok::TextStyle::new(14., 700.))
+                .font(TextStyle::new(14., 700.))
                 .color(ink::color(color, 1.)),
         ),
         InkTool::Counter => base
@@ -101,7 +102,7 @@ fn glyph(tool: InkTool, color: [u8; 4], counter_text: Color) -> El {
             .child(
                 el().absolute(0., 0.).size(GLYPH, GLYPH).center().child(
                     text("1")
-                        .font(tok::TextStyle::new(11., 700.))
+                        .font(TextStyle::new(11., 700.))
                         .color(counter_text),
                 ),
             ),
@@ -126,12 +127,13 @@ fn cell(tool: InkTool, size: f32) -> El {
 /// layer of `size`. The chips fan out around the pointer, never over it, so the
 /// stroke starts clear; the arc turns away from an edge to stay on screen.
 /// `drawing` while a stroke is under way: the strip steps back so the ink reads first.
+/// The fan is drawn (D4 on `s-h47c5h`); its chips and the name take the HUD's kit.
 pub fn tool_strip(
     current: InkTool,
     at: (f32, f32),
     size: (f32, f32),
     drawing: bool,
-    t: &tok::Theme,
+    k: &Kit,
 ) -> El {
     let ink_rgba = ink::INK;
     let ink_color = ink::color(ink_rgba, 1.);
@@ -153,9 +155,17 @@ pub fn tool_strip(
         let chip = cell(tool, CHIP)
             .absolute(cx - CHIP / 2., cy - CHIP / 2.)
             .radius(CHIP / 2.)
-            .fill(if on { ink_color } else { t.card })
-            .border(1., if on { ink_color } else { t.separator })
-            .shadow(4., 12., t.shadow)
+            .fill(if on { ink_color } else { k.c.bg_base })
+            .border(
+                1.,
+                if on {
+                    ink_color
+                } else {
+                    crate::kit::hud_edge()
+                },
+            );
+        let chip = k
+            .elevate(chip, &k.elevation.floating)
             .scale(if on { CURRENT_SCALE } else { 1. })
             .child(glyph(
                 tool,
@@ -184,11 +194,16 @@ pub fn tool_strip(
             .size(NAME.0, NAME.1)
             .center()
             .child(
-                el().px(8.).py(2.).radius(8.).fill(t.card).child(
-                    text(format!("{} · fn {}", current.name(), current.digit()))
-                        .font(tok::type_::LABEL)
-                        .color(t.text),
-                ),
+                el().px(8.)
+                    .py(2.)
+                    .radius(k.radius.md)
+                    .fill(k.c.bg_base)
+                    .border(1., crate::kit::hud_edge())
+                    .child(
+                        text(format!("{} · fn {}", current.name(), current.digit()))
+                            .font(k.ty.small_medium)
+                            .color(k.c.text_base),
+                    ),
             ),
     )
 }

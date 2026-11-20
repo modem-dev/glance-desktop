@@ -130,3 +130,16 @@ fn painted(dark: bool, s: &Scheme) -> Kit {
     kit.elevation = std::mem::take(&mut kit.elevation).with_input(vec![ring]);
     kit
 }
+
+/// The kit the capture surfaces paint with: the bar and its palette, the tile, the pill
+/// and the tool strip's chips. They float over any app, so they are a heads-up display,
+/// always dark whatever the system appearance (D8 on `s-h47c5h`), and look the same in
+/// every app. Their edge is [`hud_edge`].
+pub(crate) fn hud() -> &'static Kit {
+    kit(true)
+}
+
+/// The HUD's edge, bright enough to hold over dark content, where `border_strong` is faint.
+pub(crate) fn hud_edge() -> rune::Color {
+    hud().c.border_focus
+}

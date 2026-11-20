@@ -1625,7 +1625,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // bottom edge, over the area.
     // The handles stand above the bar, so the corners it covers hide.
     let open = run.tree("bar", "open");
-    assert_eq!(frame(&open, "bar"), [100., 700., 760., 92.]);
+    assert_eq!(frame(&open, "bar"), [100., 708., 760., 84.]);
     assert!(!visible(&open, "handle-bottom-left"));
     assert!(!visible(&open, "handle-bottom-right"));
     assert!(visible(&open, "handle-top-left"));
@@ -1633,7 +1633,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // A drag on its background moves it with the pointer. Nothing is drawn, no still
     // is taken, and the field keeps the keys.
     let dragged = run.tree("bar", "dragged");
-    assert_eq!(frame(&dragged, "bar"), [100., 400., 760., 92.]);
+    assert_eq!(frame(&dragged, "bar"), [100., 400., 760., 84.]);
     assert!(visible(&dragged, "handle-bottom-left"));
     assert_eq!(text(&dragged, "keys"), Some("Typing here"));
     let capture = capture_state(&run, "dragged");
@@ -1647,7 +1647,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     // Ink lands where the bar was (fn+2 picked Arrow), and the bar stays where it was dragged.
     let drawn = run.tree("ink", "drawn-under");
     assert_eq!(label(&drawn, "mark-0"), Some("arrow"));
-    assert_eq!(frame(&drawn, "bar"), [100., 400., 760., 92.]);
+    assert_eq!(frame(&drawn, "bar"), [100., 400., 760., 84.]);
 
     // Dragged past the display's corner, it stops whole on the display. The press
     // took the keys from the page, and the drag gives them back.
@@ -1657,7 +1657,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     );
     assert_eq!(run.focus_returned("at-edge"), ["released"]);
     let edge = run.tree("bar", "at-edge");
-    assert_eq!(frame(&edge, "bar"), [512., 700., 760., 92.]);
+    assert_eq!(frame(&edge, "bar"), [512., 708., 760., 84.]);
     assert_eq!(text(&edge, "keys"), Some("Typing on the page"));
 
     // A click into the field gives the bar the keys on purpose: a drag after it keeps
@@ -1674,7 +1674,7 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
     assert_eq!(run.focus_returned("field-padding"), ["released"]);
     let padding = run.tree("bar", "field-padding");
     assert_eq!(text(&padding, "keys"), Some("Typing here"));
-    assert_eq!(frame(&padding, "bar"), [512., 700., 760., 92.]);
+    assert_eq!(frame(&padding, "bar"), [512., 708., 760., 84.]);
 
     // The palette grows the bar, which rises to stay on the display.
     let palette = run.tree("bar", "palette-at-edge");
@@ -1686,21 +1686,21 @@ fn the_bar_drags_out_of_the_way_and_stays_on_its_display() {
 
     // The next capture, on the second display, starts at the default place, and a
     // drag toward the first display stops at the second's edge.
-    assert_eq!(bar("display-2-open"), [1300., 668., 760., 92.]);
+    assert_eq!(bar("display-2-open"), [1300., 676., 760., 84.]);
     assert_eq!(capture_state(&run, "display-2-open")["bar_at"], Value::Null);
-    assert_eq!(bar("display-2-dragged"), [1288., 368., 760., 92.]);
+    assert_eq!(bar("display-2-dragged"), [1288., 368., 760., 84.]);
 
     // Voice shows its words in the bar, which stays where it was dragged.
     let voice = run.tree("bar", "voice-dragged");
     assert!(text(&voice, "segment-0").is_some_and(|words| words.starts_with("move this")));
-    assert_eq!(frame(&voice, "bar"), [1288., 368., 760., 92.]);
+    assert_eq!(frame(&voice, "bar"), [1288., 368., 760., 84.]);
 
     // A whole display puts the bar over the bottom-left corner, whose handle hides. A
     // resize that moves the bar above the area shows it again as the resize lands.
     let whole = run.tree("bar", "whole-display-1");
     assert!(!visible(&whole, "handle-bottom-left"));
     let resized = run.tree("bar", "resize-uncovered");
-    assert_eq!(frame(&resized, "bar")[1], 300.);
+    assert_eq!(frame(&resized, "bar")[1], 308.);
     assert!(visible(&resized, "handle-bottom-left"));
     has_area_frame(&run.tree("ink", "resize-uncovered"));
 }
@@ -1794,4 +1794,96 @@ fn a_setting_that_cannot_be_saved_holds_for_the_run_and_the_window_says_why() {
     let state = state(&run, "flipped");
     assert_eq!(state["settings"]["screen_words"], false);
     assert!(state["settings_error"].is_string());
+}
+
+/// A scene's tree, rendered as `scripts/snap.sh` does: the stand-in `attn` of
+/// `tools/scenes`, on a 1440×900 desktop.
+fn scene_tree(window: &str, scene: &str, theme: &str) -> Value {
+    let dir = tempfile::tempdir().unwrap();
+    let root = env!("CARGO_MANIFEST_DIR");
+    let out = dir.path().join("tree.json");
+    let run = Command::new(env!("CARGO_BIN_EXE_attn-lens"))
+        .env("ATTN_BIN", format!("{root}/tools/scenes/attn"))
+        .env("RUNE_PREFS_DIR", dir.path())
+        .args(["--window", window, "--scene", scene, "--theme", theme])
+        .args([
+            "--desktop",
+            &format!("{root}/tools/scenes/desktop-light.png"),
+        ])
+        .args(["--size", "1440x900", "--at", "1", "--tree"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap()
+}
+
+/// WCAG's contrast ratio between two `#rrggbbaa` colours, both opaque.
+fn contrast(a: &Value, b: &Value) -> f64 {
+    let luminance = |hex: &Value| {
+        let hex = hex.as_str().unwrap().trim_start_matches('#');
+        let channel = |i: usize| {
+            let c = f64::from(u8::from_str_radix(&hex[i..i + 2], 16).unwrap()) / 255.;
+            if c <= 0.03928 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+    };
+    let (a, b) = (luminance(a), luminance(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+#[test]
+fn the_capture_hud_is_dark_in_every_appearance_and_its_parts_stay_apart() {
+    let paint = |key: &str, tree: &Value| element(tree, key).unwrap()["fill"].clone();
+    let fill = |tree: &Value| paint("bar", tree);
+
+    // The HUD paints the same whatever the system appearance (D8).
+    let (light, dark) = (
+        scene_tree("bar", "open", "light"),
+        scene_tree("bar", "open", "dark"),
+    );
+    for key in ["bar", "chip", "field", "edit", "send"] {
+        assert_eq!(paint(key, &light), paint(key, &dark), "{key}");
+    }
+    assert_eq!(
+        paint("tile", &scene_tree("tile", "sent", "light")),
+        paint("tile", &scene_tree("tile", "sent", "dark"))
+    );
+    assert_eq!(
+        paint("pill", &scene_tree("pill", "recording", "light")),
+        paint("pill", &scene_tree("pill", "recording", "dark"))
+    );
+
+    // Send stands out from the bar, and the chip ends before the field starts.
+    assert!(contrast(&paint("send", &light), &fill(&light)) >= 3.);
+    let long = scene_tree("bar", "long-label", "light");
+    for tree in [&light, &long] {
+        assert!(rect(tree, "chip")[0] + rect(tree, "chip")[2] <= rect(tree, "field")[0]);
+        inside(tree, "chip-target", "chip");
+        inside(tree, "chip-host", "chip");
+    }
+
+    // Every palette row stays inside the bar.
+    let palette = scene_tree("bar", "palette", "light");
+    for index in 0..8 {
+        inside(&palette, &format!("palette-row-{index}"), "bar");
+    }
+
+    // Voice's progress ends before Edit starts.
+    let downloading = scene_tree("bar", "voice-downloading", "light");
+    let voice = rect(&downloading, "voice");
+    assert!(voice[0] + voice[2] <= rect(&downloading, "edit")[0]);
+
+    // An error reads against the bar.
+    let failed = scene_tree("bar", "voice-failed", "light");
+    let error = element(&failed, "error").expect("the failure shows");
+    assert!(contrast(&error["color"], &fill(&failed)) >= 4.5);
 }

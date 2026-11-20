@@ -7,7 +7,9 @@
 #   OUT/WINDOW--SCENE--THEME.png  one render per scene and theme
 #   OUT/dark.png, OUT/light.png   the contact sheets (ImageMagick's montage)
 # SIZE=900x560 renders the editor at that size, such as its smallest. Settings renders
-# at its own size. The windows Lens places over the screen render on a 1440x900 desktop.
+# at its own size. The windows Lens places over the screen render on a 1440x900 desktop:
+# the editor's fixture, or DESKTOP, such as tools/scenes/desktop-light.png or -dark.png,
+# to see the capture surfaces over a light or a dark screen.
 # Prints the two sheets; a scene that fails to render prints its error and the
 # script exits 1 after rendering the rest.
 set -uo pipefail
@@ -42,7 +44,7 @@ for window in "${windows[@]}"; do
             elif [ "$window" = settings ]; then
                 where=()
             else
-                where=(--desktop "$repo/headless/editor/fixture.png" --size 1440x900)
+                where=(--desktop "${DESKTOP:-$repo/headless/editor/fixture.png}" --size 1440x900)
             fi
             rm -rf "${prefs:?}"/*
             if RUNE_PREFS_DIR=$prefs "$bin" --window "$window" --scene "$scene" --theme "$theme" --scale 1 \
