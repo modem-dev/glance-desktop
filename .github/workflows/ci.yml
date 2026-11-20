@@ -61,7 +61,11 @@ jobs:
       CARGO_BUILD_JOBS: "2"
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
-    timeout-minutes: 60
+    # Receipt (2026-11-20): healthy runs take 34–60 min on lavapipe, and one commit
+    # took 42 min on one runner and over 60 on two others (PR #40), so the runner alone
+    # moves it past 60. 90 is the tripwire until the seed lens-linux-ci-runs-near-60
+    # (s-963mn3) makes the suite faster.
+    timeout-minutes: 90
     steps:
       - name: Install build and runtime dependencies
         run: |

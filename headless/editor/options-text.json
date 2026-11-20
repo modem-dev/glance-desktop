@@ -30,7 +30,7 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "color-blue"
+   "key": "color-presets/swatch3"
   },
   {
    "t": 0.88,
@@ -78,7 +78,7 @@
   {
    "t": 2.13,
    "type": "tap",
-   "key": "opacity-dec"
+   "key": "opacity-field/down"
   },
   {
    "t": 2.43,
@@ -126,7 +126,7 @@
     }
    ],
    "value": {
-    "font-size-field": "70"
+    "font-size-field": "70 px"
    }
   }
  ]

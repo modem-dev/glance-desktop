@@ -40,104 +40,120 @@
   {
    "t": 1.1,
    "type": "tap",
-   "key": "opacity-dec"
+   "key": "opacity-field/down"
   },
   {
    "t": 1.3,
+   "type": "scroll",
+   "key": "sidebar",
+   "dx": 0,
+   "dy": -80,
+   "dur": 0.05
+  },
+  {
+   "t": 1.45,
    "type": "tap",
    "key": "hex-field"
   },
   {
-   "t": 1.5,
+   "t": 1.65,
    "type": "key",
    "name": "a",
    "cmd": true
   },
   {
-   "t": 1.62,
+   "t": 1.77,
    "type": "type",
    "text": "#123456",
    "every": 0.01
   },
   {
-   "t": 1.74,
+   "t": 1.89,
    "type": "key",
    "name": "Enter"
   },
   {
-   "t": 1.96,
+   "t": 2.11,
    "type": "mark",
    "name": "hex"
   },
   {
-   "t": 2.08,
+   "t": 2.23,
+   "type": "scroll",
+   "key": "sidebar",
+   "dx": 0,
+   "dy": -80,
+   "dur": 0.05
+  },
+  {
+   "t": 2.38,
    "type": "tap",
    "key": "hex-field"
   },
   {
-   "t": 2.28,
+   "t": 2.58,
    "type": "key",
    "name": "a",
    "cmd": true
   },
   {
-   "t": 2.4,
+   "t": 2.7,
    "type": "type",
    "text": "nope",
    "every": 0.01
   },
   {
-   "t": 2.49,
+   "t": 2.79,
    "type": "key",
    "name": "Enter"
   },
   {
-   "t": 2.71,
+   "t": 3.01,
    "type": "mark",
    "name": "bad-hex"
   },
   {
-   "t": 2.83,
+   "t": 3.13,
    "type": "tap",
    "key": "pick-screen"
   },
   {
-   "t": 3.13,
+   "t": 3.43,
    "type": "mark",
    "name": "picking"
   },
   {
-   "t": 3.25,
+   "t": 3.55,
    "type": "mark",
    "name": "pick:#102030"
   },
   {
-   "t": 3.47,
+   "t": 3.77,
    "type": "mark",
    "name": "picked"
   },
   {
-   "t": 3.59,
+   "t": 3.89,
    "type": "tap",
    "key": "pick-screen"
   },
   {
-   "t": 3.79,
+   "t": 4.09,
    "type": "mark",
    "name": "pick:cancel"
   },
   {
-   "t": 4.01,
+   "t": 4.31,
    "type": "mark",
    "name": "pick-canceled"
   },
   {
-   "t": 4.13,
+   "t": 4.43,
    "type": "tap",
    "key": "color-wheel"
   },
   {
-   "t": 4.43,
+   "t": 4.73,
    "type": "mark",
    "name": "wheel"
   }
@@ -176,7 +192,7 @@
    "at": "picked",
    "value": {
     "custom-color": "#102030",
-    "opacity-field": "90"
+    "opacity-field": "90 %"
    }
   },
   {

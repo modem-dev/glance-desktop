@@ -214,8 +214,8 @@ pub struct Editor {
     stroke_room: usize,
     /// The backdrop's settings while it is turned off, so turning it on brings them back.
     backdrop_off: Option<crate::backdrop::Backdrop>,
-    /// During a slider drag, every move after the first shares one undo step.
-    continuing: bool,
+    /// The sidebar choice whose list is open, by its group.
+    choices_open: Option<&'static str>,
     stage: stage::Stage,
     playback: stage::Playback,
     export: Option<export::Export>,
@@ -275,7 +275,7 @@ impl Editor {
             lens: live::LensState::default(),
             stroke_room: 0,
             backdrop_off: None,
-            continuing: false,
+            choices_open: None,
             stage,
             playback: stage::Playback::default(),
             export: None,

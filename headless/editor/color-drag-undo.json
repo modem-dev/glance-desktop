@@ -43,33 +43,41 @@
   },
   {
    "t": 1.08,
+   "type": "scroll",
+   "key": "sidebar",
+   "dx": 0,
+   "dy": -80,
+   "dur": 0.05
+  },
+  {
+   "t": 1.23,
    "type": "tap",
    "key": "hex-field"
   },
   {
-   "t": 1.28,
+   "t": 1.43,
    "type": "key",
    "name": "a",
    "cmd": true
   },
   {
-   "t": 1.4,
+   "t": 1.55,
    "type": "type",
    "text": "#800000",
    "every": 0.01
   },
   {
-   "t": 1.52,
+   "t": 1.67,
    "type": "key",
    "name": "Enter"
   },
   {
-   "t": 1.74,
+   "t": 1.89,
    "type": "mark",
    "name": "baseline"
   },
   {
-   "t": 1.86,
+   "t": 2.01,
    "type": "drag",
    "key": "color-value",
    "dx": -30,
@@ -77,13 +85,13 @@
    "dur": 0.05
   },
   {
-   "t": 2.06,
+   "t": 2.21,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 2.28,
+   "t": 2.43,
    "type": "mark",
    "name": "one-undo"
   }

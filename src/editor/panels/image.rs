@@ -16,7 +16,7 @@ const SCALES: [(f32, &str); 6] = [
 ];
 
 impl Editor {
-    pub(super) fn image_controls(&self, cx: &mut Cx<Editor>) -> El {
+    pub(super) fn image_controls(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
         let t = tok::theme(cx.system_dark());
         let note = |content: String, key: &str| {
             text(content)
@@ -37,8 +37,11 @@ impl Editor {
                 cx,
                 "Resize",
                 controls::choices(
+                    self,
                     cx,
+                    layer,
                     "scale",
+                    "Resize",
                     SCALES.map(|(scale, label)| {
                         (
                             label,

@@ -60,7 +60,7 @@
   {
    "t": 1.54,
    "type": "tap",
-   "key": "color-blue"
+   "key": "color-presets/swatch3"
   },
   {
    "t": 1.74,
@@ -80,7 +80,7 @@
   {
    "t": 2.16,
    "type": "tap",
-   "key": "color-mint"
+   "key": "color-presets/swatch2"
   },
   {
    "t": 2.46,

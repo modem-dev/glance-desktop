@@ -46,7 +46,11 @@ fn control_slider(cx: &Cx<Editor>, control: AnimationControl, editor: &Editor) -
 }
 
 impl Editor {
-    pub(super) fn animation_controls(&self, cx: &mut Cx<Editor>) -> El {
+    pub(super) fn animation_controls(
+        &self,
+        cx: &mut Cx<Editor>,
+        layer: &mut controls::Layer,
+    ) -> El {
         let t = tok::theme(cx.system_dark());
         let a = self
             .doc
@@ -75,8 +79,11 @@ impl Editor {
                 cx,
                 "Image entrance",
                 controls::choices(
+                    self,
                     cx,
+                    layer,
                     "entrance",
+                    "Image entrance",
                     Entrance::ALL.map(|e| (e.label(), Action::SelectEntrance(e), a.effect == e)),
                 ),
             ))
@@ -131,8 +138,11 @@ impl Editor {
                 cx,
                 "After entrance",
                 controls::choices(
+                    self,
                     cx,
+                    layer,
                     "after",
+                    "After entrance",
                     [
                         ("Hold", Action::SetAnimationExit(false), !a.exit),
                         ("Exit", Action::SetAnimationExit(true), a.exit),

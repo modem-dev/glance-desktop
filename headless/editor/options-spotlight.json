@@ -30,7 +30,7 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "color-ink"
+   "key": "color-presets/swatch5"
   },
   {
    "t": 0.88,
@@ -107,7 +107,7 @@
     }
    ],
    "value": {
-    "dim-surroundings-field": "50"
+    "dim-surroundings-field": "50 %"
    },
    "text": {
     "tool-name": "Selected"

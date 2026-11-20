@@ -26,6 +26,7 @@ pub(crate) const SCENES: Scenes<Editor> = &[
     ("highlight", highlight),
     ("pixelate", pixelate),
     ("crop", crop),
+    ("crop-ratios", crop_ratios),
     ("step", step),
     ("spotlight", spotlight),
     ("magnifier", magnifier),
@@ -194,6 +195,12 @@ fn crop(e: &mut Editor) {
     act(e, Action::SelectTool(Tool::Crop));
     act(e, Action::SetCropRatio(Some(1.)));
     drag(e, (20., 20.), (120., 60.));
+}
+
+/// Cropped to a square, with the aspect ratio's list open, as its trigger opens it.
+fn crop_ratios(e: &mut Editor) {
+    crop(e);
+    e.toggle_choices("aspect");
 }
 
 /// Two numbered badges, starting at 7.

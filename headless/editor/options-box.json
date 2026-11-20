@@ -46,7 +46,7 @@
   {
    "t": 1.07,
    "type": "tap",
-   "key": "stroke-dot"
+   "key": "stroke-choices/segment2"
   },
   {
    "t": 1.27,
@@ -94,7 +94,7 @@
   {
    "t": 2.31,
    "type": "tap",
-   "key": "fill-filled"
+   "key": "fill-choices/segment1"
   },
   {
    "t": 2.61,
@@ -180,7 +180,7 @@
     "thickness-field"
    ],
    "checked": [
-    "fill-filled"
+    "fill-choices/segment1"
    ]
   },
   {

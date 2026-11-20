@@ -6,8 +6,8 @@
 # usage: scripts/snap.sh OUT [WINDOW...]
 #   OUT/WINDOW--SCENE--THEME.png  one render per scene and theme
 #   OUT/dark.png, OUT/light.png   the contact sheets (ImageMagick's montage)
-# SIZE=900x560 renders the editor at that size, such as its smallest. The windows Lens
-# places over the screen render on a 1440x900 desktop.
+# SIZE=900x560 renders the editor at that size, such as its smallest. Settings renders
+# at its own size. The windows Lens places over the screen render on a 1440x900 desktop.
 # Prints the two sheets; a scene that fails to render prints its error and the
 # script exits 1 after rendering the rest.
 set -uo pipefail
@@ -17,12 +17,15 @@ out=$1
 shift
 command -v montage >/dev/null || { echo "snap.sh needs montage, from ImageMagick" >&2; exit 2; }
 cargo build --quiet --locked --manifest-path "$repo/Cargo.toml" || exit 2
-bin=$repo/target/debug/attn-lens
+bin=${CARGO_TARGET_DIR:-$repo/target}/debug/attn-lens
 # The capture scenes list sessions through attn: never this machine's.
 export ATTN_BIN=$repo/tools/scenes/attn
 mkdir -p "$out"
 err=$(mktemp)
-trap 'rm -f "$err"' EXIT
+# Each render saves settings into a directory of its own, never this machine's
+# prefs, so a scene that changes a setting does not leak into the next render.
+prefs=$(mktemp -d)
+trap 'rm -rf "$err" "$prefs"' EXIT
 
 if [ $# -gt 0 ]; then windows=("$@"); else mapfile -t windows < <("$bin" --list-windows); fi
 failed=0
@@ -32,14 +35,17 @@ for window in "${windows[@]}"; do
     for scene in $scenes; do
         for theme in dark light; do
             png=$out/$window--$scene--$theme.png
-            # Lens places every window but the editor over the screen, at a size it
-            # sets, so those render on a desktop with the rest of the capture.
+            # Lens places every window but the editor and Settings over the screen,
+            # at a size it sets, so those render on a desktop with the rest of the capture.
             if [ "$window" = editor ]; then
                 where=(${SIZE:+--size "$SIZE"})
+            elif [ "$window" = settings ]; then
+                where=()
             else
                 where=(--desktop "$repo/headless/editor/fixture.png" --size 1440x900)
             fi
-            if "$bin" --window "$window" --scene "$scene" --theme "$theme" --scale 1 \
+            rm -rf "${prefs:?}"/*
+            if RUNE_PREFS_DIR=$prefs "$bin" --window "$window" --scene "$scene" --theme "$theme" --scale 1 \
                 "${where[@]}" --at 1 --snap "$png" >/dev/null 2>"$err"; then
                 if [ "$theme" = dark ]; then dark+=("$png"); else light+=("$png"); fi
             else

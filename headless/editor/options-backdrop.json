@@ -186,7 +186,7 @@
    "t": 5.56,
    "type": "drag",
    "key": "outside-padding-slider",
-   "dx": 58,
+   "dx": 57,
    "dy": 0,
    "dur": 0.1
   },
@@ -210,7 +210,7 @@
    "t": 6.23,
    "type": "drag",
    "key": "outside-padding-slider",
-   "dx": 58,
+   "dx": 57,
    "dy": 0,
    "dur": 0.1
   },
@@ -218,7 +218,7 @@
    "t": 6.48,
    "type": "drag",
    "key": "inside-padding-slider",
-   "dx": -93,
+   "dx": -91,
    "dy": 0,
    "dur": 0.1
   },
@@ -239,7 +239,7 @@
    "t": 7.13,
    "type": "drag",
    "key": "shadow-slider",
-   "dx": -58,
+   "dx": -57,
    "dy": 0,
    "dur": 0.1
   },
@@ -251,7 +251,7 @@
   {
    "t": 7.5,
    "type": "tap",
-   "key": "background-gradient"
+   "key": "background-choices/segment1"
   },
   {
    "t": 7.65,
@@ -261,7 +261,7 @@
   {
    "t": 7.77,
    "type": "tap",
-   "key": "background-solid"
+   "key": "background-choices/segment0"
   },
   {
    "t": 7.92,
@@ -271,7 +271,7 @@
   {
    "t": 8.04,
    "type": "tap",
-   "key": "background-gradient"
+   "key": "background-choices/segment1"
   },
   {
    "t": 8.16,
@@ -295,130 +295,138 @@
   },
   {
    "t": 8.7,
+   "type": "scroll",
+   "key": "sidebar",
+   "dx": 0,
+   "dy": -80,
+   "dur": 0.05
+  },
+  {
+   "t": 8.85,
    "type": "tap",
    "key": "hex-field"
   },
   {
-   "t": 8.82,
+   "t": 8.97,
    "type": "key",
    "name": "a",
    "cmd": true
   },
   {
-   "t": 9.02,
+   "t": 9.17,
    "type": "type",
    "text": "#102030",
    "every": 0.01
   },
   {
-   "t": 9.14,
+   "t": 9.29,
    "type": "key",
    "name": "Enter"
   },
   {
-   "t": 9.29,
+   "t": 9.44,
    "type": "mark",
    "name": "hex"
   },
   {
-   "t": 9.41,
+   "t": 9.56,
    "type": "tap",
    "key": "palette-ocean"
   },
   {
-   "t": 9.56,
+   "t": 9.71,
    "type": "mark",
    "name": "picker-palette"
   },
   {
-   "t": 9.68,
+   "t": 9.83,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 9.83,
+   "t": 9.98,
    "type": "mark",
    "name": "picker-undone"
   },
   {
-   "t": 9.95,
+   "t": 10.1,
    "type": "tap",
-   "key": "background-solid"
+   "key": "background-choices/segment0"
   },
   {
-   "t": 10.1,
+   "t": 10.25,
    "type": "mark",
    "name": "picker-solid"
   },
   {
-   "t": 10.22,
+   "t": 10.37,
    "type": "tap",
-   "key": "background-gradient"
+   "key": "background-choices/segment1"
   },
   {
-   "t": 10.34,
+   "t": 10.49,
    "type": "tap",
    "key": "backdrop-color-1"
   },
   {
-   "t": 10.64,
+   "t": 10.79,
    "type": "tap",
    "key": "pick-screen"
   },
   {
-   "t": 10.94,
+   "t": 11.09,
    "type": "mark",
    "name": "pick:#405060"
   },
   {
-   "t": 11.09,
+   "t": 11.24,
    "type": "mark",
    "name": "picked"
   },
   {
-   "t": 11.21,
+   "t": 11.36,
    "type": "tap",
    "key": "backdrop-color-1"
   },
   {
-   "t": 11.33,
+   "t": 11.48,
    "type": "tap",
    "key": "backdrop-enabled"
   },
   {
-   "t": 11.48,
+   "t": 11.63,
    "type": "mark",
    "name": "off"
   },
   {
-   "t": 11.6,
+   "t": 11.75,
    "type": "tap",
    "key": "backdrop-enabled"
   },
   {
-   "t": 11.75,
+   "t": 11.9,
    "type": "mark",
    "name": "on"
   },
   {
-   "t": 11.87,
+   "t": 12.02,
    "type": "key",
    "name": "c",
    "cmd": true
   },
   {
-   "t": 12.27,
+   "t": 12.42,
    "type": "mark",
    "name": "copied"
   },
   {
-   "t": 12.39,
+   "t": 12.54,
    "type": "tap",
    "key": "backdrop-done"
   },
   {
-   "t": 12.54,
+   "t": 12.69,
    "type": "mark",
    "name": "done"
   }
@@ -688,10 +696,10 @@
     }
    },
    "checked": [
-    "background-gradient"
+    "background-choices/segment1"
    ],
    "unchecked": [
-    "background-solid"
+    "background-choices/segment0"
    ],
    "present": [
     "backdrop-color-1",

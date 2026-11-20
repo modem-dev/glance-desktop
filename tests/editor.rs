@@ -113,12 +113,33 @@ fn fixture(dir: &Path) -> Vec<(&'static str, String)> {
     ]
 }
 
-/// Walks the accessibility tree.
-fn nodes(node: &Value, out: &mut Vec<Value>) {
-    out.push(node.clone());
+/// Walks the accessibility tree, giving each node `path`: its keyed ancestors' keys and
+/// its own, joined with `/`.
+fn nodes(node: &Value, parent: &str, out: &mut Vec<Value>) {
+    let path = match node["key"].as_str() {
+        Some(key) if parent.is_empty() => key.to_string(),
+        Some(key) => format!("{parent}/{key}"),
+        None => parent.to_string(),
+    };
+    let mut keyed = node.clone();
+    keyed["path"] = Value::from(path.clone());
+    out.push(keyed);
     for child in node["children"].as_array().into_iter().flatten() {
-        nodes(child, out);
+        nodes(child, &path, out);
     }
+}
+
+/// True when the element or node at `path` is the one `key` names: a key alone names
+/// the element keyed so; a key path (`cleanup-choices/segment1`) names the element whose
+/// keyed ancestors end in it, as a script's tap finds it.
+fn names(key: &str, own: &Value, path: &Value) -> bool {
+    if !key.contains('/') {
+        return *own == key;
+    }
+    let mut keyed = path.as_str().unwrap_or("").rsplit('/').filter(|s| {
+        !(s.len() > 1 && s.starts_with('#') && s[1..].bytes().all(|b| b.is_ascii_digit()))
+    });
+    key.rsplit('/').all(|want| keyed.next() == Some(want))
 }
 
 /// True when every field in `expected` matches `actual`; numbers within 0.01, or
@@ -242,10 +263,10 @@ fn check(name: &str, script: &Path, dir: &Path, clipboard: &Path, expected: &Val
         .collect();
     let tree: Value = serde_json::from_slice(&std::fs::read(&tree_path).unwrap()).unwrap();
     let elements = tree["elements"].as_array().unwrap();
-    let element = |key: &str| elements.iter().find(|e| e["key"] == key);
+    let element = |key: &str| elements.iter().find(|e| names(key, &e["key"], &e["path"]));
     let mut a11y = vec![];
-    nodes(&tree["accessibility"], &mut a11y);
-    let node = |key: &str| a11y.iter().find(|n| n["key"] == key);
+    nodes(&tree["accessibility"], "", &mut a11y);
+    let node = |key: &str| a11y.iter().find(|n| names(key, &n["key"], &n["path"]));
     let has_state = |key: &str, state: &str| {
         node(key).is_some_and(|n| {
             n["states"]

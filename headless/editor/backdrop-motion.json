@@ -30,7 +30,7 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "background-motion"
+   "key": "background-choices/segment2"
   },
   {
    "t": 1.18,
@@ -50,106 +50,210 @@
   {
    "t": 1.57,
    "type": "tap",
-   "key": "motion-nebula"
+   "key": "motion-trigger"
   },
   {
    "t": 1.72,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 1.87,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option1"
+  },
+  {
+   "t": 2.02,
    "type": "mark",
    "name": "effect-nebula"
   },
   {
-   "t": 1.84,
+   "t": 2.14,
    "type": "tap",
-   "key": "motion-aurora"
+   "key": "motion-trigger"
   },
   {
-   "t": 1.99,
+   "t": 2.29,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 2.44,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option2"
+  },
+  {
+   "t": 2.59,
    "type": "mark",
    "name": "effect-aurora"
   },
   {
-   "t": 2.11,
+   "t": 2.71,
    "type": "tap",
-   "key": "motion-contours"
+   "key": "motion-trigger"
   },
   {
-   "t": 2.26,
+   "t": 2.86,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 3.01,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option3"
+  },
+  {
+   "t": 3.16,
    "type": "mark",
    "name": "effect-contours"
   },
   {
-   "t": 2.38,
+   "t": 3.28,
    "type": "tap",
-   "key": "motion-painterly"
+   "key": "motion-trigger"
   },
   {
-   "t": 2.53,
+   "t": 3.43,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 3.58,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option4"
+  },
+  {
+   "t": 3.73,
    "type": "mark",
    "name": "effect-paint"
   },
   {
-   "t": 2.65,
+   "t": 3.85,
    "type": "tap",
-   "key": "motion-prism"
+   "key": "motion-trigger"
   },
   {
-   "t": 2.8,
+   "t": 4.0,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 4.15,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option5"
+  },
+  {
+   "t": 4.3,
    "type": "mark",
    "name": "effect-prism"
   },
   {
-   "t": 2.92,
+   "t": 4.42,
    "type": "tap",
-   "key": "motion-liquid"
+   "key": "motion-trigger"
   },
   {
-   "t": 3.07,
+   "t": 4.57,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": -200,
+   "dur": 0.05
+  },
+  {
+   "t": 4.72,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option6"
+  },
+  {
+   "t": 4.87,
    "type": "mark",
    "name": "effect-liquid"
   },
   {
-   "t": 3.19,
+   "t": 4.99,
    "type": "tap",
-   "key": "motion-lava"
+   "key": "motion-trigger"
   },
   {
-   "t": 3.34,
+   "t": 5.14,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": -200,
+   "dur": 0.05
+  },
+  {
+   "t": 5.29,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option7"
+  },
+  {
+   "t": 5.44,
    "type": "mark",
    "name": "effect-lava"
   },
   {
-   "t": 3.46,
+   "t": 5.56,
    "type": "tap",
-   "key": "motion-flow"
+   "key": "motion-trigger"
   },
   {
-   "t": 3.61,
+   "t": 5.71,
+   "type": "scroll",
+   "key": "motion-scroll-area",
+   "dx": 0,
+   "dy": 200,
+   "dur": 0.05
+  },
+  {
+   "t": 5.86,
+   "type": "tap",
+   "key": "motion-scroll-area/scroll/rows/option0"
+  },
+  {
+   "t": 6.01,
    "type": "mark",
    "name": "effect-flow"
   },
   {
-   "t": 3.73,
+   "t": 6.13,
    "type": "tap",
    "key": "randomize"
   },
   {
-   "t": 3.88,
+   "t": 6.28,
    "type": "mark",
    "name": "randomized"
   },
   {
-   "t": 4.0,
+   "t": 6.4,
    "type": "key",
    "name": "z",
    "cmd": true
   },
   {
-   "t": 4.15,
+   "t": 6.55,
    "type": "mark",
    "name": "randomize-undone"
   },
   {
-   "t": 4.3,
+   "t": 6.7,
    "type": "drag",
    "key": "duration-slider",
    "dx": 0,
@@ -157,51 +261,51 @@
    "dur": 0.1
   },
   {
-   "t": 4.55,
+   "t": 6.95,
    "type": "mark",
    "name": "duration"
   },
   {
-   "t": 4.67,
+   "t": 7.07,
    "type": "tap",
    "key": "playback"
   },
   {
-   "t": 5.17,
+   "t": 7.57,
    "type": "mark",
    "name": "playing"
   },
   {
-   "t": 5.32,
+   "t": 7.72,
    "type": "mark",
    "name": "close:editor"
   },
   {
-   "t": 5.47,
+   "t": 7.87,
    "type": "mark",
    "name": "closed"
   },
   {
-   "t": 6.97,
+   "t": 9.37,
    "type": "mark",
    "name": "closed-later"
   },
   {
-   "t": 7.09,
+   "t": 9.49,
    "reopen": true
   },
   {
-   "t": 7.39,
+   "t": 9.79,
    "type": "mark",
    "name": "reopened"
   },
   {
-   "t": 7.51,
+   "t": 9.91,
    "type": "tap",
-   "key": "background-gradient"
+   "key": "background-choices/segment1"
   },
   {
-   "t": 7.66,
+   "t": 10.06,
    "type": "mark",
    "name": "still"
   }
@@ -230,8 +334,7 @@
     }
    },
    "checked": [
-    "background-motion",
-    "motion-flow"
+    "background-choices/segment2"
    ],
    "present": [
     "randomize",
@@ -240,6 +343,9 @@
    ],
    "label": {
     "stage": "Preview, Flow backdrop"
+   },
+   "value": {
+    "motion-trigger": "Flow"
    }
   },
   {
@@ -261,12 +367,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-nebula"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Nebula"
+   }
   },
   {
    "at": "effect-aurora",
@@ -278,12 +385,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-aurora"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Aurora"
+   }
   },
   {
    "at": "effect-contours",
@@ -295,12 +403,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-contours"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Contours"
+   }
   },
   {
    "at": "effect-paint",
@@ -312,12 +421,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-painterly"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Painterly"
+   }
   },
   {
    "at": "effect-prism",
@@ -329,12 +439,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-prism"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Prism"
+   }
   },
   {
    "at": "effect-liquid",
@@ -346,12 +457,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-liquid"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Liquid"
+   }
   },
   {
    "at": "effect-lava",
@@ -363,12 +475,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-lava"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Lava"
+   }
   },
   {
    "at": "effect-flow",
@@ -380,12 +493,13 @@
      "playing": false
     }
    },
-   "checked": [
-    "motion-flow"
-   ],
+   "checked": [],
    "present": [
     "stage"
-   ]
+   ],
+   "value": {
+    "motion-trigger": "Flow"
+   }
   },
   {
    "at": "randomized",

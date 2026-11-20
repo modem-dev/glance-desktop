@@ -30,7 +30,7 @@
   {
    "t": 0.68,
    "type": "tap",
-   "key": "fill-filled"
+   "key": "fill-choices/segment1"
   },
   {
    "t": 0.88,
@@ -49,12 +49,12 @@
   {
    "t": 1.2,
    "type": "tap",
-   "key": "color-mint"
+   "key": "color-presets/swatch2"
   },
   {
    "t": 1.4,
    "type": "tap",
-   "key": "color-blue"
+   "key": "color-presets/swatch3"
   },
   {
    "t": 1.7,

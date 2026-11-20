@@ -4,6 +4,15 @@
 use crate::{lens::Lens, settings::Settings};
 use rune::{Cx, El, col, row, text};
 use rune_kit::{Divider, Kit, Switch};
+
+/// The window's scenes, for `--window settings --scene NAME`: each section as Lens
+/// opens it, and with its settings changed through the window's own controls.
+pub(crate) const SCENES: crate::app::Scenes<SettingsWindow> = &[
+    ("dictation", |_| {}),
+    ("dictation-off", |w| {
+        w.change(|s| s.screen_words = !s.screen_words)
+    }),
+];
 use std::sync::Arc;
 
 /// The window's width; its height follows the rows.
@@ -55,7 +64,7 @@ fn sections(settings: &Settings, k: &Kit) -> Vec<Section> {
 }
 
 pub fn view(s: &SettingsWindow, cx: &mut Cx<SettingsWindow>) -> El {
-    let k = &Kit::neutral(cx.system_dark());
+    let k = crate::kit::kit(cx.system_dark());
     let (settings, error) = s
         .lens
         .read(|summary| (summary.settings.clone(), summary.settings_error.clone()));
