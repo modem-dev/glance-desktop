@@ -398,6 +398,11 @@ pub fn run() -> Result<(), String> {
             scenes: editor::scenes::SCENES,
             ..AppSpec::new("Attn Lens", EDITOR_SIZE, || unreachable!(), editor::view)
         })
+        // The window buttons sit in the middle of the shell's 48 point toolbar.
+        .chrome(rune::Chrome {
+            traffic_lights: Some((16., 17.)),
+            ..rune::Chrome::DEFAULT
+        })
         .windowless();
         let me = editor.handle();
         let visible = me.clone();

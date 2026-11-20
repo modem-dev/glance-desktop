@@ -65,6 +65,13 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- The editor's toolbar and window frame are rune-kit's: the window buttons sit in the
+  middle of the toolbar, the tools and actions are kit icon buttons whose tooltips
+  name their shortcuts, and the active tool and open panel read as pressed to a
+  screen reader. Backdrop and Image tools have their own icons. Zoom moved to the
+  status line, and "Copied!" floats under the copy buttons, so the toolbar fits the
+  smallest window with Back and Send.
+
 - **Attn Lens**'s editor sidebar and Settings window use attn's colours, and their
   controls come from rune-kit: number steppers, sliders, colour swatches, segmented
   choices and buttons. A choice of more than three options (aspect ratio, image entrance,

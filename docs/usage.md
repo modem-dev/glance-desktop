@@ -9,7 +9,7 @@ exported media keep their colors.
 ## Edit a capture's still
 
 From a capture's bar, **Edit** or a thumbnail opens a still here. The toolbar then
-has **‹ Back** and **Send ↩**, and opening, dropping or pasting another image is
+has **Back** and **Send** (or **↩**), and opening, dropping or pasting another image is
 refused until you go Back. See [Capture and send](send.md#edit-a-still).
 
 ## Open an image
@@ -95,14 +95,16 @@ Use **⌘1** to fit, **⌘0** for 100%, or **⌘+ / ⌘−** to zoom. Pinch zoom
 the pointer; two-finger scrolling pans. **⌘ + scroll** zooms; **Shift + wheel**
 pans horizontally. Hold **Space** and drag, or drag with the middle button, to pan.
 Hold **Z** and click to zoom in at a spot; Shift-click zooms out.
-Trackpad smart zoom toggles 100%/fit. Zoom ranges from 1–800%.
+Trackpad smart zoom toggles 100%/fit. Zoom ranges from 1–800%. The zoom buttons sit
+at the right end of the status line; click the percentage to fit.
 
 ## Copy as OCR
 
 Click **Copy as OCR** (the text-scanning icon beside Copy in the top toolbar), or
 **Edit → Copy as OCR**. The editor recognizes text in the source screenshot locally
 and puts it directly on your clipboard. Paste it into any text editor or app.
-The toolbar shows **Reading text…**, then **Text copied!**; no result panel opens.
+A note under the copy buttons shows **Reading text…**, then **Text copied!**; no
+result panel opens.
 If no text is found or recognition fails, your existing clipboard is preserved.
 
 Crop first to limit recognition to part of the image. OCR ignores annotations

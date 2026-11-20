@@ -1,6 +1,6 @@
 //! The sidebar's controls, on rune-kit components painted by `crate::kit`.
 use super::super::{Editor, actions::Action};
-use rune::{Cursor, Cx, El, Icon, Key, TextStyle, Tx, col, el, icon, row, text, text_input};
+use rune::{Cursor, Cx, El, Key, TextStyle, Tx, col, el, row, text, text_input};
 use rune_kit::{
     Button, ButtonVariant, Field, Kit, NumberStepper, SegmentedControl, Select, SelectAppearance,
     Slider,
@@ -53,44 +53,6 @@ pub(crate) fn button(
         button = button.on_press_tx(on_press);
     }
     button.build(kit(cx)).key(key.to_string())
-}
-
-/// An icon button in the toolbar; `active` marks the tool in use.
-pub(crate) fn icon_button(
-    cx: &Cx<Editor>,
-    key: &str,
-    label: String,
-    glyph: &'static Icon,
-    toggle: Option<bool>,
-    action: Action,
-) -> El {
-    let c = &kit(cx).c;
-    let active = toggle == Some(true);
-    let mut button = el()
-        .key(key.to_string())
-        .role("button")
-        .label(label.clone())
-        .help(label)
-        .size(32., 32.)
-        .radius(7.)
-        .center()
-        .cursor(Cursor::Pointer)
-        .hover(c.hover)
-        .press(c.pressed)
-        .on_press_tx(move |s: &mut Editor, tx| s.dispatch_ui(action.clone(), tx))
-        .child(
-            icon(glyph, 18.)
-                .color(if active { c.text_accent } else { c.icon_base })
-                .inert(),
-        );
-    // Only a toggle has a checked state; an action button reads as a plain button.
-    if let Some(checked) = toggle {
-        button = button.checked(checked);
-    }
-    if active {
-        button = button.fill(c.bg_accent.alpha(0.16));
-    }
-    button
 }
 
 /// One choice among several, named `label`. Three or fewer short options are a
