@@ -293,7 +293,7 @@ impl Editor {
                 .child(field(
                     cx,
                     "Start",
-                    choices(
+                    controls::select(
                         self,
                         cx,
                         layer,
@@ -311,7 +311,7 @@ impl Editor {
                 .child(field(
                     cx,
                     "End",
-                    choices(
+                    controls::select(
                         self,
                         cx,
                         layer,

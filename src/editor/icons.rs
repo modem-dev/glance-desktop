@@ -7,18 +7,6 @@ pub const ARROW_UP_RIGHT: Icon = Icon {
     body: r#"<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10" /> <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7" />"#,
 };
 
-pub const CHECK: Icon = Icon {
-    name: "check",
-    view: 24.,
-    body: r#"<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5" />"#,
-};
-
-pub const CHEVRON_DOWN: Icon = Icon {
-    name: "chevron-down",
-    view: 24.,
-    body: r#"<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />"#,
-};
-
 pub const COPY: Icon = Icon {
     name: "copy",
     view: 24.,

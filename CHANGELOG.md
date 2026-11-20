@@ -78,6 +78,10 @@ Notable user-visible changes are recorded here.
   backdrop effect, resize) is a pop-up menu. The sidebar and the editor's default
   window are 12 points wider, so a three-way choice reads whole. A number still
   opens for typing when you click it.
+- **Attn Lens**'s Backdrop, Animation and Image tools panels and the colour picker
+  follow: Enable backdrop is a switch, Smart upscale a checkbox, the Start and End
+  arrowheads pop-up menus, and the hex field reads in light mode and turns red when
+  the colour does not parse.
 - Attn Lens has a new app icon: attn's cat holding a magnifying glass, in place
   of Glance's pixel eye.
 
