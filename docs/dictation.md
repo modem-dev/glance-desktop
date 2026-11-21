@@ -49,7 +49,8 @@ refine probe" and prints the token. attn refuses a pairing from inside an attn
 agent session, so pair it from a terminal of your own. It exits 1 when a
 refinement lost or changed what was said. The screen-words cases end the run with
 a table by kind: cleaned, kept (the spelling or the fix) and replaced (a word the
-speaker meant, swapped for a screen word).
+speaker meant, swapped for a screen word); any of them missing, or any word
+replaced, also exits 1.
 
 ## Words on screen
 

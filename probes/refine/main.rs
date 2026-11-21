@@ -14,7 +14,8 @@
 //! the environment selects (`ATTN_INSTANCE`). `LENS_PROBE_TOKEN` is a paired
 //! sender's token; without it the probe pairs as "Attn Lens refine probe", waits
 //! for Allow in attn and prints the token to reuse. Each record goes to the JSONL;
-//! the exit is 1 when a refinement lost or changed what was said.
+//! the exit is 1 when a refinement lost or changed what was said, or a screen-words
+//! case came back uncleaned, without its spelling or fix, or with a word replaced.
 mod corpus;
 
 use attn_lens::lens::{attn, refiner, screen_words};
@@ -84,6 +85,9 @@ fn main() {
             let replaced = record["replaced"].as_array().is_some_and(|r| !r.is_empty());
             for (cell, on) in row.iter_mut().zip([true, cleaned, kept, replaced]) {
                 *cell += on as usize;
+            }
+            if !cleaned || !kept || replaced {
+                failed += 1;
             }
             println!(
                 "{:<5} {:<14} r{round} {:<24} {:>7} ms  {}{}{} | {}",
