@@ -183,6 +183,11 @@ pub trait PlatformPort: Send + Sync {
     /// Err when Screen Recording is not granted, there is no front window, or OCR
     /// fails. Never shows the permission guide (D10 on s-0ww1ak).
     fn screen_text(&self) -> Result<String, String>;
+    /// Whether Screen Recording is allowed, asked quietly: it never shows the guide.
+    fn screen_recording_allowed(&self) -> bool;
+    /// Whether a lowercase word is ordinary English, which `screen_words::pick`
+    /// leaves out. The first call may load the word list; make it from [`Self::run`].
+    fn ordinary_word(&self, word: &str) -> bool;
     fn watch(&self, area: Area, sink: Sink<WatchEvent>) -> Watch;
     /// Starts voice. It reports its progress, then segments, to `sink` from
     /// other threads, and returns at once.

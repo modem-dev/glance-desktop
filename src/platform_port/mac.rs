@@ -341,11 +341,31 @@ impl PlatformPort for MacPort {
     }
 
     fn screen_text(&self) -> Result<String, String> {
-        if !permission_guide::granted(Permission::ScreenRecording) {
+        if !self.screen_recording_allowed() {
             return Err("Screen Recording is not allowed for Attn Lens.".into());
         }
         let window = capture::front_window().ok_or("No window is in front.")?;
         crate::ocr::extract(&capture::window_still(window)?, None)
+    }
+
+    fn screen_recording_allowed(&self) -> bool {
+        permission_guide::granted(Permission::ScreenRecording)
+    }
+
+    /// macOS's `/usr/share/dict/words` (web2, 235,976 words), read once. Its spell
+    /// checker knows `attn`, `stdin` and `MCP`, the words worth spelling (F5 on s-0ww1ak).
+    fn ordinary_word(&self, word: &str) -> bool {
+        static WORDS: std::sync::OnceLock<std::collections::HashSet<String>> =
+            std::sync::OnceLock::new();
+        WORDS
+            .get_or_init(|| {
+                std::fs::read_to_string("/usr/share/dict/words")
+                    .unwrap_or_default()
+                    .lines()
+                    .map(str::to_lowercase)
+                    .collect()
+            })
+            .contains(word)
     }
 
     fn watch(&self, area: Area, sink: Sink<WatchEvent>) -> Watch {

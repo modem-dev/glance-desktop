@@ -6,6 +6,11 @@ Notable user-visible changes are recorded here.
 
 ### Added
 
+- **Attn Lens** dictation uses the words on screen: it reads the window in front
+  as you start, and the names and identifiers you said go to the refiner, so they
+  come out spelled right, with words on screen that sound like a misheard one.
+  Settings › Use words on screen turns it off; without Screen Recording the
+  dictation runs as before.
 - **Attn Lens** has a Settings window: **Settings…** (⌘,) in the app menu or the
   Dock menu. Its first setting, Dictation › Use words on screen, is on by default
   and is saved at once in `~/Library/Application Support/dev.attn.lens/prefs.json`.

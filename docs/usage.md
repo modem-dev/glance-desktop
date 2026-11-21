@@ -32,7 +32,7 @@ Lens quits and the window says why.
 
 | Section | Setting | What it does |
 | --- | --- | --- |
-| Dictation | Use words on screen (on) | When you dictate, Lens reads the window in front and sends the names and identifiers on it with your words to attn's refiner, so they come out spelled right. |
+| Dictation | Use words on screen (on) | When you dictate, Lens reads the window in front and sends the names and identifiers on it that you said with your words to the refiner, so they come out spelled right. The row says when Screen Recording is not allowed. See [Words on screen](dictation.md#words-on-screen). |
 
 ## Annotate and select
 

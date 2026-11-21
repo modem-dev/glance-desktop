@@ -320,6 +320,12 @@ impl Lens {
         self.changed();
     }
 
+    /// Whether Screen Recording is allowed, asked without showing the guide: the
+    /// Settings window says when "Use words on screen" cannot read the screen.
+    pub fn screen_recording_allowed(&self) -> bool {
+        self.port.screen_recording_allowed()
+    }
+
     /// Opens the Settings window, or brings it to the front.
     pub fn open_settings(&self) {
         self.state.lock().unwrap().settings_requests += 1;

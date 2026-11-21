@@ -15,6 +15,9 @@
 //! pointer:X:Y                the pointer is at X, Y in global points from now on;
 //!                            until then it is at the first display's centre
 //! accessibility:off          Accessibility is not allowed from now on
+//! screen-recording:off       Screen Recording is not allowed from now on; each time
+//!                            Lens would show its guide, a line lands in guides.jsonl
+//! screen-recording:on        it is allowed again
 //! paste:fail:the reason      the next paste fails with this
 //! jobs:hold  jobs:next  jobs:last  jobs:drain  jobs:release
 //!                            hold slow work, then run it: see `Script::held`
@@ -33,7 +36,8 @@
 //! ocr:the words              text recognition finds these words from now on
 //! screen-text:the words      the front window reads as these words from now on;
 //!                            until then it reads as no words
-//! screen-text:fail           reading the front window fails from now on
+//! screen-text:fail           reading the front window fails from now on; each read
+//!                            adds a line to screen-reads.jsonl beside the clipboard
 //! pick:#RRGGBB  pick:cancel  answers a Pick from screen that is waiting
 //! still:fail                 the next still fails
 //! close:editor               presses the window's close button
@@ -123,6 +127,7 @@ struct Script {
     fn_down: bool,
     pointer: Option<(f64, f64)>,
     no_accessibility: bool,
+    no_screen_recording: bool,
     paste_error: Option<String>,
 }
 
@@ -208,6 +213,8 @@ impl FakePort {
             ));
         } else if mark == "accessibility:off" {
             self.script.lock().unwrap().no_accessibility = true;
+        } else if let Some(on) = mark.strip_prefix("screen-recording:") {
+            self.script.lock().unwrap().no_screen_recording = on == "off";
         } else if let Some(reason) = mark.strip_prefix("paste:fail:") {
             self.script.lock().unwrap().paste_error = Some(reason.into());
         } else if let Some(event) = key_event(mark) {
@@ -486,6 +493,21 @@ impl PlatformPort for FakePort {
         self.shift.load(Ordering::SeqCst)
     }
     fn screen_recording(&self) -> bool {
+        let allowed = self.screen_recording_allowed();
+        if !allowed {
+            append_line(
+                "guides.jsonl",
+                serde_json::json!({ "guide": "screen-recording" }),
+            );
+        }
+        allowed
+    }
+    fn screen_recording_allowed(&self) -> bool {
+        !self.script.lock().unwrap().no_screen_recording
+    }
+    /// Every word: only an identifier's shape (a path, camelCase, snake_case, …)
+    /// makes it worth spelling here, the same on every machine.
+    fn ordinary_word(&self, _word: &str) -> bool {
         true
     }
     fn accessibility(&self) -> bool {
@@ -503,10 +525,22 @@ impl PlatformPort for FakePort {
     }
     fn screen_text(&self) -> Result<String, String> {
         let script = self.script.lock().unwrap();
-        match script.screen_text_fails {
-            true => Err("The fake screen read failed.".into()),
-            false => Ok(script.screen_text.clone()),
-        }
+        let read = if script.no_screen_recording {
+            Err("Screen Recording is not allowed for Attn Lens.".to_string())
+        } else if script.screen_text_fails {
+            Err("The fake screen read failed.".into())
+        } else {
+            Ok(script.screen_text.clone())
+        };
+        drop(script);
+        append_line(
+            "screen-reads.jsonl",
+            match &read {
+                Ok(text) => serde_json::json!({ "text": text }),
+                Err(error) => serde_json::json!({ "error": error }),
+            },
+        );
+        read
     }
     fn watch(&self, _area: Area, sink: Sink<WatchEvent>) -> Watch {
         self.sinks.lock().unwrap().watch = Some(sink);

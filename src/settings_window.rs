@@ -12,6 +12,12 @@ pub(crate) const SCENES: crate::app::Scenes<SettingsWindow> = &[
     ("dictation-off", |w| {
         w.change(|s| s.screen_words = !s.screen_words)
     }),
+    ("dictation-no-screen-recording", |w| {
+        w.lens
+            .port()
+            .scene_mark("screen-recording:off")
+            .unwrap_or_else(|error| panic!("{error}"))
+    }),
 ];
 use std::sync::Arc;
 
@@ -35,6 +41,8 @@ struct Row {
     key: &'static str,
     label: &'static str,
     about: &'static str,
+    /// Why the setting does not work now.
+    note: Option<&'static str>,
     control: El,
 }
 
@@ -44,7 +52,7 @@ struct Section {
     rows: Vec<Row>,
 }
 
-fn sections(settings: &Settings, k: &Kit) -> Vec<Section> {
+fn sections(settings: &Settings, screen_recording: bool, k: &Kit) -> Vec<Section> {
     vec![Section {
         key: "dictation",
         title: "Dictation",
@@ -52,8 +60,12 @@ fn sections(settings: &Settings, k: &Kit) -> Vec<Section> {
             key: "screen-words",
             label: "Use words on screen",
             about: "When you dictate, Lens reads the window in front and sends the names and \
-                    identifiers on it with your words to attn's refiner, so they come out \
-                    spelled right.",
+                    identifiers on it that you said with your words to the refiner, so they \
+                    come out spelled right.",
+            note: (settings.screen_words && !screen_recording).then_some(
+                "Screen Recording is not allowed for Attn Lens, so dictation does not read \
+                 the screen. Allow it in System Settings › Privacy & Security.",
+            ),
             control: Switch::new(settings.screen_words)
                 .label("Use words on screen")
                 .hide_label()
@@ -68,6 +80,7 @@ pub fn view(s: &SettingsWindow, cx: &mut Cx<SettingsWindow>) -> El {
     let (settings, error) = s
         .lens
         .read(|summary| (summary.settings.clone(), summary.settings_error.clone()));
+    let screen_recording = s.lens.screen_recording_allowed();
     let mut page = col()
         .key("settings")
         .fill(k.c.bg_base)
@@ -75,7 +88,11 @@ pub fn view(s: &SettingsWindow, cx: &mut Cx<SettingsWindow>) -> El {
         .pt(16.)
         .pb(20.)
         .gap(20.)
-        .children(sections(&settings, k).into_iter().map(|s| section(s, k)));
+        .children(
+            sections(&settings, screen_recording, k)
+                .into_iter()
+                .map(|s| section(s, k)),
+        );
     if let Some(error) = error {
         page = page.child(
             text(format!("Not saved: {error}"))
@@ -141,7 +158,15 @@ fn setting_row(row_: Row, k: &Kit) -> El {
                         .color(k.c.text_muted)
                         .wrap()
                         .w_full(),
-                ),
+                )
+                .children(row_.note.map(|note| {
+                    text(note)
+                        .key(format!("{}-note", row_.key))
+                        .font(k.ty.caption())
+                        .color(k.c.warning.fg)
+                        .wrap()
+                        .w_full()
+                })),
         )
         .child(row_.control.key(format!("{}-control", row_.key)))
 }

@@ -9,7 +9,8 @@ use std::{
 
 /// A scratch folder with a stand-in `attn` that lists `sessions`, and records what
 /// it is sent: its arguments in `args` and each PNG as it was then. `attn model
-/// call` keeps its arguments in `model-args` and its stdin in `model-stdin`, then
+/// call` keeps its arguments in `model-args` and its stdin in `model-stdin`, adds
+/// the request to the lines of `model-requests`, which each run starts anew, then
 /// prints `model-out`, and `model-err` on stderr, and exits with `model-code` when
 /// a test wrote them; otherwise it answers "Refined: " and the request's transcript.
 /// With `model-hang` it waits 600 s instead, then notes in `model-survived` that
@@ -30,6 +31,7 @@ impl Run {
                 r#"#!/bin/sh
 if [ "$1" = "model" ]; then
   cat > "{dir}/model-stdin"; echo "$@" > "{dir}/model-args"
+  tail -n +2 "{dir}/model-stdin" >> "{dir}/model-requests"; echo >> "{dir}/model-requests"
   if [ -f "{dir}/model-hang" ]; then
     sleep 600 < /dev/null > /dev/null 2>&1; echo "$$" >> "{dir}/model-survived"; exit 1
   fi
@@ -70,6 +72,8 @@ echo '{{"id":"cap"}}'
         // What this run copies and pastes, apart from every other run's.
         let clipboard = self.clipboard(mark);
         let _ = std::fs::remove_dir_all(&clipboard);
+        // Each run's requests, apart from the runs before it.
+        let _ = std::fs::remove_file(self.path("model-requests"));
         std::fs::create_dir(&clipboard).unwrap();
         let mut command = Command::new(env!("CARGO_BIN_EXE_attn-lens"));
         command
@@ -1910,4 +1914,111 @@ fn the_capture_hud_is_dark_in_every_appearance_and_its_parts_stay_apart() {
     let failed = scene_tree("bar", "voice-failed", "light");
     let error = element(&failed, "error").expect("the failure shows");
     assert!(contrast(&error["color"], &fill(&failed)) >= 4.5);
+}
+
+/// Each `attn model call` input the stand-in got, in order, as JSON.
+fn model_inputs(run: &Run) -> Vec<Value> {
+    std::fs::read_to_string(run.path("model-requests"))
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            let request: Value = serde_json::from_str(line).unwrap();
+            serde_json::from_str(request["input"].as_str().unwrap()).unwrap()
+        })
+        .collect()
+}
+
+/// The fake's lines in `name` beside the clipboard, by the time of `mark`.
+fn fake_lines(run: &Run, mark: &str, name: &str) -> Vec<Value> {
+    std::fs::read_to_string(run.clipboard(mark).join(name))
+        .unwrap_or_default()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+
+#[test]
+fn a_dictation_sends_only_the_screen_words_it_said_and_never_waits_for_the_read() {
+    let run = Run::new("dictation-screen-words.json", ONE_SESSION);
+    assert_eq!(
+        state(&run, "end")["capture"]["segments"][0]["text"],
+        "rename scope test environment"
+    );
+    let said = "rename scope test environment";
+    let plain = json!({ "transcript": said });
+    assert_eq!(
+        model_inputs(&run),
+        [
+            // Of the screen's identifiers, only the one said; "skill" is on screen
+            // twice and sounds like "scale".
+            json!({
+                "transcript": "rename scope test environment and load the scale",
+                "screen_words": ["ScopeTestEnvironment"],
+                "maybe_misheard": [{ "heard": "scale", "screen": "skill" }],
+            }),
+            // Nothing on screen was said, and nothing sounds like it.
+            json!({ "transcript": "deploy to staging now" }),
+            // The read was held past refinement.
+            plain.clone(),
+            // The held read came back during the next dictation, whose own read found
+            // nothing worth spelling: the late one's words did not reach it.
+            plain.clone(),
+            // The read failed.
+            plain.clone(),
+            // Screen Recording is not allowed.
+            plain.clone(),
+            // "Use words on screen" is off.
+            plain,
+            // The hand-over to a capture asked for nothing.
+        ]
+    );
+    let reads: Vec<String> = fake_lines(&run, "end", "screen-reads.jsonl")
+        .iter()
+        .map(|read| match &read["text"] {
+            Value::String(text) => text.chars().take(12).collect(),
+            _ => read["error"].as_str().unwrap().to_string(),
+        })
+        .collect();
+    // One read per dictation with the setting on, the hand-over's included; none
+    // while it was off.
+    assert_eq!(
+        reads,
+        [
+            "Rename Scope",
+            "Rename Scope",
+            "Nothing wort",
+            "Rename Scope",
+            "The fake screen read failed.",
+            "Screen Recording is not allowed for Attn Lens.",
+            "Rename Scope",
+        ]
+    );
+    // A missing permission or a failed read shows no guide.
+    assert!(fake_lines(&run, "end", "guides.jsonl").is_empty());
+    assert_eq!(run.pasted("end").len(), 7);
+    assert!(state(&run, "switched-on")["settings"]["screen_words"] == true);
+}
+
+#[test]
+fn the_settings_row_says_when_screen_recording_is_not_allowed() {
+    let note = "Screen Recording is not allowed for Attn Lens, so dictation does not read the \
+                screen. Allow it in System Settings › Privacy & Security.";
+    let denied = scene_tree("settings", "dictation-no-screen-recording", "dark");
+    assert_eq!(text(&denied, "screen-words-note"), Some(note));
+    assert!(
+        element(
+            &scene_tree("settings", "dictation", "dark"),
+            "screen-words-note"
+        )
+        .is_none()
+    );
+    // Off, the switch reads nothing, so nothing is missing.
+    assert!(
+        element(
+            &scene_tree("settings", "dictation-off", "dark"),
+            "screen-words-note"
+        )
+        .is_none()
+    );
 }
