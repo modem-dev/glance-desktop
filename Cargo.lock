@@ -3431,7 +3431,7 @@ dependencies = [
 [[package]]
 name = "rune"
 version = "0.0.1"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -3510,7 +3510,7 @@ dependencies = [
 [[package]]
 name = "rune-highlights"
 version = "0.0.1"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 dependencies = [
  "unicode-ident",
  "wasmparser",
@@ -3519,7 +3519,7 @@ dependencies = [
 [[package]]
 name = "rune-kit"
 version = "0.0.1"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 dependencies = [
  "icu_normalizer",
  "rune",
@@ -3531,12 +3531,12 @@ dependencies = [
 [[package]]
 name = "rune-motion"
 version = "0.1.0"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 
 [[package]]
 name = "rune-staging"
 version = "0.0.1"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 dependencies = [
  "wgpu",
 ]
@@ -3544,7 +3544,7 @@ dependencies = [
 [[package]]
 name = "rune-taffy"
 version = "0.0.1"
-source = "git+https://github.com/SolenesInc/rune.git?rev=2011e974842538239b7975e373f37d85d14a2a16#2011e974842538239b7975e373f37d85d14a2a16"
+source = "git+https://github.com/SolenesInc/rune.git?rev=93050475665a9ef117dd12e5df3f2652fa25c54a#93050475665a9ef117dd12e5df3f2652fa25c54a"
 dependencies = [
  "taffy",
 ]

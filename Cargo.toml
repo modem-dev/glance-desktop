@@ -11,8 +11,8 @@ categories = ["multimedia::images", "gui"]
 publish = false
 
 [dependencies]
-rune = { git = "https://github.com/SolenesInc/rune.git", rev = "2011e974842538239b7975e373f37d85d14a2a16", features = ["native-file-dialog"] }
-rune-kit = { git = "https://github.com/SolenesInc/rune.git", rev = "2011e974842538239b7975e373f37d85d14a2a16" }
+rune = { git = "https://github.com/SolenesInc/rune.git", rev = "93050475665a9ef117dd12e5df3f2652fa25c54a", features = ["native-file-dialog"] }
+rune-kit = { git = "https://github.com/SolenesInc/rune.git", rev = "93050475665a9ef117dd12e5df3f2652fa25c54a" }
 image = "0.25"
 imageproc = "0.25"
 tempfile = "3"
