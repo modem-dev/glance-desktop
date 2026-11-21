@@ -51,8 +51,15 @@ for _ in $(seq 100); do [ "$(attn_status)" = Ready ] && break; sleep 0.1; done
 [ "$(attn_status)" = Ready ] || { echo "FAIL Lens did not pair: $(attn_status)"; exit 1; }
 "$LENS" lens '{"cmd":"end"}' >/dev/null
 "$LENS" lens '{"cmd":"discard"}' >/dev/null
-rm -f "$SENT/model-request" "$SENT/model-args"
 "$LENS" lens "{\"cmd\":\"voice-wav\",\"path\":\"$OUT/spoken.wav\"}" >/dev/null
+# A first dictation fetches and loads the speech models, which a new VM lacks; the
+# driven one then hears from its first word. Up to 15 minutes for the 731 MB download.
+"$LENS" lens '{"cmd":"key","key":"voice"}' >/dev/null
+for _ in $(seq 1800); do "$LENS" lens '{"cmd":"state"}' | grep -qi listening && break; sleep 0.5; done
+"$LENS" lens '{"cmd":"state"}' | grep -qi listening || { echo "FAIL voice never listened"; exit 1; }
+"$LENS" lens '{"cmd":"key","key":"voice"}' >/dev/null
+until "$LENS" lens '{"cmd":"state"}' | grep -q '"dictation":null'; do sleep 0.2; done
+rm -f "$SENT/model-request" "$SENT/model-args"
 
 printf 'Rename ScopeTestEnvironment before Friday.\nRead the skill first; the skill lists the rules.\n\n' >"$OUT/note.txt"
 open -a TextEdit "$OUT/note.txt"
