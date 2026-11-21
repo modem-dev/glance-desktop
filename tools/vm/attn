@@ -1,20 +1,23 @@
 #!/bin/sh
 # A stand-in for attn inside the VM: prints what cmd/attn/send_stack_test.go and
-# cmd/attnd/refine_stack_test.go in attn pin, and keeps each send's arguments and
+# cmd/attnd/model_call_stack_test.go in attn pin, and keeps each send's arguments and
 # files in ~/lens-check/sent.
 sent="$HOME/lens-check/sent"
 mkdir -p "$sent"
-# attn refine: the token, then the transcript, on stdin. Answers after a second, as a
-# quick refinement would, so the pill's wait shows in a recording.
-if [ "$1" = refine ]; then
-    raw="$(tail -n +2)"
-    printf '%s\n' "$*" >"$sent/refine-args"
+# attn model call --token-stdin: the token, then one JSON request, on stdin; Lens's
+# input is {"transcript":...}. Answers after a second, as a quick refinement would,
+# so the pill's wait shows in a recording.
+if [ "$1" = model ]; then
+    request="$(tail -n +2)"
+    printf '%s\n' "$*" >"$sent/model-args"
+    printf '%s\n' "$request" >"$sent/model-request"
+    raw="$(printf '%s' "$request" | /usr/bin/python3 -I -c 'import json,sys; print(json.loads(json.load(sys.stdin)["input"])["transcript"])')"
     sleep 1
-    printf '{"profile_id":"default","success":true,"refined_text":"Refined: %s"}\n' "$raw"
+    printf '%s' "$raw" | /usr/bin/python3 -I -c 'import json,sys; print(json.dumps({"harness":"claude","model":"sonnet","model_ms":1000,"text":"Refined: "+sys.stdin.read()}))'
     exit 0
 fi
 [ "$1" = send ] || {
-    echo "stand-in attn: only send and refine are known" >&2
+    echo "stand-in attn: only send and model call are known" >&2
     exit 2
 }
 shift

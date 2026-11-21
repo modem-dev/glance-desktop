@@ -8,10 +8,13 @@ use std::{
 };
 
 /// A scratch folder with a stand-in `attn` that lists `sessions`, and records what
-/// it is sent: its arguments in `args` and each PNG as it was then. `attn refine`
-/// keeps its stdin in `refine-stdin`, then prints `refine-out`, and `refine-err` on
-/// stderr, and exits with `refine-code` when a test wrote them; otherwise it
-/// answers "Refined: " and the transcript.
+/// it is sent: its arguments in `args` and each PNG as it was then. `attn model
+/// call` keeps its arguments in `model-args` and its stdin in `model-stdin`, then
+/// prints `model-out`, and `model-err` on stderr, and exits with `model-code` when
+/// a test wrote them; otherwise it answers "Refined: " and the request's transcript.
+/// With `model-hang` it waits 600 s instead, then notes in `model-survived` that
+/// nothing stopped it. 600 s outlasts any run: one takes 4 s on a Mac and about
+/// 65 s on Linux CI, where 20 s let a call outlive the wait before its deadline.
 struct Run {
     dir: tempfile::TempDir,
     script: &'static str,
@@ -25,14 +28,17 @@ impl Run {
             &path.join("attn"),
             &format!(
                 r#"#!/bin/sh
-if [ "$1" = "refine" ]; then
-  cat > "{dir}/refine-stdin"; echo "$@" > "{dir}/refine-args"
-  if [ -f "{dir}/refine-code" ]; then
-    cat "{dir}/refine-out" 2>/dev/null; cat "{dir}/refine-err" >&2 2>/dev/null
-    exit "$(cat "{dir}/refine-code")"
+if [ "$1" = "model" ]; then
+  cat > "{dir}/model-stdin"; echo "$@" > "{dir}/model-args"
+  if [ -f "{dir}/model-hang" ]; then
+    sleep 600 < /dev/null > /dev/null 2>&1; echo "$$" >> "{dir}/model-survived"; exit 1
   fi
-  raw="$(tail -n +2 "{dir}/refine-stdin")"
-  echo "{{\"profile_id\":\"default\",\"success\":true,\"refined_text\":\"Refined: $raw\"}}"
+  if [ -f "{dir}/model-code" ]; then
+    cat "{dir}/model-out" 2>/dev/null; cat "{dir}/model-err" >&2 2>/dev/null
+    exit "$(cat "{dir}/model-code")"
+  fi
+  raw="$(tail -n +2 "{dir}/model-stdin" | sed 's/.*\\"transcript\\":\\"\([^\\]*\)\\".*/\1/')"
+  echo "{{\"harness\":\"claude\",\"model\":\"sonnet\",\"model_ms\":900,\"text\":\"Refined: $raw\"}}"
   exit 0
 fi
 cat > /dev/null
@@ -1421,20 +1427,30 @@ fn a_dictation_shows_its_words_then_pastes_attns_refinement_once() {
     );
     assert!(run.pasted("recording").is_empty());
 
-    // Voice stops; attn gets the token, then the transcript, and its text pastes once.
+    // Voice stops; attn gets the token, then one request, and the text pastes once.
     let refined = dictation(&run, "refined");
     assert_eq!(refined["state"], "settled");
     assert_eq!(refined["note"], "Pasted");
     assert_eq!(run.pasted("refined"), ["Refined: um so deploy to staging"]);
     assert_eq!(
-        std::fs::read_to_string(run.path("refine-stdin")).unwrap(),
-        "fake-token\num so deploy to staging"
-    );
-    assert_eq!(
-        std::fs::read_to_string(run.path("refine-args"))
+        std::fs::read_to_string(run.path("model-args"))
             .unwrap()
             .trim(),
-        "refine --token-stdin --duration-ms 300 --json"
+        "model call --token-stdin"
+    );
+    let stdin = std::fs::read_to_string(run.path("model-stdin")).unwrap();
+    let (token, request) = stdin.split_once('\n').unwrap();
+    assert_eq!(token, "fake-token");
+    // 0.3 s recorded: 15 s plus a quarter of it. No harness: the user's choice in attn.
+    assert_eq!(
+        serde_json::from_str::<Value>(request).unwrap(),
+        json!({
+            "purpose": "dictation-refine",
+            "tier": "standard",
+            "system": attn_lens::lens::refiner::instructions(),
+            "input": r#"{"transcript":"um so deploy to staging"}"#,
+            "limit_ms": 15_075,
+        })
     );
     assert_eq!(
         text(&run.tree("pill", "refined"), "pill-status"),
@@ -1491,7 +1507,7 @@ fn a_dictation_waiting_for_attn_pastes_raw_on_enter_nothing_on_esc_and_raw_past_
     assert_eq!(escaped["last_dictation"], "never mind");
     assert_eq!(run.pasted("escaped"), ["raw words"]);
 
-    // attn's limit for 0.2 s of speech is 15.05 s; Lens waits 2 s more.
+    // The call's limit for 0.2 s of speech is 15.05 s; Lens waits 2 s more.
     assert_eq!(dictation(&run, "waiting")["state"], "refining");
     let expired = dictation(&run, "expired");
     assert_eq!(
@@ -1500,6 +1516,14 @@ fn a_dictation_waiting_for_attn_pastes_raw_on_enter_nothing_on_esc_and_raw_past_
     );
     assert_eq!(dictation(&run, "deadline-pasted")["state"], "settled");
     assert_eq!(run.pasted("deadline-pasted"), ["raw words", "too slow"]);
+
+    // Calls that do not answer: ↩, Esc and the deadline each stop theirs.
+    std::fs::write(run.path("model-hang"), "").unwrap();
+    assert_eq!(dictation(&run, "deadline-pasted")["state"], "settled");
+    assert!(
+        !run.path("model-survived").exists(),
+        "a call ran on after its dictation settled"
+    );
 }
 
 #[test]
@@ -1508,29 +1532,29 @@ fn an_empty_dictation_pastes_nothing_and_a_failed_refinement_pastes_raw_with_att
     assert_eq!(dictation(&run, "empty")["note"], "Didn't catch anything");
     assert!(run.pasted("empty").is_empty());
     assert!(
-        !run.path("refine-args").exists(),
+        !run.path("model-args").exists(),
         "attn was asked about nothing"
     );
 
-    // attn ran and failed.
+    // attn ran the call and it failed.
     std::fs::write(
-        run.path("refine-out"),
-        r#"{"profile_id":"default","success":false,"error":"the refinement agent exited 1"}"#,
+        run.path("model-out"),
+        r#"{"harness":"claude","model":"sonnet","error":"claude: exited 1"}"#,
     )
     .unwrap();
-    std::fs::write(run.path("refine-code"), "1").unwrap();
+    std::fs::write(run.path("model-code"), "1").unwrap();
     let failed = state(&run, "settled");
     assert_eq!(
         failed["dictation"]["note"],
-        "Not refined: the refinement agent exited 1 · pasted as is"
+        "Not refined: claude: exited 1 · pasted as is"
     );
     assert_eq!(run.pasted("settled"), ["raw words"]);
 
     // attn no longer knows the token: Lens is unpaired, and the raw text pastes.
-    std::fs::remove_file(run.path("refine-out")).unwrap();
+    std::fs::remove_file(run.path("model-out")).unwrap();
     std::fs::write(
-        run.path("refine-err"),
-        "refine: the sender token matches no paired sender; it was unpaired or never allowed. Pair again with attn send pair --name <name>",
+        run.path("model-err"),
+        "model call: the sender token matches no paired sender; it was unpaired or never allowed. Pair again with attn send pair --name <name>",
     )
     .unwrap();
     let unpaired = state(&run, "settled");
@@ -1538,7 +1562,7 @@ fn an_empty_dictation_pastes_nothing_and_a_failed_refinement_pastes_raw_with_att
         unpaired["dictation"]["note"]
             .as_str()
             .unwrap()
-            .starts_with("Not refined: refine: the sender token matches no paired sender"),
+            .starts_with("Not refined: model call: the sender token matches no paired sender"),
         "{unpaired}"
     );
     assert!(unpaired["attn"].as_str().unwrap().starts_with("Unpaired"));
@@ -1573,7 +1597,7 @@ fn the_capture_key_during_a_dictation_hands_its_voice_and_words_to_the_capture()
     assert_eq!(stopped["voice"]["state"], "off");
     assert!(run.pasted("stopped").is_empty());
     assert!(
-        !run.path("refine-args").exists(),
+        !run.path("model-args").exists(),
         "a handed-over dictation was refined"
     );
 }

@@ -76,9 +76,9 @@ Lens needs these accesses:
 ## What stays on the Mac
 
 Captures, marks, transcription and OCR all happen on this Mac. A capture leaves it
-only when you send it, through `attn send`, to the session you chose. A
-dictation's text goes to attn for refinement through `attn refine`. That session
-may run on another machine. The only download Lens makes is the speech model, from
+only when you send it, through `attn send`, to the session you chose. That session
+may run on another machine. A dictation's text goes through `attn model call` to
+the model attn's harness uses, for refinement. The only download Lens makes is the speech model, from
 Hugging Face.
 
 ## More

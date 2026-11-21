@@ -45,6 +45,10 @@ objc2-avf-audio = { version = "0.3", default-features = false, features = ["std"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "block2", "bitflags", "NSArray", "NSData", "NSError", "NSNotification", "NSProcessInfo", "NSString", "NSURL"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard", "NSPasteboardItem", "NSRunningApplication", "NSWorkspace"] }
 
+[[example]]
+name = "refine-probe"
+path = "probes/refine/main.rs"
+
 [build-dependencies]
 cc = "1"
 

@@ -1,6 +1,6 @@
 //! Dictation: the voice key with no capture open. The words show in the pill
-//! while you speak; when voice stops, attn refines them (`attn refine`) and the
-//! result pastes once at the cursor of the app in front (D5, D6 on the plan).
+//! while you speak; when voice stops, a model refines them through attn (`attn
+//! model call`, with Lens's own instructions from `refiner`) and the result pastes once at the cursor of the app in front (D5, D6 on the plan).
 //!
 //! While the refinement runs, ↩ pastes the raw text at once and Esc pastes
 //! nothing. A failed or late refinement, or no attn to ask, pastes the raw text
@@ -10,7 +10,7 @@
 //! The capture key during a dictation hands it over (D9): the capture that
 //! opens takes the running voice and the words so far, and nothing pastes.
 use super::{
-    AttnStatus, Lens, State, attn,
+    AttnStatus, Lens, State, attn, refiner,
     session::{CaptureVoice, DisplayFrame, HostTime, RunningVoice, Segment, VoiceOwner},
 };
 use crate::platform_port::{PillKey, Press, Sink, VoiceEvent, VoiceSource, VoiceStatus};
@@ -18,12 +18,6 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
-
-/// attn's refinement limit (F1 on the plan, `dictationRefineLimit`): 15 s plus a
-/// quarter of the recording. Healthy refinements took 1.8–8.7 s (F2).
-fn attn_limit(recording: Duration) -> Duration {
-    Duration::from_secs(15) + recording / 4
-}
 
 /// Lens stops waiting this long after attn's own limit, so attn's error, which
 /// names its limit, arrives first when attn is alive (Design › Rules).
@@ -47,12 +41,14 @@ pub enum Dictation {
         started: HostTime,
         stopped: HostTime,
     },
-    /// Waiting for attn since `asked`. `refine` is `None` until the command has started.
+    /// Waiting for attn since `asked`; voice stopped at `stopped`. `call` is
+    /// `None` until the command has started.
     Refining {
         run: u64,
         segments: Vec<Segment>,
         started: HostTime,
-        refine: Option<Arc<attn::Refine>>,
+        call: Option<Arc<attn::ModelCall>>,
+        stopped: HostTime,
         asked: HostTime,
         deadline: HostTime,
     },
@@ -225,11 +221,11 @@ impl Lens {
             Some(Dictation::Refining {
                 run,
                 segments,
-                refine,
+                call,
                 ..
             }) => {
-                if let Some(refine) = refine {
-                    refine.stop();
+                if let Some(call) = call {
+                    call.stop();
                 }
                 state = self.settle(state, run, words(&segments), Settled::Raw(None));
             }
@@ -370,14 +366,17 @@ impl Lens {
             return self.release(state);
         }
         let recording = stopped.since(started);
+        let input = refiner::input(&raw);
+        let request = refiner::request(&input, recording);
         let asked = self.port.now();
         state.dictation = Some(Dictation::Refining {
             run,
             segments,
             started,
-            refine: None,
+            call: None,
+            stopped,
             asked,
-            deadline: asked.after(attn_limit(recording) + PAST_ATTNS_LIMIT),
+            deadline: asked.after(request.limit + PAST_ATTNS_LIMIT),
         });
         self.sync_pill_keys(&state);
         self.release(state);
@@ -391,10 +390,10 @@ impl Lens {
         ));
         let started = started.and_then(|token| {
             let bin = attn::locate()?;
-            attn::Refine::start(&bin, &token, &raw, recording.as_millis() as u64)
+            attn::ModelCall::start(&bin, &token, &request)
         });
         let mut state = self.state.lock().unwrap();
-        let Some(Dictation::Refining { refine, .. }) = state
+        let Some(Dictation::Refining { call, .. }) = state
             .dictation
             .as_mut()
             .filter(|d| matches!(d, Dictation::Refining { run: r, .. } if *r == run))
@@ -405,7 +404,7 @@ impl Lens {
         match started {
             Ok(started) => {
                 let started = Arc::new(started);
-                *refine = Some(started.clone());
+                *call = Some(started.clone());
                 drop(state);
                 let lens = self.clone();
                 self.port.run(Box::new(move || {
@@ -423,14 +422,36 @@ impl Lens {
     }
 
     /// attn answered dictation `run`. A late answer finds it settled and is dropped.
-    fn refined(self: &Arc<Self>, run: u64, result: Result<String, attn::Failure>) {
+    fn refined(self: &Arc<Self>, run: u64, result: Result<attn::Answer, attn::Failure>) {
         let mut state = self.state.lock().unwrap();
-        if !matches!(state.dictation, Some(Dictation::Refining { run: r, .. }) if r == run) {
+        let Some(Dictation::Refining { stopped, asked, .. }) = state
+            .dictation
+            .as_ref()
+            .filter(|d| matches!(d, Dictation::Refining { run: r, .. } if *r == run))
+        else {
             dictation_log(format_args!("dictation {run}: attn answered late, dropped"));
             return;
-        }
-        dictation_log(format_args!("dictation {run}: attn answered"));
-        state = match result {
+        };
+        let now = self.port.now();
+        dictation_log(format_args!(
+            "dictation {run}: attn answered {} ms after voice stopped (attn {} ms, {})",
+            now.since(*stopped).as_millis(),
+            now.since(*asked).as_millis(),
+            match &result {
+                Ok(answer) => format!(
+                    "{} {} {}",
+                    answer.harness,
+                    answer.model,
+                    answer
+                        .model_ms
+                        .map_or("model time unreported".into(), |ms| format!(
+                            "model {ms} ms"
+                        ))
+                ),
+                Err(_) => "failed".into(),
+            }
+        ));
+        state = match result.map(|answer| answer.text) {
             Ok(text) if !text.trim().is_empty() => {
                 self.settle_refining(state, run, |_| (text, Settled::Refined))
             }
@@ -489,16 +510,14 @@ impl Lens {
         run: u64,
         outcome: impl FnOnce(String) -> (String, Settled),
     ) -> MutexGuard<'a, State> {
-        let Some(Dictation::Refining {
-            segments, refine, ..
-        }) = state
+        let Some(Dictation::Refining { segments, call, .. }) = state
             .dictation
             .take_if(|d| matches!(d, Dictation::Refining { run: r, .. } if *r == run))
         else {
             return state;
         };
-        if let Some(refine) = refine {
-            refine.stop();
+        if let Some(call) = call {
+            call.stop();
         }
         let (text, how) = outcome(words(&segments));
         self.settle(state, run, text, how)
@@ -644,11 +663,11 @@ impl Lens {
             Dictation::Refining {
                 segments,
                 started,
-                refine,
+                call,
                 ..
             } => {
-                if let Some(refine) = refine {
-                    refine.stop();
+                if let Some(call) = call {
+                    call.stop();
                 }
                 HandOver {
                     segments,

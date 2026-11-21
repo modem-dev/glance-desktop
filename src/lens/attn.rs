@@ -1,13 +1,14 @@
 //! Attn Lens reaches attn only through the `attn` CLI on this Mac. Its `--json`
 //! output is the whole contract: `attn send sessions`, `attn send pair`,
-//! `attn send <session>` and `attn refine`, pinned by attn's own stack tests
-//! (cmd/attn/send_stack_test.go, cmd/attnd/refine_stack_test.go).
+//! `attn send <session>` and `attn model call`, pinned by attn's own stack tests
+//! (cmd/attn/send_stack_test.go, cmd/attnd/model_call_stack_test.go).
 use serde::Deserialize;
 use std::{
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{Child, ChildStderr, ChildStdout, Command, Stdio},
     sync::Mutex,
+    time::Duration,
 };
 
 /// The name the user sees when Lens asks to pair, and in attn's Settings → Paired senders.
@@ -174,45 +175,92 @@ pub fn send(
         .map_err(|e| Failure::Error(format!("attn send printed JSON Lens cannot read: {e}")))
 }
 
-/// Asks the user to pair Lens. `shown` gets the code attn shows beside Allow;
-/// returns the token once the user allows, or attn's refusal.
-/// A running `attn refine`. Dropping it, or [`Refine::stop`], kills the command,
-/// and attn cancels the refinement when its connection closes.
-pub struct Refine {
+/// A tier, as attn's model tiers name the intelligence a call needs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Tier {
+    Light,
+    Standard,
+    Deep,
+}
+
+impl Tier {
+    fn name(self) -> &'static str {
+        match self {
+            Tier::Light => "light",
+            Tier::Standard => "standard",
+            Tier::Deep => "deep",
+        }
+    }
+}
+
+/// One `attn model call`: Lens's instructions and input, run unchanged on the
+/// model the tier names, under the harness the user chose in attn.
+pub struct Request<'a> {
+    /// The label attn shows in its call log.
+    pub purpose: &'a str,
+    pub tier: Option<Tier>,
+    /// The instructions: the model's system prompt.
+    pub system: &'a str,
+    pub input: &'a str,
+    /// How long attn waits for the model; attn ends the call after it.
+    pub limit: Duration,
+}
+
+/// The model's answer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Answer {
+    pub text: String,
+    /// The harness and model that answered.
+    pub harness: String,
+    pub model: String,
+    /// The model's own time, when the harness reports it.
+    pub model_ms: Option<u64>,
+}
+
+/// A running `attn model call`. Dropping it, or [`ModelCall::stop`], kills the
+/// command, and attn ends the call when its connection closes.
+pub struct ModelCall {
     child: Mutex<Child>,
     output: Mutex<Option<(ChildStdout, ChildStderr)>>,
 }
 
-/// What `attn refine --json` prints, on success and on failure alike.
+/// What `attn model call` prints on stdout, answered or not.
 #[derive(Deserialize)]
-struct Refined {
-    success: bool,
+struct Called {
     #[serde(default)]
-    refined_text: Option<String>,
+    harness: String,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    model_ms: Option<u64>,
     #[serde(default)]
     error: Option<String>,
 }
 
-impl Refine {
-    /// Starts refining `raw`, a recording `duration_ms` long, and returns at once.
-    pub fn start(bin: &Path, token: &str, raw: &str, duration_ms: u64) -> Result<Self, Failure> {
-        let duration = duration_ms.to_string();
+impl ModelCall {
+    /// Starts the call and returns at once.
+    pub fn start(bin: &Path, token: &str, request: &Request) -> Result<Self, Failure> {
+        let mut body = serde_json::json!({
+            "purpose": request.purpose,
+            "system": request.system,
+            "input": request.input,
+            "limit_ms": request.limit.as_millis() as u64,
+        });
+        if let Some(tier) = request.tier {
+            body["tier"] = tier.name().into();
+        }
         let mut child = Command::new(bin)
-            .args([
-                "refine",
-                "--token-stdin",
-                "--duration-ms",
-                &duration,
-                "--json",
-            ])
+            .args(["model", "call", "--token-stdin"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| Failure::Error(format!("Could not run {}: {e}", bin.display())))?;
-        // The token, then the transcript; closing stdin ends it.
+        // The token line, then the request; closing stdin ends it.
         if let Some(mut stdin) = child.stdin.take() {
-            let _ = write!(stdin, "{token}\n{raw}");
+            let _ = write!(stdin, "{token}\n{body}");
         }
         let output = child.stdout.take().zip(child.stderr.take());
         Ok(Self {
@@ -221,14 +269,14 @@ impl Refine {
         })
     }
 
-    /// Waits for the refined text, or attn's reason there is none. Slow.
-    pub fn wait(&self) -> Result<String, Failure> {
+    /// Waits for the model's answer, or attn's reason there is none. Slow.
+    pub fn wait(&self) -> Result<Answer, Failure> {
         let (mut stdout, mut stderr) = self
             .output
             .lock()
             .unwrap()
             .take()
-            .ok_or_else(|| Failure::Error("attn refine was already read".into()))?;
+            .ok_or_else(|| Failure::Error("attn model call was already read".into()))?;
         // Both pipes close when the command exits or is stopped; the child lock
         // stays free meanwhile, so `stop` can kill it.
         let (mut out, mut err) = (String::new(), Vec::new());
@@ -240,18 +288,26 @@ impl Refine {
             .unwrap()
             .wait()
             .map_err(|e| Failure::Error(e.to_string()))?;
-        match serde_json::from_str::<Refined>(out.trim()) {
-            Ok(Refined {
-                success: true,
-                refined_text: Some(text),
-                ..
-            }) => Ok(text),
-            Ok(refined) => {
-                Err(Failure::Error(refined.error.unwrap_or_else(|| {
-                    "attn refine gave no text and no reason".into()
+        match serde_json::from_str::<Called>(out.trim()) {
+            Ok(Called {
+                harness,
+                model,
+                text: Some(text),
+                model_ms,
+                error: None,
+            }) if status.success() => Ok(Answer {
+                text,
+                harness,
+                model,
+                model_ms,
+            }),
+            // The call ran and failed, or passed its limit.
+            Ok(called) => {
+                Err(Failure::Error(called.error.unwrap_or_else(|| {
+                    "attn model call gave no text and no reason".into()
                 })))
             }
-            // A refused token, or a usage error, comes on stderr with no JSON.
+            // A refused token, or a refused request, comes on stderr with no JSON.
             Err(_) => {
                 let text = error_text(&err, status.code());
                 Err(if text.contains("attn send pair") {
@@ -268,7 +324,7 @@ impl Refine {
     }
 }
 
-impl Drop for Refine {
+impl Drop for ModelCall {
     fn drop(&mut self) {
         self.stop();
         // Reaps it, unless `wait` did.
@@ -276,9 +332,16 @@ impl Drop for Refine {
     }
 }
 
+/// Asks the user to pair Lens. `shown` gets the code attn shows beside Allow;
+/// returns the token once the user allows, or attn's refusal.
 pub fn pair(bin: &Path, shown: impl FnOnce(PairRequest)) -> Result<String, Failure> {
+    pair_as(bin, SENDER_NAME, shown)
+}
+
+/// [`pair`], under another name: the refinement probe pairs as itself.
+pub fn pair_as(bin: &Path, name: &str, shown: impl FnOnce(PairRequest)) -> Result<String, Failure> {
     let mut child = Command::new(bin)
-        .args(["send", "pair", "--name", SENDER_NAME, "--json"])
+        .args(["send", "pair", "--name", name, "--json"])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -512,58 +575,105 @@ echo '{"sender":{"id":"x","name":"Attn Lens","created_at":"2026-11-02T10:00:00Z"
     }
 
     #[test]
-    fn refine_sends_the_token_then_the_transcript_and_reads_attns_json() {
+    fn a_model_call_sends_the_token_then_one_request_and_reads_attns_json() {
         let dir = tempfile::tempdir().unwrap();
-        // As cmd/attnd/refine_stack_test.go pins it.
+        // As cmd/attnd/model_call_stack_test.go pins it.
         let bin = fake(
             dir.path(),
             r#"cat > "$(dirname "$0")/stdin"
-echo '{"profile_id":"default","success":true,"refined_text":"Deploy to staging."}'"#,
+echo '{"harness":"claude","model":"sonnet","model_ms":922,"text":"Deploy to staging."}'"#,
         );
-        let refine = Refine::start(&bin, "tok", "um so deploy\nto staging", 7616).unwrap();
-        assert_eq!(refine.wait().unwrap(), "Deploy to staging.");
+        let call = ModelCall::start(
+            &bin,
+            "tok",
+            &Request {
+                purpose: "dictation-refine",
+                tier: Some(Tier::Standard),
+                system: "Clean it up.",
+                input: "{\"transcript\":\"um so deploy\\nto staging\"}",
+                limit: Duration::from_millis(16_904),
+            },
+        )
+        .unwrap();
         assert_eq!(
-            std::fs::read_to_string(dir.path().join("stdin")).unwrap(),
-            "tok\num so deploy\nto staging"
+            call.wait().unwrap(),
+            Answer {
+                text: "Deploy to staging.".into(),
+                harness: "claude".into(),
+                model: "sonnet".into(),
+                model_ms: Some(922)
+            }
         );
         assert_eq!(
             std::fs::read_to_string(dir.path().join("args"))
                 .unwrap()
                 .trim(),
-            "refine --token-stdin --duration-ms 7616 --json"
+            "model call --token-stdin"
+        );
+        let stdin = std::fs::read_to_string(dir.path().join("stdin")).unwrap();
+        let (token, request) = stdin.split_once('\n').unwrap();
+        assert_eq!(token, "tok");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(request).unwrap(),
+            serde_json::json!({
+                "purpose": "dictation-refine",
+                "tier": "standard",
+                "system": "Clean it up.",
+                "input": "{\"transcript\":\"um so deploy\\nto staging\"}",
+                "limit_ms": 16904,
+            })
         );
     }
 
     #[test]
-    fn a_refinement_past_attns_limit_gives_attns_error() {
+    fn a_model_call_that_fails_or_is_refused_gives_attns_error() {
         let dir = tempfile::tempdir().unwrap();
         let bin = fake(
             dir.path(),
             r#"cat > /dev/null
-echo '{"profile_id":"default","success":false,"error":"refinement did not finish within 25 s for this 40 s recording","limit_ms":25000}'; exit 1"#,
+echo '{"harness":"claude","model":"sonnet","error":"the model did not answer within 25s","limit_ms":25000}'; exit 1"#,
         );
-        let refine = Refine::start(&bin, "tok", "deploy", 40_000).unwrap();
+        let call = ModelCall::start(&bin, "tok", &request()).unwrap();
         assert_eq!(
-            refine.wait(),
-            Err(Failure::Error(
-                "refinement did not finish within 25 s for this 40 s recording".into()
-            ))
+            call.wait(),
+            Err(Failure::Error("the model did not answer within 25s".into()))
         );
         let refused = fake(
             dir.path(),
-            "cat > /dev/null; echo 'refine: the sender token matches no paired sender; it was unpaired or never allowed. Pair again with attn send pair --name <name>' >&2; exit 1",
+            "cat > /dev/null; echo 'model call: tier must be light, standard or deep, not \"huge\"' >&2; exit 1",
         );
-        let refine = Refine::start(&refused, "gone", "hello", 0).unwrap();
-        assert!(matches!(refine.wait(), Err(Failure::NotPaired(_))));
+        let call = ModelCall::start(&refused, "tok", &request()).unwrap();
+        assert_eq!(
+            call.wait(),
+            Err(Failure::Error(
+                "model call: tier must be light, standard or deep, not \"huge\"".into()
+            ))
+        );
+        let unpaired = fake(
+            dir.path(),
+            "cat > /dev/null; echo 'model call: the sender token matches no paired sender; it was unpaired or never allowed. Pair again with attn send pair --name <name>' >&2; exit 1",
+        );
+        let call = ModelCall::start(&unpaired, "gone", &request()).unwrap();
+        assert!(matches!(call.wait(), Err(Failure::NotPaired(_))));
     }
 
     #[test]
-    fn stopping_a_refinement_ends_the_command() {
+    fn stopping_a_model_call_ends_the_command() {
         let dir = tempfile::tempdir().unwrap();
-        // Waits for a line that never comes, as a refinement that hangs would.
+        // Waits for an answer that never comes, as a call that hangs would.
         let bin = fake(dir.path(), "cat > /dev/null; exec sleep 600");
-        let refine = Refine::start(&bin, "tok", "words", 0).unwrap();
-        refine.stop();
-        assert!(matches!(refine.wait(), Err(Failure::Error(_))));
+        let call = ModelCall::start(&bin, "tok", &request()).unwrap();
+        call.stop();
+        assert!(matches!(call.wait(), Err(Failure::Error(_))));
+    }
+
+    fn request() -> Request<'static> {
+        Request {
+            purpose: "dictation-refine",
+            tier: Some(Tier::Standard),
+            system: "Clean it up.",
+            input: "{}",
+            limit: Duration::from_secs(15),
+        }
     }
 }
