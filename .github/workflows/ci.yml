@@ -54,18 +54,21 @@ jobs:
           cargo test --locked native_ocr_recognizes_synthetic_text_and_regions -- --ignored
 
   linux:
-    name: Check (Linux x86_64, headless)
+    name: Check (Linux x86_64, headless, ${{ matrix.part }})
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    strategy:
+      fail-fast: false
+      matrix:
+        # The editor's script runs are the longest part, so two jobs share them; the
+        # rest of the suite, lint included, takes a third.
+        part: [lint and tests, editor 1/2, editor 2/2]
     env:
       CARGO_BUILD_JOBS: "2"
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
-    # Receipt (2026-11-20): healthy runs take 34–60 min on lavapipe, and one commit
-    # took 42 min on one runner and over 60 on two others (PR #40), so the runner alone
-    # moves it past 60. 90 is the tripwire until the seed lens-linux-ci-runs-near-60
-    # (s-963mn3) makes the suite faster.
-    timeout-minutes: 90
+    # Receipt pending: set from this branch's runs.
+    timeout-minutes: 45
     steps:
       - name: Install build and runtime dependencies
         run: |
@@ -81,12 +84,21 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check formatting
+        if: matrix.part == 'lint and tests'
         run: cargo fmt --check
       - name: Lint and type-check all targets
+        if: matrix.part == 'lint and tests'
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run tests
-        run: cargo test --locked
+        if: matrix.part == 'lint and tests'
+        run: cargo test --locked -- --skip every_script_holds
       - name: Test FFmpeg encode and frame decode
+        if: matrix.part == 'lint and tests'
         run: |
           cp native/linux/glance-video-* target/
           cargo test --locked native_video_roundtrip -- --ignored
+      - name: Run the editor's scripts
+        if: startsWith(matrix.part, 'editor')
+        env:
+          EDITOR_SHARD: ${{ matrix.part == 'editor 1/2' && '1/2' || '2/2' }}
+        run: cargo test --locked --test editor every_script_holds

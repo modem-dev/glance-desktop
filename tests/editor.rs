@@ -475,6 +475,18 @@ fn every_script_holds() {
         })
         .flat_map(|name| (0..assertions(&name)).map(move |index| (name.clone(), index)))
         .collect();
+    // `EDITOR_SHARD=K/N` runs every Nth assertion from the Kth, so CI spreads the runs
+    // over N jobs; a script's assertions alternate between them.
+    let shard = std::env::var("EDITOR_SHARD").ok().map(|shard| {
+        let (k, n) = shard.split_once('/').expect("EDITOR_SHARD is K/N");
+        (k.parse::<usize>().unwrap(), n.parse::<usize>().unwrap())
+    });
+    let runs: Vec<(String, usize)> = runs
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| shard.is_none_or(|(k, n)| i % n == k - 1))
+        .map(|(_, run)| run)
+        .collect();
     let queue = std::sync::Mutex::new(runs);
     let failures = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|scope| {
