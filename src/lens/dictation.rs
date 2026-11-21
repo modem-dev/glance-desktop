@@ -9,8 +9,13 @@
 //!
 //! The capture key during a dictation hands it over (D9): the capture that
 //! opens takes the running voice and the words so far, and nothing pastes.
+//!
+//! While "Use words on screen" is on, a dictation reads the front window as it
+//! starts, and the words the transcript could mean go with it to the refiner
+//! (`s-0ww1ak`). Refinement never waits for the read: one not back by then is
+//! dropped, as is the read of a dictation that ended any other way.
 use super::{
-    AttnStatus, Lens, State, attn, refiner,
+    AttnStatus, Lens, State, attn, refiner, screen_words,
     session::{CaptureVoice, DisplayFrame, HostTime, RunningVoice, Segment, VoiceOwner},
 };
 use crate::platform_port::{PillKey, Press, Sink, VoiceEvent, VoiceSource, VoiceStatus};
@@ -32,6 +37,7 @@ pub enum Dictation {
         voice: RunningVoice,
         segments: Vec<Segment>,
         started: HostTime,
+        screen: ScreenRead,
     },
     /// Voice stopped; waiting for the phrase in progress.
     Finishing {
@@ -40,6 +46,7 @@ pub enum Dictation {
         segments: Vec<Segment>,
         started: HostTime,
         stopped: HostTime,
+        screen: ScreenRead,
     },
     /// Waiting for attn since `asked`; voice stopped at `stopped`. `call` is
     /// `None` until the command has started.
@@ -59,6 +66,18 @@ pub enum Dictation {
         how: Settled,
         until: Option<HostTime>,
     },
+}
+
+/// The screen read of a dictation, until refinement takes it.
+pub enum ScreenRead {
+    /// "Use words on screen" was off when the dictation started.
+    Off,
+    /// Still reading.
+    Reading,
+    /// The front window's text.
+    Read(String),
+    /// The read failed; it logged why.
+    Failed,
 }
 
 /// How a dictation ended, as the pill tells it.
@@ -193,6 +212,7 @@ impl Lens {
                 voice,
                 segments,
                 started,
+                screen,
             }) => {
                 let RunningVoice {
                     run, handle, owner, ..
@@ -203,6 +223,7 @@ impl Lens {
                     segments,
                     started,
                     stopped: self.port.now(),
+                    screen,
                 });
                 self.release(state);
                 let lens = self.clone();
@@ -250,6 +271,12 @@ impl Lens {
             .clone()
             .map_or(VoiceSource::Microphone, VoiceSource::Wav);
         let owner = Arc::new(Mutex::new(VoiceOwner::Dictation));
+        let read = state.settings.screen_words;
+        let screen = if read {
+            ScreenRead::Reading
+        } else {
+            ScreenRead::Off
+        };
         // `voice` reports from elsewhere, and the sink waits for this lock, so
         // the first report finds the dictation stored.
         state.dictation = Some(
@@ -263,6 +290,7 @@ impl Lens {
                     },
                     segments: vec![],
                     started,
+                    screen,
                 },
                 Err(error) => Dictation::Settled {
                     run,
@@ -272,8 +300,48 @@ impl Lens {
                 },
             },
         );
+        let recording = matches!(state.dictation, Some(Dictation::Recording { .. }));
         dictation_log(format_args!("voice key: dictation {run} starts"));
         self.release(state);
+        if read && recording {
+            let lens = self.clone();
+            self.port.run(Box::new(move || lens.read_screen(run)));
+        }
+    }
+
+    /// Reads the front window for dictation `run`, and leaves the text on it if
+    /// it is still recording or finishing. Logs the time and the size, never the words.
+    fn read_screen(self: &Arc<Self>, run: u64) {
+        let start = std::time::Instant::now();
+        let read = self.port.screen_text();
+        // Loads the word list here, off the path to refinement.
+        self.port.ordinary_word("the");
+        let ms = start.elapsed().as_millis();
+        match &read {
+            Ok(text) => dictation_log(format_args!(
+                "dictation {run}: screen read in {ms} ms, {} words",
+                text.split_whitespace().count()
+            )),
+            Err(error) => dictation_log(format_args!(
+                "dictation {run}: screen read failed in {ms} ms: {error}"
+            )),
+        }
+        let mut state = self.state.lock().unwrap();
+        match &mut state.dictation {
+            Some(
+                Dictation::Recording {
+                    voice: RunningVoice { run: r, .. },
+                    screen,
+                    ..
+                }
+                | Dictation::Finishing { run: r, screen, .. },
+            ) if *r == run => {
+                *screen = read.map_or(ScreenRead::Failed, ScreenRead::Read);
+            }
+            _ => dictation_log(format_args!(
+                "dictation {run}: screen read came back after the dictation moved on, dropped"
+            )),
+        }
     }
 
     /// A report from the voice of dictation `run`.
@@ -303,6 +371,7 @@ impl Lens {
                         voice,
                         segments,
                         started,
+                        screen,
                     }) = state.dictation.take()
                     else {
                         unreachable!("matched above");
@@ -313,6 +382,7 @@ impl Lens {
                         segments,
                         started,
                         stopped: self.port.now(),
+                        screen,
                     });
                     drop(state);
                     self.dictation_finished(run, &voice.owner, Err(error));
@@ -351,6 +421,7 @@ impl Lens {
             segments,
             started,
             stopped,
+            screen,
             ..
         }) = state
             .dictation
@@ -366,7 +437,28 @@ impl Lens {
             return self.release(state);
         }
         let recording = stopped.since(started);
-        let input = refiner::input(&raw);
+        let (words, pairs) = match screen {
+            ScreenRead::Read(text) => {
+                let picked = screen_words::pick(&text, |w| self.port.ordinary_word(w));
+                let words = screen_words::matching(&picked, &raw);
+                let pairs = screen_words::sound_pairs(&text, &raw);
+                dictation_log(format_args!(
+                    "dictation {run}: {} of {} screen words match, {} sound pairs",
+                    words.len(),
+                    picked.len(),
+                    pairs.len()
+                ));
+                (words, pairs)
+            }
+            ScreenRead::Reading => {
+                dictation_log(format_args!(
+                    "dictation {run}: screen read not back, refining without it"
+                ));
+                Default::default()
+            }
+            ScreenRead::Off | ScreenRead::Failed => Default::default(),
+        };
+        let input = refiner::input(&raw, &words, &pairs);
         let request = refiner::request(&input, recording);
         let asked = self.port.now();
         state.dictation = Some(Dictation::Refining {
@@ -631,10 +723,12 @@ impl Lens {
     /// with the state lock held, before the capture is stored.
     pub(super) fn hand_over(&self, state: &mut State, id: u64) -> Option<HandOver> {
         let handed = match state.dictation.take()? {
+            // The screen read goes with the dictation: a capture never refines.
             Dictation::Recording {
                 voice,
                 segments,
                 started,
+                ..
             } => {
                 *voice.owner.lock().unwrap() = VoiceOwner::Capture(id);
                 HandOver {

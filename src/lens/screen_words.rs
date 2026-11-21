@@ -550,15 +550,6 @@ mod tests {
         }
     }
 
-    /// The prototype's screen beyond each case's own entries (`corpus.py` on s-vs128z):
-    /// OCR misreads, ordinary words and identifiers.
-    const NOISE: &str = "wnen tne agaln everytnıng sanooox Foature protoype chıloren commana \
-        settinas nothina coula inbox plugin workspaces runtime repo shortcuts automations podman \
-        Forgejo Exec stdin scratchpad s-03epdz s-m6v33v a-y68peq C30 C31 D20 50fad891 141.9k 57s \
-        16s v3d13h OpenShell TypeScript idleCompaction ChatGPT CLAUDE.md settings.json \
-        internal/git/materialize.go ~/projects/victor plan/git-operations Dosevzwos.TXT presented \
-        changed expected families";
-
     /// The prototype's corpus: (transcript, the case's screen entries, what matching
     /// kept with the whole screen). Spelling cases keep their identifier; near-miss
     /// cases drop theirs, except `DeployWorker` for "deploy worked" and
@@ -593,8 +584,10 @@ mod tests {
 
     #[test]
     fn matching_keeps_what_the_prototype_kept() {
-        let rest = NOISE
-            .split_whitespace()
+        // The prototype's screen beyond each case's own entries (`corpus.py` on
+        // s-vs128z): OCR misreads, ordinary words and identifiers, then `big.json`.
+        let rest = include_str!("../../tests/fixtures/screen-words/noise.txt")
+            .lines()
             .chain(include_str!("../../tests/fixtures/screen-words/entries.txt").lines());
         for (transcript, own, kept) in CORPUS {
             let screen: Vec<String> = own

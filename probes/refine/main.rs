@@ -2,6 +2,12 @@
 //! sends (`refiner::request`) and judges each answer: every phrase kept as many
 //! times as it was said, every filler dropped. Synthetic text only.
 //!
+//! The screen-words cases send what Lens would for their screen: the entries
+//! `screen_words::matching` keeps and the pairs `screen_words::sound_pairs` offers.
+//! Each is judged as the prototype on s-vs128z judged it: cleaned (a capital first,
+//! a stop last), kept (every `must`) and replaced (any `must_not`), and the probe
+//! ends with the prototype's table, by kind.
+//!
 //!     cargo run --example refine-probe -- --rounds 3 --out refine.jsonl [--case ID]
 //!
 //! It finds attn as Lens does (`ATTN_BIN` overrides) and calls the attn instance
@@ -11,8 +17,8 @@
 //! the exit is 1 when a refinement lost or changed what was said.
 mod corpus;
 
-use attn_lens::lens::{attn, refiner};
-use std::{io::Write, time::Instant};
+use attn_lens::lens::{attn, refiner, screen_words};
+use std::{collections::BTreeMap, io::Write, time::Instant};
 
 /// The synthetic speaking rate: the 143 s plan dictation has 516 words.
 const WORDS_PER_SECOND: f64 = 516.0 / 143.144;
@@ -34,6 +40,7 @@ fn main() {
     let token = std::env::var("LENS_PROBE_TOKEN").unwrap_or_else(|_| pair(&bin));
     let mut file = std::fs::File::create(&out).expect("create --out");
     let mut failed = 0;
+    let mut table: BTreeMap<corpus::Kind, [usize; 4]> = BTreeMap::new();
     for round in 1..=rounds {
         for case in corpus::cases() {
             if only.as_ref().is_some_and(|id| id != case.id) {
@@ -66,6 +73,42 @@ fn main() {
                     .unwrap_or_default(),
             );
         }
+        for case in corpus::screen_cases() {
+            if only.as_ref().is_some_and(|id| id != case.id) {
+                continue;
+            }
+            let record = refine_with_screen(&bin, &token, round, case);
+            writeln!(file, "{record}").expect("write --out");
+            let row = table.entry(case.kind).or_default();
+            let (cleaned, kept) = (record["cleaned"] == true, record["kept"] == true);
+            let replaced = record["replaced"].as_array().is_some_and(|r| !r.is_empty());
+            for (cell, on) in row.iter_mut().zip([true, cleaned, kept, replaced]) {
+                *cell += on as usize;
+            }
+            println!(
+                "{:<5} {:<14} r{round} {:<24} {:>7} ms  {}{}{} | {}",
+                case.kind.name(),
+                record["model"].as_str().unwrap_or("-"),
+                case.id,
+                record["wall_ms"],
+                if cleaned { "clean " } else { "RAW " },
+                if kept { "kept " } else { "LOST " },
+                record["replaced"],
+                record["refined"]
+                    .as_str()
+                    .or(record["error"].as_str())
+                    .unwrap_or(""),
+            );
+        }
+    }
+    if !table.is_empty() {
+        println!("kind     n  cleaned  kept  replaced");
+        for (kind, [n, cleaned, kept, replaced]) in &table {
+            println!(
+                "{:<5} {n:>4} {cleaned:>8} {kept:>5} {replaced:>9}",
+                kind.name()
+            );
+        }
     }
     if failed > 0 {
         eprintln!("refine-probe: {failed} refinements lost or changed what was said; see {out}");
@@ -81,7 +124,7 @@ fn refine(
 ) -> serde_json::Value {
     let words = case.spoken.split_whitespace().count();
     let recording = std::time::Duration::from_secs_f64(words as f64 / WORDS_PER_SECOND);
-    let input = refiner::input(&case.spoken);
+    let input = refiner::input(&case.spoken, &[], &[]);
     let start = Instant::now();
     let result = attn::ModelCall::start(bin, token, &refiner::request(&input, recording))
         .and_then(|call| call.wait());
@@ -112,6 +155,64 @@ fn refine(
         Err(attn::Failure::NotPaired(error) | attn::Failure::Error(error)) => {
             record["error"] = error.clone().into();
             record["failures"] = vec![format!("no refinement: {error}")].into();
+        }
+    }
+    record
+}
+
+fn refine_with_screen(
+    bin: &std::path::Path,
+    token: &str,
+    round: u32,
+    case: &corpus::ScreenCase,
+) -> serde_json::Value {
+    let words = screen_words::matching(&case.entries(), case.spoken);
+    let pairs = screen_words::sound_pairs(corpus::SCREEN_TEXT, case.spoken);
+    let input = refiner::input(case.spoken, &words, &pairs);
+    let count = case.spoken.split_whitespace().count();
+    let recording = std::time::Duration::from_secs_f64(count as f64 / WORDS_PER_SECOND);
+    let start = Instant::now();
+    let result = attn::ModelCall::start(bin, token, &refiner::request(&input, recording))
+        .and_then(|call| call.wait());
+    let mut record = serde_json::json!({
+        "case": case.id,
+        "kind": case.kind.name(),
+        "round": round,
+        "wall_ms": start.elapsed().as_millis() as u64,
+        "spoken": case.spoken,
+        "input": serde_json::from_str::<serde_json::Value>(&input).unwrap(),
+    });
+    match result {
+        Ok(answer) => {
+            let text = answer.text.trim();
+            let cleaned = text.chars().next().is_some_and(char::is_uppercase)
+                && text.ends_with(['.', '?', '!']);
+            let kept = case.must.iter().all(|must| {
+                if must.chars().all(|c| !c.is_uppercase()) {
+                    text.to_lowercase().contains(must)
+                } else {
+                    text.contains(must)
+                }
+            });
+            let replaced: Vec<&str> = case
+                .must_not
+                .iter()
+                .copied()
+                .filter(|gone| text.contains(gone))
+                .collect();
+            record["cleaned"] = cleaned.into();
+            record["kept"] = kept.into();
+            record["replaced"] = replaced.into();
+            record["harness"] = answer.harness.into();
+            record["model"] = answer.model.into();
+            record["model_ms"] = answer.model_ms.into();
+            record["refined"] = answer.text.into();
+        }
+        Err(attn::Failure::NotPaired(error) | attn::Failure::Error(error)) => {
+            record["error"] = error.into();
+            record["cleaned"] = false.into();
+            record["kept"] = false.into();
+            record["replaced"] = serde_json::json!([]);
         }
     }
     record

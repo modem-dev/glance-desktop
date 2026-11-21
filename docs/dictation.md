@@ -27,7 +27,8 @@ reach the app as usual. While the area picker shows, ↩ and Esc are the picker'
 ## How the text is refined
 
 Lens runs `attn model call` with its paired token, its own instructions
-(`src/lens/refiner.md`) and the transcript as JSON (`{"transcript": ...}`). It
+(`src/lens/refiner.md`) and the transcript as JSON (`{"transcript": ...}`, with
+the fields [Words on screen](#words-on-screen) adds). It
 asks for attn's standard tier and names no harness, so the harness is the one
 attn's `model_calls.agent` setting names, or the harness for new sessions. The
 limit is 15 s plus a quarter of the recording. attn keeps one model process
@@ -44,8 +45,35 @@ cargo run --example refine-probe -- --rounds 3 --out refine.jsonl
 ```
 
 `LENS_PROBE_TOKEN` gives it a paired token; without one it pairs as "Attn Lens
-refine probe" and prints the token. It exits 1 when a refinement lost or changed
-what was said.
+refine probe" and prints the token. attn refuses a pairing from inside an attn
+agent session, so pair it from a terminal of your own. It exits 1 when a
+refinement lost or changed what was said. The screen-words cases end the run with
+a table by kind: cleaned, kept (the spelling or the fix) and replaced (a word the
+speaker meant, swapped for a screen word).
+
+## Words on screen
+
+While **Use words on screen** is on (Settings, ⌘,; on by default), each dictation
+reads the window in front as it starts: one still of the topmost window that is
+not Lens's, and text recognition of it on this Mac (Vision, the same as Copy as
+OCR). From that text Lens keeps two lists, when the refinement starts:
+
+- `screen_words`: the names and identifiers on screen that the transcript could
+  mean, so "scope test environment" comes out as `ScopeTestEnvironment` and
+  "source slash lens" as `src/lens`. Only entries whose parts line up with words
+  you said go; the rest of the screen never leaves the Mac.
+- `maybe_misheard`: pairs of a word you said and a word that sounds like it and
+  shows twice on screen, such as "scale" and "skill". The refiner swaps one only
+  when the sentence makes little sense as heard.
+
+Both go in the input of the same `attn model call`, each only when it holds
+something. The refinement never waits for the read: a read that is not back when
+voice stops is dropped, and so is the read of a dictation that is cancelled or
+turned into a capture. A capture never refines, so it sends no screen words.
+Without Screen Recording, or when the read fails, the dictation runs as it would
+with the setting off, and no permission guide shows; the Settings row says when
+Screen Recording is not allowed. With the setting off, Lens takes no still and
+runs no OCR.
 
 ## When the text is not refined
 
@@ -86,6 +114,8 @@ capture. Cancel the pick and the dictation carries on.
 ## Checking it
 
 `LENS_DICTATION_LOG=1` prints each step with the time since launch: the voice key,
-the pill showing, voice reporting, attn asked and answering, the paste. The
+the pill showing, voice reporting, the screen read's time and word count (or its
+error), how many screen words matched and how many sound pairs were offered, attn
+asked and answering, the paste. It never prints the words themselves. The
 answer's line gives the time from the end of voice to the refined text, attn's
 part of it, and the harness, model and model time.

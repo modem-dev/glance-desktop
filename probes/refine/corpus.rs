@@ -3,6 +3,10 @@
 //! drop. Moved from attn's `scripts/dictationrefineprobe/corpus.go`
 //! (62e06bdb8), with one change: `steps` asked for Markdown there and asks for
 //! plain text here, because Lens sends no other format.
+//!
+//! The screen-words cases come from the prototype on s-vs128z
+//! (`screen-words-prototype-3.tgz`: `corpus.py` and `mishear.py`), with its screen
+//! and its judgement, so their results compare with its `sound3-sonnet.jsonl`.
 
 pub struct Phrase {
     pub any: &'static [&'static str],
@@ -179,3 +183,128 @@ pub fn cases() -> Vec<Case> {
         },
     ]
 }
+
+/// What a screen-words case tests, as the prototype named it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Kind {
+    /// An ordinary dictation: cleaned up, nothing from the screen added.
+    Clean,
+    /// An entry sounds like part of what was said, but the speaker meant the plain words.
+    Near,
+    /// The speaker said an identifier on screen.
+    Spell,
+    /// The transcriber wrote a word that sounds like a screen word the speaker meant.
+    Fix,
+    /// The transcript's word sounds like a screen word, but the speaker meant it.
+    Keep,
+}
+
+impl Kind {
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::Clean => "clean",
+            Kind::Near => "near",
+            Kind::Spell => "spell",
+            Kind::Fix => "fix",
+            Kind::Keep => "keep",
+        }
+    }
+}
+
+/// A dictation with a screen. `own` are the case's screen entries; the rest of the
+/// screen is the prototype's: `noise.txt` and `entries.txt` for the entries,
+/// `attn-screen.txt` for the sound pairs. `must` must appear in the refinement
+/// (exactly, unless all lowercase), and `must_not` must not.
+pub struct ScreenCase {
+    pub kind: Kind,
+    pub id: &'static str,
+    pub spoken: &'static str,
+    pub own: &'static [&'static str],
+    pub must: &'static [&'static str],
+    pub must_not: &'static [&'static str],
+}
+
+impl ScreenCase {
+    /// The screen entries `screen_words::matching` chooses from: the prototype gave
+    /// them only to the cases from `corpus.py`.
+    pub fn entries(&self) -> Vec<String> {
+        if matches!(self.kind, Kind::Fix | Kind::Keep) {
+            return vec![];
+        }
+        let fixture = |text: &'static str| text.lines();
+        self.own
+            .iter()
+            .copied()
+            .chain(fixture(include_str!(
+                "../../tests/fixtures/screen-words/noise.txt"
+            )))
+            .chain(fixture(include_str!(
+                "../../tests/fixtures/screen-words/entries.txt"
+            )))
+            .map(String::from)
+            .collect()
+    }
+}
+
+/// The screen text the sound pairs come from: a synthetic attn window.
+pub const SCREEN_TEXT: &str = include_str!("../../tests/fixtures/screen-words/attn-screen.txt");
+
+pub fn screen_cases() -> &'static [ScreenCase] {
+    SCREEN_CASES
+}
+
+#[rustfmt::skip]
+const SCREEN_CASES: &[ScreenCase] = &[
+    // corpus.py: ordinary, near-miss and spelling dictations, with the case's own screen entries
+    ScreenCase { kind: Kind::Clean, id: "screen-change", spoken: "um so i think we should change the plan for the family feature and uh ship it next week", own: &[], must: &["change the plan", "family"], must_not: &["changed", "families", "um", "uh "] },
+    ScreenCase { kind: Kind::Clean, id: "screen-logs", spoken: "can you check the logs and tell me why the session keeps dropping", own: &["Logs.tsx", "session_id", "SessionStore"], must: &["logs", "session"], must_not: &["Logs.tsx", "session_id", "SessionStore"] },
+    ScreenCase { kind: Kind::Clean, id: "screen-correct", spoken: "send it to ana no wait to bruno", own: &["AnaClient"], must: &["Bruno"], must_not: &["Ana", "wait"] },
+    ScreenCase { kind: Kind::Clean, id: "screen-hedge", spoken: "i'm not sure maybe we should probably wait until monday", own: &[], must: &["not sure", "maybe", "probably", "Monday"], must_not: &[] },
+    ScreenCase { kind: Kind::Clean, id: "screen-steps", spoken: "first we build it then we test it and then we ship it", own: &["build.rs", "test_it"], must: &["build it", "test it"], must_not: &["build.rs", "test_it"] },
+    ScreenCase { kind: Kind::Clean, id: "screen-thanks", spoken: "thanks that looks good to me please merge it", own: &["merge_base"], must: &["Thanks", "merge it"], must_not: &["merge_base"] },
+    ScreenCase { kind: Kind::Clean, id: "screen-runtime", spoken: "the plugin runtime is slow when the inbox is full", own: &[], must: &["plugin", "runtime", "inbox"], must_not: &["wnen"] },
+    ScreenCase { kind: Kind::Clean, id: "screen-settings", spoken: "uh open the settings and turn off the option for notifications", own: &["notifications_enabled", "SettingsWindow"], must: &["settings", "notifications"], must_not: &["settings.json", "notifications_enabled", "SettingsWindow", "uh "] },
+    ScreenCase { kind: Kind::Near, id: "screen-cloud", spoken: "okay the cloud deploy failed again i guess we need to look at the attention queue", own: &["Claude", "attn", "deploy-prod"], must: &["cloud", "attention", "I guess"], must_not: &["Claude", "attn", "deploy-prod"] },
+    ScreenCase { kind: Kind::Near, id: "screen-parse", spoken: "write a function that parses the header and returns an error", own: &["parse_header", "ParserError"], must: &["parses the header", "error"], must_not: &["parse_header", "ParserError"] },
+    ScreenCase { kind: Kind::Near, id: "screen-partial", spoken: "the test environment is broken so use staging", own: &["ScopeTestEnvironment", "StagingEnv"], must: &["test environment", "staging"], must_not: &["ScopeTestEnvironment", "StagingEnv"] },
+    ScreenCase { kind: Kind::Near, id: "screen-leak", spoken: "um fix the bug in the parser and then run the tests", own: &["ParserError", "parse_header", "test_parser_roundtrip", "cargo-nextest"], must: &["parser", "tests"], must_not: &["ParserError", "parse_header", "test_parser", "nextest"] },
+    ScreenCase { kind: Kind::Near, id: "screen-leak2", spoken: "update the config and then run the tests again", own: &["ConfigLoader", "config.toml", "tests/editor.rs", "run_tests"], must: &["config", "tests"], must_not: &["ConfigLoader", "config.toml", "tests/editor.rs", "run_tests"] },
+    ScreenCase { kind: Kind::Near, id: "screen-leak3", spoken: "i'm not sure the deploy worked maybe check it", own: &["deploy-prod", "DeployWorker", "deployed_at"], must: &["not sure", "maybe"], must_not: &["deploy-prod", "DeployWorker", "deployed_at"] },
+    ScreenCase { kind: Kind::Near, id: "screen-store", spoken: "the session store loses data when the app restarts", own: &["SessionStore", "session_store.rs"], must: &["session store"], must_not: &[] },
+    ScreenCase { kind: Kind::Spell, id: "screen-camel", spoken: "can you rename scope test environment so it reads better", own: &["ScopeTestEnvironment", "StagingEnv"], must: &["ScopeTestEnvironment"], must_not: &["StagingEnv"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-path", spoken: "the bug is in source slash lens slash dictation dot rs i think", own: &["src/lens/dictation.rs", "src/lens/voice.rs"], must: &["src/lens/dictation.rs", "I think"], must_not: &["voice.rs"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-flag", spoken: "pass dash dash token stdin before the transcript", own: &["--token-stdin", "--duration-ms"], must: &["--token-stdin"], must_not: &["--duration-ms"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-name", spoken: "ask yohannes whether the forge jo migration is done", own: &["Johannes", "Forgejo", "Ingrid"], must: &["Johannes", "Forgejo"], must_not: &["Ingrid"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-kebab", spoken: "set the sigma env variable on the new machine", own: &["sigma-env", "SIGMA_HOME"], must: &["sigma-env"], must_not: &["SIGMA_HOME"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-snake", spoken: "the field is called recording duration ms", own: &["recording_duration_ms", "raw_text"], must: &["recording_duration_ms"], must_not: &["raw_text"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-question", spoken: "what does idle compaction do", own: &["idleCompaction", "compactAfterIdle"], must: &["idleCompaction"], must_not: &["compactAfterIdle"] },
+    ScreenCase { kind: Kind::Spell, id: "screen-spell", spoken: "rename scope test environment before friday", own: &["ScopeTestEnvironment"], must: &["ScopeTestEnvironment", "Friday"], must_not: &[] },
+    ScreenCase { kind: Kind::Spell, id: "screen-short", spoken: "open open shell and check the workspaces", own: &["OpenShell"], must: &["OpenShell", "workspaces"], must_not: &[] },
+    // mishear.py: fix means the speaker meant the screen word, keep the heard one
+    ScreenCase { kind: Kind::Fix, id: "skill1", spoken: "load the attn workflow scale before you start planning", own: &[], must: &["skill"], must_not: &["scale"] },
+    ScreenCase { kind: Kind::Fix, id: "skill2", spoken: "which scale should the builder read first", own: &[], must: &["skill"], must_not: &["scale"] },
+    ScreenCase { kind: Kind::Fix, id: "skill3", spoken: "the delegation scale says to ask before dispatching", own: &[], must: &["skill"], must_not: &["scale"] },
+    ScreenCase { kind: Kind::Fix, id: "cache1", spoken: "the session cash keeps stale entries after a restart", own: &[], must: &["cache"], must_not: &["cash"] },
+    ScreenCase { kind: Kind::Fix, id: "pane1", spoken: "split the pain and focus the terminal", own: &[], must: &["pane"], must_not: &["pain"] },
+    ScreenCase { kind: Kind::Fix, id: "seed1", spoken: "plant a seat under the plot and tend it", own: &[], must: &["seed"], must_not: &["seat"] },
+    ScreenCase { kind: Kind::Fix, id: "rune1", spoken: "run the tests in the ruin fork again", own: &[], must: &["rune"], must_not: &["ruin"] },
+    ScreenCase { kind: Kind::Keep, id: "scale1", spoken: "scale the image down to half before you send it", own: &[], must: &["Scale"], must_not: &["skill", "Skill"] },
+    ScreenCase { kind: Kind::Keep, id: "scale2", spoken: "the font scale is too small on the retina display", own: &[], must: &["scale"], must_not: &["skill"] },
+    ScreenCase { kind: Kind::Keep, id: "scale3", spoken: "we need to scale the workers to three replicas", own: &[], must: &["scale"], must_not: &["skill"] },
+    ScreenCase { kind: Kind::Keep, id: "cash1", spoken: "i paid in cash for the parking", own: &[], must: &["cash"], must_not: &["cache"] },
+    ScreenCase { kind: Kind::Keep, id: "pain1", spoken: "this bug is a real pain to reproduce", own: &[], must: &["pain"], must_not: &["pane"] },
+    ScreenCase { kind: Kind::Keep, id: "seat1", spoken: "save me a seat at the meeting", own: &[], must: &["seat"], must_not: &["seed"] },
+    ScreenCase { kind: Kind::Keep, id: "school1", spoken: "my kid starts school next week", own: &[], must: &["school"], must_not: &["skill"] },
+    ScreenCase { kind: Kind::Fix, id: "cache2", spoken: "invalidate the cash after each deploy", own: &[], must: &["cache"], must_not: &["cash"] },
+    ScreenCase { kind: Kind::Fix, id: "pane2", spoken: "close the left pain and keep the terminal", own: &[], must: &["pane"], must_not: &["pain"] },
+    ScreenCase { kind: Kind::Fix, id: "seed2", spoken: "harvest the seat when the checks pass", own: &[], must: &["seed"], must_not: &["seat"] },
+    ScreenCase { kind: Kind::Fix, id: "skill4", spoken: "the scale file has the rules for reviews", own: &[], must: &["skill"], must_not: &["scale"] },
+    ScreenCase { kind: Kind::Fix, id: "rune2", spoken: "bump the ruin pin to the latest main", own: &[], must: &["rune"], must_not: &["ruin"] },
+    ScreenCase { kind: Kind::Keep, id: "pain2", spoken: "my back is in pain again today", own: &[], must: &["pain"], must_not: &["pane"] },
+    ScreenCase { kind: Kind::Keep, id: "cash2", spoken: "do we have the cash flow numbers for october", own: &[], must: &["cash"], must_not: &["cache"] },
+    ScreenCase { kind: Kind::Keep, id: "seat2", spoken: "fasten your seat belt before we leave", own: &[], must: &["seat"], must_not: &["seed"] },
+    ScreenCase { kind: Kind::Keep, id: "ruin2", spoken: "the old castle is a ruin now", own: &[], must: &["ruin"], must_not: &["rune"] },
+    ScreenCase { kind: Kind::Keep, id: "scale4", spoken: "let's scale back the scope a bit", own: &[], must: &["scale"], must_not: &["skill"] },
+    ScreenCase { kind: Kind::Keep, id: "school2", spoken: "pick the kids up after school", own: &[], must: &["school"], must_not: &["skill"] },
+    ScreenCase { kind: Kind::Keep, id: "right1", spoken: "write the report and send it to me", own: &[], must: &["Write"], must_not: &["Right", "right"] },
+];

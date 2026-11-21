@@ -5,7 +5,8 @@
 sent="$HOME/lens-check/sent"
 mkdir -p "$sent"
 # attn model call --token-stdin: the token, then one JSON request, on stdin; Lens's
-# input is {"transcript":...}. Answers after a second, as a quick refinement would,
+# input is {"transcript":...}, with screen_words and maybe_misheard when a dictation
+# had them; model-request keeps the whole request. Answers after a second, as a quick refinement would,
 # so the pill's wait shows in a recording.
 if [ "$1" = model ]; then
     request="$(tail -n +2)"
