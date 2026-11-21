@@ -1,0 +1,233 @@
+{
+ "row": "sidebar keeps keys",
+ "events": [
+  {
+   "t": 0.1,
+   "reopen": true
+  },
+  {
+   "t": 0.22,
+   "drop_files": {
+    "paths": [
+     "$FIXTURE"
+    ],
+    "at": [
+     480,
+     400
+    ]
+   }
+  },
+  {
+   "t": 0.44,
+   "type": "mark",
+   "name": "opened"
+  },
+  {
+   "t": 0.56,
+   "type": "tap",
+   "key": "tool-pen"
+  },
+  {
+   "t": 0.76,
+   "type": "mark",
+   "name": "swatch-before"
+  },
+  {
+   "t": 0.98,
+   "type": "tap",
+   "key": "color-presets/swatch2"
+  },
+  {
+   "t": 1.23,
+   "type": "key",
+   "name": "v"
+  },
+  {
+   "t": 1.35,
+   "type": "mark",
+   "name": "swatch"
+  },
+  {
+   "t": 1.57,
+   "type": "tap",
+   "key": "tool-pen"
+  },
+  {
+   "t": 1.77,
+   "type": "mark",
+   "name": "segment-before"
+  },
+  {
+   "t": 1.99,
+   "type": "tap",
+   "key": "cleanup-choices/segment1"
+  },
+  {
+   "t": 2.24,
+   "type": "key",
+   "name": "v"
+  },
+  {
+   "t": 2.36,
+   "type": "mark",
+   "name": "segment"
+  },
+  {
+   "t": 2.58,
+   "type": "tap",
+   "key": "tool-pen"
+  },
+  {
+   "t": 2.78,
+   "type": "mark",
+   "name": "stepper-before"
+  },
+  {
+   "t": 3,
+   "type": "tap",
+   "key": "opacity-field/down"
+  },
+  {
+   "t": 3.25,
+   "type": "key",
+   "name": "v"
+  },
+  {
+   "t": 3.37,
+   "type": "mark",
+   "name": "stepper"
+  },
+  {
+   "t": 3.59,
+   "type": "tap",
+   "key": "tool-rectangle"
+  },
+  {
+   "t": 3.79,
+   "type": "drag",
+   "dx": 50,
+   "dy": 30,
+   "dur": 0.05,
+   "x": 360,
+   "y": 381
+  },
+  {
+   "t": 3.99,
+   "type": "mark",
+   "name": "drawn"
+  },
+  {
+   "t": 4.21,
+   "type": "tap",
+   "key": "color-presets/swatch3"
+  },
+  {
+   "t": 4.41,
+   "type": "key",
+   "name": "Escape"
+  },
+  {
+   "t": 4.53,
+   "type": "mark",
+   "name": "after-escape"
+  },
+  {
+   "t": 4.75,
+   "type": "tap",
+   "key": "tool-rectangle"
+  },
+  {
+   "t": 4.95,
+   "type": "mark",
+   "name": "button-before"
+  },
+  {
+   "t": 5.17,
+   "type": "tap",
+   "key": "image-tools-button"
+  },
+  {
+   "t": 5.42,
+   "type": "tap",
+   "key": "rotate"
+  },
+  {
+   "t": 5.67,
+   "type": "key",
+   "name": "v"
+  },
+  {
+   "t": 5.79,
+   "type": "mark",
+   "name": "button"
+  }
+ ],
+ "asserts": [
+  {
+   "at": "swatch-before",
+   "checked": [
+    "tool-pen"
+   ]
+  },
+  {
+   "at": "swatch",
+   "checked": [
+    "tool-select"
+   ]
+  },
+  {
+   "at": "segment-before",
+   "checked": [
+    "tool-pen"
+   ]
+  },
+  {
+   "at": "segment",
+   "checked": [
+    "tool-select"
+   ]
+  },
+  {
+   "at": "stepper-before",
+   "checked": [
+    "tool-pen"
+   ]
+  },
+  {
+   "at": "stepper",
+   "checked": [
+    "tool-select"
+   ]
+  },
+  {
+   "at": "drawn",
+   "marks": [
+    {
+     "tool": "Box",
+     "selected": true
+    }
+   ]
+  },
+  {
+   "at": "after-escape",
+   "marks": [
+    {
+     "tool": "Box",
+     "selected": false
+    }
+   ]
+  },
+  {
+   "at": "button-before",
+   "checked": [
+    "tool-rectangle"
+   ]
+  },
+  {
+   "at": "button",
+   "checked": [
+    "tool-select"
+   ]
+  }
+ ]
+}

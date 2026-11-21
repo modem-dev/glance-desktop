@@ -55,10 +55,14 @@ impl Editor {
         self.number_edit.focused = true;
     }
 
+    /// The sidebar. A press on its controls leaves focus where it was, as the toolbar's
+    /// does, so the canvas's keys (tools, Escape, Delete) keep working after a click.
+    /// Its text fields still take focus on a press.
     pub(crate) fn sidebar(&self, cx: &mut Cx<Editor>, layer: &mut controls::Layer) -> El {
         let k = controls::kit(cx);
         col()
             .key("sidebar")
+            .preserve_focus_on_press(true)
             .w(WIDTH)
             .h_full()
             .fill(k.c.bg_base)
