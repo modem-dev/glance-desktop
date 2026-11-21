@@ -107,6 +107,8 @@ Notable user-visible changes are recorded here.
 
 ### Fixed
 
+- Clicking a swatch or a choice in the editor's sidebar no longer takes the keyboard
+  from the canvas: the tool letters, Esc and Delete work right after the click.
 - Sending from the editor, like every other way a capture ends, gives the keyboard
   back to the app you were in, so you can keep typing without a click.
 - The editor's toolbar starts after the window buttons, so close, minimize and zoom

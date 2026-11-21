@@ -12,7 +12,7 @@ use std::{
 const SCRIPTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/headless/editor");
 
 /// Scripts for behaviour the docs describe in prose, not in a table.
-const PROSE: [&str; 19] = [
+const PROSE: [&str; 20] = [
     "open-still-cancelled",
     "open-still-while-busy",
     "text-draft-before-still",
@@ -32,6 +32,7 @@ const PROSE: [&str; 19] = [
     "menus",
     "wide-image",
     "editor-keys",
+    "sidebar-keeps-keys",
 ];
 
 fn slug(row: &str) -> String {
