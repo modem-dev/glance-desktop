@@ -60,9 +60,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The editor's script runs are the longest part, so two jobs share them; the
-        # rest of the suite, lint included, takes a third.
-        part: [lint and tests, editor 1/2, editor 2/2]
+        # Lint, the rest of the suite and the editor's script runs, the longest part,
+        # split over two, each in a job of its own so no job builds twice.
+        part: [lint, tests, editor 1/2, editor 2/2]
     env:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
@@ -83,20 +83,20 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          # Lint builds what the editor's jobs do not, so the two keep their own caches.
-          key: ${{ startsWith(matrix.part, 'editor') && 'editor' || 'lint' }}
+          # Each part builds its own targets, so each keeps its own cache.
+          key: ${{ startsWith(matrix.part, 'editor') && 'editor' || matrix.part }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check formatting
-        if: matrix.part == 'lint and tests'
+        if: matrix.part == 'lint'
         run: cargo fmt --check
       - name: Lint and type-check all targets
-        if: matrix.part == 'lint and tests'
+        if: matrix.part == 'lint'
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Run tests
-        if: matrix.part == 'lint and tests'
+        if: matrix.part == 'tests'
         run: cargo test --locked -- --skip every_script_holds
       - name: Test FFmpeg encode and frame decode
-        if: matrix.part == 'lint and tests'
+        if: matrix.part == 'tests'
         run: |
           cp native/linux/glance-video-* target/
           cargo test --locked native_video_roundtrip -- --ignored
