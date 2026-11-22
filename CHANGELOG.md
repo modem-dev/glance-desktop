@@ -70,6 +70,8 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- **Attn Lens** editor: a checked checkbox, such as Image › Smart upscale, fills
+  with the accent like a switch that is on, instead of a grey that read as off.
 - **Attn Lens**'s capture bar, session palette, corner tile, dictation pill and tool
   strip are a dark heads-up display in attn's colours, in light and dark appearance
   alike, with a brighter edge so they stand apart from dark windows too. Send is the
