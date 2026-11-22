@@ -52,6 +52,9 @@ path = "probes/refine/main.rs"
 [build-dependencies]
 cc = "1"
 
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 lto = "thin"
 strip = true
