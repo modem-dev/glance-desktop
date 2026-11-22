@@ -67,8 +67,9 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     # Receipt (2026-11-22, lens-linux-ci-runs-near-60, s-963mn3): with an empty Rust
-    # cache a job takes up to 22 min (12 to build, 9 to test); with main's cache the
-    # build takes about 1. Runners have varied by 1.5x, so 40 is the tripwire.
+    # cache the slowest job took 25 min (tests: 12 to build, 12 to test, run 44965010214);
+    # with main's cache the build takes about 1. Runners have varied by 1.5x, so 40 is
+    # the tripwire.
     timeout-minutes: 40
     steps:
       - name: Install build and runtime dependencies
