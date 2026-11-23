@@ -125,21 +125,21 @@ printf 'Then call fetch_release_notes from the release script.\n\n' >"$OUT/note2
 open -a TextEdit "$OUT/note2.txt"
 osascript -e 'tell application "TextEdit"' -e 'activate' \
     -e 'repeat until (count of windows) > 1' -e 'delay 0.1' -e 'end repeat' \
-    -e 'set bounds of window 1 to {100, 540, 900, 840}' \
+    -e 'set bounds of window 1 to {100, 400, 900, 700}' \
     -e 'set size of text of document 1 to 24' \
-    -e 'set bounds of window 2 to {100, 100, 900, 500}' -e 'end tell'
+    -e 'set bounds of window 2 to {100, 60, 900, 360}' -e 'end tell'
 
 screencapture -v -V 30 "$OUT/screen-words-switch.mov" &
 RECORDER=$!
 
 cat >"$OUT/switch-script.txt" <<'SCRIPT'
 mark start
-click 500 400
+click 500 250
 wait 800
 tap ropt
 wait 2500
 mark switch
-click 500 760
+click 500 600
 wait 5000
 tap ropt
 expect "note":"Pasted"
