@@ -64,17 +64,22 @@ This file's Glance rules still apply to the code that remains.
 - `src/lens/deliver.rs`: what Send delivers: the timeline message, the contact
   sheets and the frames, written only from `Document::export()`.
 - `src/lens/capture.rs`: stills through Hex's capture-core (ScreenCaptureKit), and
-  `front_window()`, the topmost window that is not Lens's, by z-order. Watch and
-  `PlatformPort::screen_text` (that window's still, then OCR) share it; the automation
-  socket's `screen_text` request runs the read.
+  `front_window()`, the topmost window that is not Lens's, by z-order. `watch.rs`'s
+  `front_windows` (`PlatformPort::front_windows`, which the capture watch uses for window
+  switches) polls it, and `PlatformPort::screen_text(window)` reads a window by its
+  number (its still, then OCR); the automation socket's `screen_text` request reads the
+  front one.
 - `src/lens/screen_words.rs`: screen words for dictation refinement, pure: `pick` keeps
   the screen read's words worth spelling, `matching` the ones the transcript could mean,
   `sound_pairs` the screen words that sound like transcript words. The rules are the
   Design tables of `s-0ww1ak`; each rule and the prototype's corpus
-  (`tests/fixtures/screen-words/`) is a table row. `dictation.rs` reads the screen as a
-  dictation starts (`PlatformPort::screen_text`, while the setting is on) and calls them
-  when it refines; `headless/dictation-screen-words.json` holds what reaches the input.
-- `src/lens/watch.rs`: macOS's `PlatformPort::watch`. `LENS_WATCH_LOG=1` prints each
+  (`tests/fixtures/screen-words/`) is a table row. `dictation.rs` reads the front window as a
+  dictation starts and each new one `PlatformPort::front_windows` reports until voice
+  stops, once each (`PlatformPort::screen_text`, while the setting is on), and calls them
+  over the reads' text joined when it refines; `headless/dictation-screen-words.json`
+  and `dictation-screen-words-switch.json` (the fake's `window:` marks) hold what reaches
+  the input.
+- `src/lens/watch.rs`: macOS's `PlatformPort::watch` and `PlatformPort::front_windows`. `LENS_WATCH_LOG=1` prints each
   event, and `--ink-in-capture` lets a recording of a driven check show the ink.
 - `src/lens/voice.rs`: voice. It runs `speech/` (attn's speech helper, protocol 3)
   as a child, feeds it the microphone (`voice/mic.rs`) or, through the socket's
@@ -96,7 +101,7 @@ This file's Glance rules still apply to the code that remains.
   `switch OUT` to run `scripts/lens-switch.sh` (draw, ⌘Tab, draw, ⌘Tab, draw: fn read while another app is in front),
   `keys OUT` to run `scripts/lens-keys.sh` (right ⌘ and right ⌥ alone and in chords with TextEdit, and the Accessibility guide),
   `dictation OUT` to run `scripts/lens-dictation.sh` (dictation into TextEdit with focus and clipboard kept, and its timings),
-  `screen-words OUT` to run `scripts/lens-screen-words.sh` (a dictation with TextEdit showing an identifier sends it in `screen_words`),
+  `screen-words OUT` to run `scripts/lens-screen-words.sh` (a dictation with TextEdit showing an identifier sends it in `screen_words`, and one moving between two TextEdit windows sends both windows' identifiers),
   `c16 OUT` to run `scripts/lens-c16.sh` (the 60 s drawing, voice and stills capture; `scripts/lens-c16-linux.sh`
   is its headless Linux half), and `stop` when done: it holds 8 GB. `tools/vm/`
   grants the VM's permissions without a click. Nothing of this Mac's goes in: no shared

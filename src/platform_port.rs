@@ -79,6 +79,11 @@ impl Watch {
         }
     }
 
+    /// A watch that compares no frames, so a rebase does nothing.
+    pub fn stops(stop: impl FnOnce() + Send + 'static) -> Self {
+        Self::new(stop, || {})
+    }
+
     /// Compares later frames against the screen as it is now, the one new ink is on.
     pub fn rebase(&self) {
         (self.rebase)();
@@ -179,10 +184,16 @@ pub trait PlatformPort: Send + Sync {
     /// draw key need Accessibility. Otherwise shows the user how to allow it.
     fn accessibility(&self) -> bool;
     fn still(&self, area: Area) -> Result<RgbaImage, String>;
-    /// The text of the front window: a still and OCR. Slow; call it from [`Self::run`].
-    /// Err when Screen Recording is not granted, there is no front window, or OCR
-    /// fails. Never shows the permission guide (D10 on s-0ww1ak).
-    fn screen_text(&self) -> Result<String, String>;
+    /// The text of the window numbered `window`: a still and OCR. Slow; call it from
+    /// [`Self::run`]. Err when Screen Recording is not granted, the window is gone, or
+    /// OCR fails. Never shows the permission guide (D10 on s-0ww1ak).
+    fn screen_text(&self, window: i64) -> Result<String, String>;
+    /// The number of the frontmost normal window that is not Lens's, by z-order.
+    fn front_window(&self) -> Option<i64>;
+    /// Reports each new front window once, by its number, as it comes in front: the
+    /// first report is the first window other than `front`, the one the caller saw
+    /// last. Reports arrive on any thread; watching stops when the watch drops.
+    fn front_windows(&self, front: Option<i64>, sink: Sink<i64>) -> Watch;
     /// Whether Screen Recording is allowed, asked quietly: it never shows the guide.
     fn screen_recording_allowed(&self) -> bool;
     /// Whether a lowercase word is ordinary English, which `screen_words::pick`

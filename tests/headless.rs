@@ -2002,6 +2002,65 @@ fn a_dictation_sends_only_the_screen_words_it_said_and_never_waits_for_the_read(
 }
 
 #[test]
+fn a_dictation_reads_each_window_that_comes_in_front_once_and_never_waits_for_one() {
+    let run = Run::new("dictation-screen-words-switch.json", ONE_SESSION);
+    state(&run, "end");
+    assert_eq!(
+        model_inputs(&run),
+        [
+            // Started over window main and moved to b: identifiers from both.
+            json!({
+                "transcript": "rename scope test environment and call fetch release notes",
+                "screen_words": ["ScopeTestEnvironment", "fetch_release_notes"],
+            }),
+            // main, b, main, b: each read once.
+            json!({
+                "transcript": "rename scope test environment",
+                "screen_words": ["ScopeTestEnvironment"],
+            }),
+            // b's read was still out when refinement started: main's words alone.
+            json!({
+                "transcript": "call fetch release notes and rename scope test environment",
+                "screen_words": ["ScopeTestEnvironment"],
+            }),
+        ]
+    );
+    // Each read of the fake's, by window, up to `mark`.
+    let reads = |mark| -> Vec<String> {
+        state(&run, mark);
+        fake_lines(&run, mark, "screen-reads.jsonl")
+            .iter()
+            .map(|read| read["window"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(reads("revisited"), ["main", "b", "main", "b"]);
+    // The paste went ahead with b's read held; b was read once it was let go.
+    assert_eq!(reads("pasted"), ["main", "b", "main", "b", "main"]);
+    assert_eq!(run.pasted("pasted").len(), 3);
+    assert_eq!(reads("late"), ["main", "b", "main", "b", "main", "b"]);
+    let out = run.path("bar-late.json");
+    let logged = run
+        .command("late")
+        .env("LENS_DICTATION_LOG", "1")
+        .args(["--window", "bar", "--tree"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(logged.status.success());
+    let log = String::from_utf8_lossy(&logged.stderr);
+    assert!(
+        log.contains("screen read 1 came back after the dictation moved on, dropped"),
+        "{log}"
+    );
+    assert!(
+        log.contains("screen read 1 not back, refining without it"),
+        "{log}"
+    );
+    // Times and counts, never the words.
+    assert!(!log.contains("ScopeTestEnvironment") && !log.contains("fetch_release_notes"));
+}
+
+#[test]
 fn the_settings_row_says_when_screen_recording_is_not_allowed() {
     let note = "Screen Recording is not allowed for Attn Lens, so dictation does not read the \
                 screen. Allow it in System Settings › Privacy & Security.";

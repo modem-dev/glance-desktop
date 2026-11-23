@@ -1,8 +1,9 @@
-//! macOS's `PlatformPort::watch`: what happens on screen during a capture. Clicks
-//! and scrolls in the area come from global `NSEvent` monitors, which need no
-//! permission and do not see events aimed at Lens's own windows. A window switch is
-//! a new front window, looked for when an app activates and on a poll, because
-//! ⌘` inside one app activates nothing. A sampling loop compares small frames.
+//! macOS's `PlatformPort::watch`: what happens on screen during a capture, and
+//! `PlatformPort::front_windows`, which it uses for window switches. Clicks and
+//! scrolls in the area come from global `NSEvent` monitors, which need no permission
+//! and do not see events aimed at Lens's own windows. A new front window is looked
+//! for when an app activates and on a poll, because ⌘` inside one app activates
+//! nothing. A sampling loop compares small frames.
 //!
 //! Set `LENS_WATCH_LOG=1` to print every event to stderr: that is how the
 //! thresholds below were measured.
@@ -63,20 +64,66 @@ unsafe extern "C" {
 }
 
 /// Reports a new front window once, whichever signal notices it first.
-struct WindowSwitches {
+struct FrontWindows {
     front: Mutex<Option<i64>>,
-    sink: Sink<WatchEvent>,
+    sink: Sink<i64>,
 }
 
-impl WindowSwitches {
+impl FrontWindows {
     fn look(&self) {
         let Some(now) = capture::front_window() else {
             return;
         };
         if self.front.lock().unwrap().replace(now) != Some(now) {
-            (self.sink)(WatchEvent::WindowSwitch);
+            (self.sink)(now);
         }
     }
+}
+
+thread_local! {
+    static OBSERVERS: RefCell<HashMap<u64, Retained<AnyObject>>> = RefCell::new(HashMap::new());
+}
+
+static NEXT: AtomicU64 = AtomicU64::new(0);
+
+/// `PlatformPort::front_windows`: an observer of app activations and a poll every
+/// [`WINDOW_POLL`], until the watch drops.
+pub fn front_windows(front: Option<i64>, sink: Sink<i64>) -> Watch {
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    let windows = Arc::new(FrontWindows {
+        front: Mutex::new(front),
+        sink,
+    });
+    let activated = windows.clone();
+    // Install and removal both queue, so removal always follows its install.
+    queue_on_main(move || {
+        let activated = RcBlock::new(move |_note: NonNull<AnyObject>| activated.look());
+        let none: *const AnyObject = ptr::null();
+        // SAFETY: the name is AppKit's constant; with no object and queue the block runs
+        // for every activation on the posting (main) thread, and AppKit copies it.
+        let observer: Retained<AnyObject> = unsafe {
+            msg_send![&workspace_center(), addObserverForName: NSWorkspaceDidActivateApplicationNotification, object: none, queue: none, usingBlock: &*activated]
+        };
+        OBSERVERS.with(|all| all.borrow_mut().insert(id, observer));
+    });
+    let (stop, stopped) = mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        // A window that came in front since the caller looked counts at once.
+        windows.look();
+        // Dropping the sender with the `Watch` is what ends the loop.
+        while let Err(mpsc::RecvTimeoutError::Timeout) = stopped.recv_timeout(WINDOW_POLL) {
+            windows.look();
+        }
+    });
+    Watch::stops(move || {
+        drop(stop);
+        queue_on_main(move || {
+            if let Some(observer) = OBSERVERS.with(|all| all.borrow_mut().remove(&id)) {
+                // SAFETY: `observer` is the token from the add call above.
+                let () = unsafe { msg_send![&workspace_center(), removeObserver: &*observer] };
+            }
+        });
+    })
 }
 
 /// The fraction of pixels that moved by more than [`PIXEL_TOLERANCE`] in a channel.
@@ -93,22 +140,22 @@ fn change_fraction(before: &RgbaImage, after: &RgbaImage) -> f32 {
     changed as f32 / before.len().max(1) as f32 * 4.
 }
 
-/// Polls the front window and compares frames until `stop` loses its sender. A
-/// message on it makes the next frame the baseline, with nothing compared.
-fn poll(area: Area, switches: Arc<WindowSwitches>, stop: mpsc::Receiver<()>) {
+/// Compares frames every [`SAMPLE_INTERVAL`] until `stop` loses its sender. A
+/// message on it makes the next frame, taken at once, the baseline, with nothing
+/// compared.
+fn poll(area: Area, sink: Sink<WatchEvent>, stop: mpsc::Receiver<()>) {
     let mut previous: Option<RgbaImage> = None;
     let mut rebasing = false;
     let mut sampled_at: Option<Instant> = None;
     let mut reported_failure = false;
     loop {
-        match stop.recv_timeout(WINDOW_POLL) {
+        let wait = sampled_at.map_or(Duration::ZERO, |at| {
+            SAMPLE_INTERVAL.saturating_sub(at.elapsed())
+        });
+        match stop.recv_timeout(wait) {
             Ok(()) => rebasing = true,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return,
-        }
-        switches.look();
-        if !rebasing && sampled_at.is_some_and(|at| at.elapsed() < SAMPLE_INTERVAL) {
-            continue;
         }
         sampled_at = Some(Instant::now());
         match capture::frame(area, Some(SAMPLE_LONG_EDGE)) {
@@ -119,7 +166,7 @@ fn poll(area: Area, switches: Arc<WindowSwitches>, stop: mpsc::Receiver<()>) {
                     .as_ref()
                     .filter(|b| !rebasing && b.dimensions() == frame.dimensions())
                 {
-                    (switches.sink)(WatchEvent::Change(change_fraction(before, &frame)));
+                    sink(WatchEvent::Change(change_fraction(before, &frame)));
                 }
                 previous = Some(frame);
                 rebasing = false;
@@ -133,14 +180,9 @@ fn poll(area: Area, switches: Arc<WindowSwitches>, stop: mpsc::Receiver<()>) {
     }
 }
 
-/// What AppKit holds for one watch. Lives on the main thread.
-struct Installed {
-    monitors: Vec<Retained<AnyObject>>,
-    observer: Retained<AnyObject>,
-}
-
 thread_local! {
-    static INSTALLED: RefCell<HashMap<u64, Installed>> = RefCell::new(HashMap::new());
+    /// The click and scroll monitors of each watch. Lives on the main thread.
+    static MONITORS: RefCell<HashMap<u64, Vec<Retained<AnyObject>>>> = RefCell::new(HashMap::new());
 }
 
 fn workspace_center() -> Retained<AnyObject> {
@@ -161,7 +203,7 @@ fn pointer_in(event: &AnyObject, bounds: [f64; 4]) -> bool {
     (bounds[0]..bounds[2]).contains(&point.x) && (bounds[1]..bounds[3]).contains(&point.y)
 }
 
-fn install(bounds: [f64; 4], switches: Arc<WindowSwitches>) -> Installed {
+fn install(bounds: [f64; 4], sink: Sink<WatchEvent>) -> Vec<Retained<AnyObject>> {
     let add_monitor = |mask: u64, respond: Box<dyn Fn(&AnyObject)>| {
         let class = AnyClass::get(c"NSEvent").expect("AppKit is linked");
         let block = RcBlock::new(move |event: NonNull<AnyObject>| {
@@ -175,7 +217,7 @@ fn install(bounds: [f64; 4], switches: Arc<WindowSwitches>) -> Installed {
         monitor
     };
     let clicks = {
-        let sink = switches.sink.clone();
+        let sink = sink.clone();
         add_monitor(
             CLICK_MASK,
             Box::new(move |event| {
@@ -186,7 +228,6 @@ fn install(bounds: [f64; 4], switches: Arc<WindowSwitches>) -> Installed {
         )
     };
     let scrolls = {
-        let sink = switches.sink.clone();
         add_monitor(
             SCROLL_MASK,
             Box::new(move |event| {
@@ -203,31 +244,18 @@ fn install(bounds: [f64; 4], switches: Arc<WindowSwitches>) -> Installed {
             }),
         )
     };
-    let activated = RcBlock::new(move |_note: NonNull<AnyObject>| switches.look());
-    let none: *const AnyObject = ptr::null();
-    // SAFETY: the name is AppKit's constant; with no object and queue the block runs
-    // for every activation on the posting (main) thread, and AppKit copies it.
-    let observer: Retained<AnyObject> = unsafe {
-        msg_send![&workspace_center(), addObserverForName: NSWorkspaceDidActivateApplicationNotification, object: none, queue: none, usingBlock: &*activated]
-    };
-    Installed {
-        monitors: [clicks, scrolls].into_iter().flatten().collect(),
-        observer,
-    }
+    [clicks, scrolls].into_iter().flatten().collect()
 }
 
-fn uninstall(installed: Installed) {
+fn uninstall(monitors: Vec<Retained<AnyObject>>) {
     let class = AnyClass::get(c"NSEvent").expect("AppKit is linked");
-    for monitor in installed.monitors {
+    for monitor in monitors {
         // SAFETY: `monitor` is a token from the add call in `install`.
         let () = unsafe { msg_send![class, removeMonitor: &*monitor] };
     }
-    // SAFETY: `observer` is the token from `install`.
-    let () = unsafe { msg_send![&workspace_center(), removeObserver: &*installed.observer] };
 }
 
 pub fn start(area: Area, sink: Sink<WatchEvent>) -> Watch {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
     let sink: Sink<WatchEvent> = if std::env::var_os("LENS_WATCH_LOG").is_some() {
         Arc::new(move |event| {
@@ -237,24 +265,28 @@ pub fn start(area: Area, sink: Sink<WatchEvent>) -> Watch {
     } else {
         sink
     };
-    let switches = Arc::new(WindowSwitches {
-        front: Mutex::new(capture::front_window()),
-        sink,
-    });
+    let switches = {
+        let sink = sink.clone();
+        front_windows(
+            capture::front_window(),
+            Arc::new(move |_| sink(WatchEvent::WindowSwitch)),
+        )
+    };
     let bounds = capture::global_bounds(area);
-    let main_switches = switches.clone();
+    let main_sink = sink.clone();
     // Install and removal both queue, so removal always follows its install.
     queue_on_main(move || {
-        let installed = install(bounds, main_switches);
-        INSTALLED.with(|all| all.borrow_mut().insert(id, installed));
+        let monitors = install(bounds, main_sink);
+        MONITORS.with(|all| all.borrow_mut().insert(id, monitors));
     });
     let (rebase, signals) = mpsc::channel();
-    std::thread::spawn(move || poll(area, switches, signals));
+    std::thread::spawn(move || poll(area, sink, signals));
     Watch::new(
         move || {
+            drop(switches);
             queue_on_main(move || {
-                if let Some(installed) = INSTALLED.with(|all| all.borrow_mut().remove(&id)) {
-                    uninstall(installed);
+                if let Some(monitors) = MONITORS.with(|all| all.borrow_mut().remove(&id)) {
+                    uninstall(monitors);
                 }
             });
         },

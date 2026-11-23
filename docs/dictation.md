@@ -57,7 +57,10 @@ replaced, also exits 1.
 While **Use words on screen** is on (Settings, ⌘,; on by default), each dictation
 reads the window in front as it starts: one still of the topmost window that is
 not Lens's, and text recognition of it on this Mac (Vision, the same as Copy as
-OCR). From that text Lens keeps two lists, when the refinement starts:
+OCR). Each other window that comes in front before voice stops is read the same
+way as it comes, once per dictation: switching back to a window already read reads
+nothing. From the text of every read, Lens keeps two lists, when the refinement
+starts:
 
 - `screen_words`: the names and identifiers on screen that the transcript could
   mean, so "scope test environment" comes out as `ScopeTestEnvironment` and
@@ -68,9 +71,9 @@ OCR). From that text Lens keeps two lists, when the refinement starts:
   when the sentence makes little sense as heard.
 
 Both go in the input of the same `attn model call`, each only when it holds
-something. The refinement never waits for the read: a read that is not back when
-voice stops is dropped, and so is the read of a dictation that is cancelled or
-turned into a capture. A capture never refines, so it sends no screen words.
+something. The refinement never waits for a read: a read that is not back when
+the refinement starts is dropped, and so are the reads of a dictation that is
+cancelled or turned into a capture. A capture never refines, so it sends no screen words.
 Without Screen Recording, or when the read fails, the dictation runs as it would
 with the setting off, and no permission guide shows; the Settings row says when
 Screen Recording is not allowed. With the setting off, Lens takes no still and
@@ -115,8 +118,9 @@ capture. Cancel the pick and the dictation carries on.
 ## Checking it
 
 `LENS_DICTATION_LOG=1` prints each step with the time since launch: the voice key,
-the pill showing, voice reporting, the screen read's time and word count (or its
-error), how many screen words matched and how many sound pairs were offered, attn
+the pill showing, voice reporting, each screen read's time and word count (or its
+error) with its index in the dictation, from 0, how many screen words matched and
+how many sound pairs were offered from how many reads, attn
 asked and answering, the paste. It never prints the words themselves. The
 answer's line gives the time from the end of voice to the refined text, attn's
 part of it, and the harness, model and model time.

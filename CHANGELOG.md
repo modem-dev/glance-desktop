@@ -70,6 +70,11 @@ Notable user-visible changes are recorded here.
 
 ### Changed
 
+- **Attn Lens** dictation reads each window you bring in front while you talk, not
+  only the one in front as you start, so a dictation that moves from one window to
+  another spells the names and identifiers shown in both. Each window is read once
+  per dictation, and the refinement still never waits for a read.
+
 - **Attn Lens** editor: a checked checkbox, such as Image › Smart upscale, fills
   with the accent like a switch that is on, instead of a grey that read as off.
 - **Attn Lens**'s capture bar, session palette, corner tile, dictation pill and tool

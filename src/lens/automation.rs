@@ -214,7 +214,10 @@ fn handle(lens: &Arc<Lens>, request: &Value) -> Result<Value, String> {
             let (reply, read) = std::sync::mpsc::channel();
             lens.port().run(Box::new(move || {
                 let started = std::time::Instant::now();
-                let text = port.screen_text();
+                let text = port
+                    .front_window()
+                    .ok_or_else(|| "No window is in front.".to_string())
+                    .and_then(|window| port.screen_text(window));
                 let _ = reply.send((text, started.elapsed()));
             }));
             let (text, took) = read.recv().map_err(|_| "The screen read stopped.")?;

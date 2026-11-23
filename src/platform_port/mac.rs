@@ -340,12 +340,19 @@ impl PlatformPort for MacPort {
         capture::screenshot(area)
     }
 
-    fn screen_text(&self) -> Result<String, String> {
+    fn screen_text(&self, window: i64) -> Result<String, String> {
         if !self.screen_recording_allowed() {
             return Err("Screen Recording is not allowed for Attn Lens.".into());
         }
-        let window = capture::front_window().ok_or("No window is in front.")?;
         crate::ocr::extract(&capture::window_still(window)?, None)
+    }
+
+    fn front_window(&self) -> Option<i64> {
+        capture::front_window()
+    }
+
+    fn front_windows(&self, front: Option<i64>, sink: Sink<i64>) -> Watch {
+        watch::front_windows(front, sink)
     }
 
     fn screen_recording_allowed(&self) -> bool {

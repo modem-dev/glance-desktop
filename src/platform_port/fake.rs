@@ -34,10 +34,14 @@
 //! voice:finish-fails:reason  finishing voice fails with this instead
 //! clipboard:PATH             the system clipboard now holds the image at PATH
 //! ocr:the words              text recognition finds these words from now on
+//! window:NAME                the window NAME comes in front, made the first time it is
+//!                            named; a window switch to a capture's watch. At first the
+//!                            window "main" is in front
 //! screen-text:the words      the front window reads as these words from now on;
 //!                            until then it reads as no words
 //! screen-text:fail           reading the front window fails from now on; each read
-//!                            adds a line to screen-reads.jsonl beside the clipboard
+//!                            adds a line to screen-reads.jsonl beside the clipboard,
+//!                            with the window's name
 //! pick:#RRGGBB  pick:cancel  answers a Pick from screen that is waiting
 //! still:fail                 the next still fails
 //! close:editor               presses the window's close button
@@ -88,6 +92,8 @@ struct SinkSlots {
     stopped_watch: Option<Sink<WatchEvent>>,
     /// What the next sample reports: the change since the baseline.
     screen_change: f32,
+    /// Where `front_windows` reports, while a watch of it runs.
+    front_windows: Option<Sink<i64>>,
     voice: Option<Sink<VoiceEvent>>,
     /// The voice whose finish returned last, which can still report.
     finished_voice: Option<Sink<VoiceEvent>>,
@@ -105,9 +111,11 @@ struct Script {
     keys: Option<Sink<KeyEvent>>,
     clipboard: Option<RgbaImage>,
     ocr: String,
-    /// What `screen_text` reads, unless a `screen-text:fail` mark made it fail.
-    screen_text: String,
-    screen_text_fails: bool,
+    /// The windows `window:` marks named, in order: a window's number is its
+    /// place here, from 1. Each reads as its text, or fails.
+    windows: Vec<(String, Result<String, String>)>,
+    /// The place in `windows` of the window in front.
+    front_window: usize,
     fail_still: bool,
     pick: Option<PickSink>,
     /// After a `jobs:hold` mark, jobs wait here until a `jobs:next` mark runs the oldest,
@@ -150,6 +158,7 @@ impl FakePort {
         Self {
             script: Mutex::new(Script {
                 marks,
+                windows: vec![("main".into(), Ok(String::new()))],
                 ..Default::default()
             }),
             sinks: Default::default(),
@@ -269,11 +278,36 @@ impl FakePort {
         } else if let Some(path) = mark.strip_prefix("clipboard:") {
             let image = image::open(path).expect("clipboard: mark names a readable image");
             self.script.lock().unwrap().clipboard = Some(image.to_rgba8());
-        } else if mark == "screen-text:fail" {
-            self.script.lock().unwrap().screen_text_fails = true;
         } else if let Some(text) = mark.strip_prefix("screen-text:") {
             let mut script = self.script.lock().unwrap();
-            (script.screen_text, script.screen_text_fails) = (text.to_string(), false);
+            let front = script.front_window;
+            script.windows[front].1 = if text == "fail" {
+                Err("The fake screen read failed.".into())
+            } else {
+                Ok(text.to_string())
+            };
+        } else if let Some(name) = mark.strip_prefix("window:") {
+            let mut script = self.script.lock().unwrap();
+            let place = match script.windows.iter().position(|(n, _)| n == name) {
+                Some(place) => place,
+                None => {
+                    script.windows.push((name.to_string(), Ok(String::new())));
+                    script.windows.len() - 1
+                }
+            };
+            let switched = std::mem::replace(&mut script.front_window, place) != place;
+            drop(script);
+            let sinks = self.sinks.lock().unwrap();
+            let (front, watch) = (sinks.front_windows.clone(), sinks.watch.clone());
+            drop(sinks);
+            if switched {
+                if let Some(front) = front {
+                    front(place as i64 + 1);
+                }
+                if let Some(watch) = watch {
+                    watch(WatchEvent::WindowSwitch);
+                }
+            }
         } else if let Some(text) = mark.strip_prefix("ocr:") {
             self.script.lock().unwrap().ocr = text.to_string();
         } else if mark == "still:fail" {
@@ -523,24 +557,37 @@ impl PlatformPort for FakePort {
             Rgba([(x % 256) as u8, (y % 256) as u8, 128, 255])
         }))
     }
-    fn screen_text(&self) -> Result<String, String> {
+    fn screen_text(&self, window: i64) -> Result<String, String> {
         let script = self.script.lock().unwrap();
+        let (name, text) = usize::try_from(window - 1)
+            .ok()
+            .and_then(|place| script.windows.get(place))
+            .cloned()
+            .unwrap_or_else(|| (String::new(), Err(format!("No window numbered {window}"))));
         let read = if script.no_screen_recording {
             Err("Screen Recording is not allowed for Attn Lens.".to_string())
-        } else if script.screen_text_fails {
-            Err("The fake screen read failed.".into())
         } else {
-            Ok(script.screen_text.clone())
+            text
         };
         drop(script);
         append_line(
             "screen-reads.jsonl",
             match &read {
-                Ok(text) => serde_json::json!({ "text": text }),
-                Err(error) => serde_json::json!({ "error": error }),
+                Ok(text) => serde_json::json!({ "window": name, "text": text }),
+                Err(error) => serde_json::json!({ "window": name, "error": error }),
             },
         );
         read
+    }
+    fn front_window(&self) -> Option<i64> {
+        Some(self.script.lock().unwrap().front_window as i64 + 1)
+    }
+    /// Reports each `window:` mark that brings another window in front; the fake's
+    /// window cannot change between `front_window` and this.
+    fn front_windows(&self, _front: Option<i64>, sink: Sink<i64>) -> Watch {
+        self.sinks.lock().unwrap().front_windows = Some(sink);
+        let sinks = self.sinks.clone();
+        Watch::stops(move || sinks.lock().unwrap().front_windows = None)
     }
     fn watch(&self, _area: Area, sink: Sink<WatchEvent>) -> Watch {
         self.sinks.lock().unwrap().watch = Some(sink);

@@ -28,7 +28,8 @@
 #   scripts/lens-vm.sh screen-text OUT   run lens-screen-text.sh in the VM: the front window's
 #                                        text, and no guide without Screen Recording
 #   scripts/lens-vm.sh screen-words OUT  run lens-screen-words.sh in the VM: a dictation sends
-#                                        the screen words it said to the stand-in attn
+#                                        the screen words it said to the stand-in attn, then
+#                                        one across two TextEdit windows sends both's
 #   scripts/lens-vm.sh sh COMMAND       run a shell command in the VM's GUI session
 #   scripts/lens-vm.sh pull PATH DEST    copy a file or folder out of the VM
 #   scripts/lens-vm.sh destroy           stop and delete the VM
